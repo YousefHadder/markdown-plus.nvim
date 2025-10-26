@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.2] - 2025-10-26
+
+---
+
 ## [1.4.0] - 2025-10-25
 
 ### Added
@@ -193,6 +197,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 The improvements from Phase 1 and Phase 2 (testing infrastructure, type safety, code quality tools, CI/CD) were integrated into versions 1.1.0 and 1.2.0 as part of the overall development process. These foundational improvements support all current and future features.
 
+[1.3.2]: https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.4.0...v1.3.2
 [1.4.0]: https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.3.1...v1.4.0
 [1.3.1]: https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.3.0...v1.3.1
 [1.3.0]: https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.2.0...v1.3.0
