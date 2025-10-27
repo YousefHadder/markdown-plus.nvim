@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.4.1] - 2025-10-27
 
+---
+
+## [1.4.1] - 2025-10-27
+
 ### Added
 - Improved release workflow with automated PR creation and auto-merge
 - Pre-release verification step to ensure tests, linting, and formatting pass before creating releases
