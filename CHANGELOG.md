@@ -5,6 +5,21 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.4.1...v1.5.0) (2025-10-28)
+
+
+### Features
+
+* add checkbox toggle functionality to list management ([67cab02](https://github.com/YousefHadder/markdown-plus.nvim/commit/67cab02ed753af240835d95c1d2971d6a6e8517d)), closes [#34](https://github.com/YousefHadder/markdown-plus.nvim/issues/34)
+* Add checkbox toggle functionality to list management ([515ac81](https://github.com/YousefHadder/markdown-plus.nvim/commit/515ac81b4c2a8ec97e1b71da654dc14bf4ea843e))
+
+
+### Bug Fixes
+
+* address PR comments - change insert keymap and improve cursor position ([bc0df18](https://github.com/YousefHadder/markdown-plus.nvim/commit/bc0df18b98457f0b7fd5c904653334db555e4be1))
+* visual line mode formatting applies to entire selected lines ([31dab1a](https://github.com/YousefHadder/markdown-plus.nvim/commit/31dab1a41fad378276778feeb40f4c6b5acd907e))
+* visual line mode formatting now applies to entire selected lines ([b5beb74](https://github.com/YousefHadder/markdown-plus.nvim/commit/b5beb74ba4b5e010791f13357c8369276b043b44))
+
 ## [Unreleased]
 
 ### Added
