@@ -12,12 +12,12 @@ function M.promote_header()
   local header = parser.parse_header(line)
 
   if not header then
-    print("Not on a header line")
+    vim.notify("Not on a header line", vim.log.levels.WARN)
     return
   end
 
   if header.level <= 1 then
-    print("Already at highest level (H1)")
+    vim.notify("Already at highest level (H1)", vim.log.levels.INFO)
     return
   end
 
@@ -26,7 +26,7 @@ function M.promote_header()
   local new_line = string.rep("#", new_level) .. " " .. header.text
   utils.set_line(line_num, new_line)
 
-  print("Promoted to H" .. new_level)
+  vim.notify("Promoted to H" .. new_level, vim.log.levels.INFO)
 end
 
 ---Demote header (increase level number, decrease importance)
@@ -38,12 +38,12 @@ function M.demote_header()
   local header = parser.parse_header(line)
 
   if not header then
-    print("Not on a header line")
+    vim.notify("Not on a header line", vim.log.levels.WARN)
     return
   end
 
   if header.level >= 6 then
-    print("Already at lowest level (H6)")
+    vim.notify("Already at lowest level (H6)", vim.log.levels.INFO)
     return
   end
 
@@ -52,7 +52,7 @@ function M.demote_header()
   local new_line = string.rep("#", new_level) .. " " .. header.text
   utils.set_line(line_num, new_line)
 
-  print("Demoted to H" .. new_level)
+  vim.notify("Demoted to H" .. new_level, vim.log.levels.INFO)
 end
 
 ---Set specific header level (or convert line to header)
@@ -60,7 +60,7 @@ end
 ---@return nil
 function M.set_header_level(level)
   if level < 1 or level > 6 then
-    print("Invalid header level: " .. level)
+    vim.notify("Invalid header level: " .. level, vim.log.levels.ERROR)
     return
   end
 
@@ -73,17 +73,17 @@ function M.set_header_level(level)
     -- Already a header, change its level
     local new_line = string.rep("#", level) .. " " .. header.text
     utils.set_line(line_num, new_line)
-    print("Changed to H" .. level)
+    vim.notify("Changed to H" .. level, vim.log.levels.INFO)
   else
     -- Not a header, convert current line to header
     local text = line:match("^%s*(.-)%s*$") -- trim whitespace
     if text == "" then
-      print("Cannot create header from empty line")
+      vim.notify("Cannot create header from empty line", vim.log.levels.WARN)
       return
     end
     local new_line = string.rep("#", level) .. " " .. text
     utils.set_line(line_num, new_line)
-    print("Created H" .. level)
+    vim.notify("Created H" .. level, vim.log.levels.INFO)
   end
 end
 

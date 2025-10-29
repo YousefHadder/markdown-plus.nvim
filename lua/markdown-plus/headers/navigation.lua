@@ -19,7 +19,7 @@ function M.next_header()
   end
 
   -- No next header, stay at current position
-  print("No next header")
+  vim.notify("No next header", vim.log.levels.INFO)
 end
 
 ---Navigate to previous header before cursor
@@ -39,7 +39,7 @@ function M.prev_header()
   end
 
   -- No previous header, stay at current position
-  print("No previous header")
+  vim.notify("No previous header", vim.log.levels.INFO)
 end
 
 ---Follow link in TOC (jump to header from markdown link)
@@ -71,7 +71,7 @@ function M.follow_link()
   end
 
   -- No matching header found
-  print("Header not found: " .. anchor)
+  vim.notify("Header not found: " .. anchor, vim.log.levels.WARN)
   return false
 end
 

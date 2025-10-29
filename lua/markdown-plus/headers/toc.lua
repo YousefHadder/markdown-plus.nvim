@@ -112,14 +112,14 @@ function M.generate_toc()
   local headers = parser.get_all_headers()
 
   if #headers == 0 then
-    print("No headers found in document")
+    vim.notify("No headers found in document", vim.log.levels.WARN)
     return
   end
 
   -- Check if TOC already exists
   local existing_toc = M.find_toc()
   if existing_toc then
-    print("TOC already exists. Use <leader>hu to update it.")
+    vim.notify("TOC already exists. Use the UpdateTOC command or mapping to update it.", vim.log.levels.INFO)
     return
   end
 
@@ -165,7 +165,7 @@ function M.generate_toc()
   -- Insert TOC into buffer
   vim.api.nvim_buf_set_lines(0, toc_insert_line - 1, toc_insert_line - 1, false, toc_lines)
 
-  print("TOC generated with " .. (#headers - 1) .. " entries")
+  vim.notify("TOC generated with " .. (#headers - 1) .. " entries", vim.log.levels.INFO)
 end
 
 ---Update existing table of contents
@@ -174,14 +174,14 @@ function M.update_toc()
   local toc_location = M.find_toc()
 
   if not toc_location then
-    print("No TOC found. Use <leader>ht to generate one.")
+    vim.notify("No TOC found. Use the GenerateTOC command or mapping to create one.", vim.log.levels.INFO)
     return
   end
 
   local headers = parser.get_all_headers()
 
   if #headers == 0 then
-    print("No headers found in document")
+    vim.notify("No headers found in document", vim.log.levels.WARN)
     return
   end
 
@@ -214,7 +214,7 @@ function M.update_toc()
   -- Insert new content
   vim.api.nvim_buf_set_lines(0, start_line, start_line, false, toc_lines)
 
-  print("TOC updated with " .. (#headers - 1) .. " entries")
+  vim.notify("TOC updated with " .. (#headers - 1) .. " entries", vim.log.levels.INFO)
 end
 
 return M
