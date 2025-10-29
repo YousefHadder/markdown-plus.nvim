@@ -1,6 +1,7 @@
 -- Tests for markdown-plus text formatting module
 describe("markdown-plus format", function()
   local format = require("markdown-plus.format")
+  local utils = require("markdown-plus.utils")
 
   before_each(function()
     -- Create a test buffer
@@ -98,19 +99,19 @@ describe("markdown-plus format", function()
   describe("get_text_in_range", function()
     it("gets text from single line", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
-      local result = format.get_text_in_range(1, 1, 1, 5)
+      local result = utils.get_text_in_range(1, 1, 1, 5)
       assert.equals("hello", result)
     end)
 
     it("gets text from middle of line", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
-      local result = format.get_text_in_range(1, 7, 1, 11)
+      local result = utils.get_text_in_range(1, 7, 1, 11)
       assert.equals("world", result)
     end)
 
     it("gets text from multiple lines", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "line one", "line two", "line three" })
-      local result = format.get_text_in_range(1, 6, 2, 4)
+      local result = utils.get_text_in_range(1, 6, 2, 4)
       assert.equals("one\nline", result)
     end)
   end)
@@ -118,21 +119,21 @@ describe("markdown-plus format", function()
   describe("set_text_in_range", function()
     it("sets text in single line", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
-      format.set_text_in_range(1, 1, 1, 5, "goodbye")
+      utils.set_text_in_range(1, 1, 1, 5, "goodbye")
       local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
       assert.equals("goodbye world", line)
     end)
 
     it("sets text in middle of line", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
-      format.set_text_in_range(1, 7, 1, 11, "universe")
+      utils.set_text_in_range(1, 7, 1, 11, "universe")
       local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
       assert.equals("hello universe", line)
     end)
 
     it("validates range order and shows error for invalid range", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
-      format.set_text_in_range(1, 10, 1, 5, "test")
+      utils.set_text_in_range(1, 10, 1, 5, "test")
       local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
       assert.equals("hello world", line)
     end)
@@ -144,7 +145,7 @@ describe("markdown-plus format", function()
       -- Simulate visual selection from position 1,1 to 1,5 (after exiting visual mode)
       vim.fn.setpos("'<", { 0, 1, 1, 0 })
       vim.fn.setpos("'>", { 0, 1, 5, 0 })
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
       assert.equals(1, selection.start_row)
       assert.equals(1, selection.start_col)
       assert.equals(1, selection.end_row)
@@ -156,7 +157,7 @@ describe("markdown-plus format", function()
       -- Simulate backward visual selection from position 1,5 to 1,1 (after exiting visual mode)
       vim.fn.setpos("'<", { 0, 1, 5, 0 })
       vim.fn.setpos("'>", { 0, 1, 1, 0 })
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
       -- Should be normalized with start before end
       assert.equals(1, selection.start_row)
       assert.equals(1, selection.start_col)
@@ -169,7 +170,7 @@ describe("markdown-plus format", function()
       -- Simulate backward selection from line 2 to line 1 (after exiting visual mode)
       vim.fn.setpos("'<", { 0, 2, 5, 0 })
       vim.fn.setpos("'>", { 0, 1, 3, 0 })
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
       -- Should be normalized
       assert.equals(1, selection.start_row)
       assert.equals(3, selection.start_col)
@@ -181,7 +182,7 @@ describe("markdown-plus format", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
       -- Simulate being in visual mode
       vim.cmd("normal! gg0vllll")
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
       -- Should detect visual mode and use vim.fn.getpos('v') and vim.fn.getpos('.')
       assert.is_not_nil(selection.start_row)
       assert.is_not_nil(selection.start_col)
@@ -193,7 +194,7 @@ describe("markdown-plus format", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
       -- Simulate being in visual line mode (V)
       vim.cmd("normal! ggV")
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
       -- In line mode, should select from column 1 to end of line
       assert.equals(1, selection.start_row)
       assert.equals(1, selection.start_col)
@@ -205,7 +206,7 @@ describe("markdown-plus format", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "first line", "second line", "third line" })
       -- Simulate visual line mode selecting lines 1-2
       vim.cmd("normal! ggVj")
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
       -- Should select entire lines
       assert.equals(1, selection.start_row)
       assert.equals(1, selection.start_col)
@@ -311,7 +312,7 @@ describe("markdown-plus format", function()
     end)
   end)
 
-  describe("get_visual_selection", function()
+  describe("utils get_visual_selection", function()
     it("returns correct selection range for line-wise visual mode", function()
       -- Set buffer lines for testing
       vim.api.nvim_buf_set_lines(0, 0, -1, false, {
@@ -325,7 +326,7 @@ describe("markdown-plus format", function()
       vim.cmd("normal! Vj") -- Enter visual line mode and select down one line
 
       -- Get the visual selection range
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
 
       -- Verify the selection range is correct
       assert.are.equal(2, selection.start_row)
@@ -450,7 +451,7 @@ describe("markdown-plus format", function()
     end)
   end)
 
-  describe("get_visual_selection in block mode", function()
+  describe("utils get_visual_selection in block mode", function()
     it("returns the correct selection range for multi-line visual mode", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, {
         "First line",
@@ -462,7 +463,7 @@ describe("markdown-plus format", function()
       vim.api.nvim_win_set_cursor(0, { 1, 0 })
       vim.cmd("normal! Vj") -- Enter visual line mode and select down one line
 
-      local selection = format.get_visual_selection()
+      local selection = utils.get_visual_selection()
 
       -- Verify the selection range is correct
       assert.are.equal(1, selection.start_row)
