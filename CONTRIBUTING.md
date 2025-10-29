@@ -225,7 +225,7 @@ test(config): add validation test cases
 docs(readme): update development section with testing info
 ```
 
-**Note**: Conventional commits are enforced on PRs via commitlint. See [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md) for details.
+**Note**: Conventional commits are enforced on PRs via commitlint.
 
 ## Pull Request Guidelines
 
@@ -285,7 +285,7 @@ This project uses [release-please](https://github.com/googleapis/release-please)
   - `feat!:` or `BREAKING CHANGE:` → major version bump (1.4.1 → 2.0.0)
   - `chore:`, `docs:`, `style:` → no version bump
 
-For detailed information, see [docs/RELEASE_PROCESS.md](docs/RELEASE_PROCESS.md).
+For detailed information, see the [release-please documentation](https://github.com/googleapis/release-please#readme).
 
 ## CI/CD Pipeline
 
