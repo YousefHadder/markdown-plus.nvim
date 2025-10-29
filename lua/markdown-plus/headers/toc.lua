@@ -41,7 +41,6 @@ function M.find_toc()
 
   -- Look for <!-- TOC --> marker pairs
   local toc_start = nil
-  
 
   for i, line in ipairs(lines) do
     if line:match("^%s*<!%-%-%s*TOC%s*%-%->") then
@@ -58,7 +57,48 @@ function M.find_toc()
       else
         -- Invalid TOC content, keep searching
         toc_start = nil
-        
+      end
+    end
+  end
+
+  -- Fallback: look for old-style TOC without markers (for backwards compatibility)
+  for i, line in ipairs(lines) do
+    -- Look for "## Table of Contents" or similar
+    if line:match("^##%s+[Tt]able%s+[Oo]f%s+[Cc]ontents") then
+      -- Check if the next few lines contain TOC links
+      local has_links = false
+      local check_lines = math.min(i + 10, #lines) -- Check next 10 lines
+
+      for j = i + 1, check_lines do
+        if lines[j]:match("^%s*%-%s+%[.-%]%(#.-%)") then
+          has_links = true
+          break
+        end
+      end
+
+      -- Only treat as TOC if it has actual links
+      if has_links then
+        -- Find the end of TOC (next header at same or higher level)
+        local toc_end_line = i
+        for j = i + 1, #lines do
+          local next_line = lines[j]
+          -- TOC ends at next header (any level: #, ##, ###, etc.)
+          if next_line:match("^#+%s") then
+            toc_end_line = j - 1
+            break
+          end
+          -- Also end at blank line followed by non-list content
+          if next_line == "" and lines[j + 1] and not lines[j + 1]:match("^%s*%-") then
+            toc_end_line = j - 1
+            break
+          end
+          toc_end_line = j
+        end
+
+        return {
+          start_line = i,
+          end_line = toc_end_line,
+        }
       end
     end
   end
