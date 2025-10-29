@@ -470,4 +470,3 @@ function M.open_toc_window(window_type)
 end
 
 return M
-
