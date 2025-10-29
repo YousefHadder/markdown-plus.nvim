@@ -1,5 +1,6 @@
 -- Links & References module for markdown-plus.nvim
 local utils = require("markdown-plus.utils")
+local keymap_helper = require("markdown-plus.keymap_helper")
 local M = {}
 
 ---@type markdown-plus.InternalConfig
@@ -35,71 +36,50 @@ end
 ---Set up keymaps for links
 ---@return nil
 function M.setup_keymaps()
-  if not M.config.keymaps or not M.config.keymaps.enabled then
-    return
-  end
-
-  -- Create <Plug> mappings first
-  vim.keymap.set("n", "<Plug>(MarkdownPlusInsertLink)", M.insert_link, {
-    silent = true,
-    desc = "Insert markdown link",
+  keymap_helper.setup_keymaps(M.config, {
+    {
+      plug = keymap_helper.plug_name("InsertLink"),
+      fn = M.insert_link,
+      modes = "n",
+      default_key = "<leader>ml",
+      desc = "Insert markdown link",
+    },
+    {
+      plug = keymap_helper.plug_name("SelectionToLink"),
+      fn = M.selection_to_link,
+      modes = "v",
+      default_key = "<leader>ml",
+      desc = "Convert selection to link",
+    },
+    {
+      plug = keymap_helper.plug_name("EditLink"),
+      fn = M.edit_link,
+      modes = "n",
+      default_key = "<leader>me",
+      desc = "Edit link under cursor",
+    },
+    {
+      plug = keymap_helper.plug_name("ConvertToReference"),
+      fn = M.convert_to_reference,
+      modes = "n",
+      default_key = "<leader>mR",
+      desc = "Convert to reference-style link",
+    },
+    {
+      plug = keymap_helper.plug_name("ConvertToInline"),
+      fn = M.convert_to_inline,
+      modes = "n",
+      default_key = "<leader>mI",
+      desc = "Convert to inline link",
+    },
+    {
+      plug = keymap_helper.plug_name("AutoLinkURL"),
+      fn = M.auto_link_url,
+      modes = "n",
+      default_key = "<leader>ma",
+      desc = "Convert URL to markdown link",
+    },
   })
-  vim.keymap.set("v", "<Plug>(MarkdownPlusSelectionToLink)", M.selection_to_link, {
-    silent = true,
-    desc = "Convert selection to link",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusEditLink)", M.edit_link, {
-    silent = true,
-    desc = "Edit link under cursor",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusConvertToReference)", M.convert_to_reference, {
-    silent = true,
-    desc = "Convert to reference-style link",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusConvertToInline)", M.convert_to_inline, {
-    silent = true,
-    desc = "Convert to inline link",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusAutoLinkURL)", M.auto_link_url, {
-    silent = true,
-    desc = "Convert URL to markdown link",
-  })
-
-  -- Set up default keymaps only if not already mapped
-  -- Note: vim.fn.hasmapto() returns 0 or 1, and in Lua 0 is truthy, so we must compare with == 0
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusInsertLink)", "n") == 0 then
-    vim.keymap.set("n", "<leader>ml", "<Plug>(MarkdownPlusInsertLink)", { buffer = true, desc = "Insert link" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusSelectionToLink)", "v") == 0 then
-    vim.keymap.set(
-      "v",
-      "<leader>ml",
-      "<Plug>(MarkdownPlusSelectionToLink)",
-      { buffer = true, desc = "Selection to link" }
-    )
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusEditLink)", "n") == 0 then
-    vim.keymap.set("n", "<leader>me", "<Plug>(MarkdownPlusEditLink)", { buffer = true, desc = "Edit link" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusConvertToReference)", "n") == 0 then
-    vim.keymap.set(
-      "n",
-      "<leader>mR",
-      "<Plug>(MarkdownPlusConvertToReference)",
-      { buffer = true, desc = "Convert to reference link" }
-    )
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusConvertToInline)", "n") == 0 then
-    vim.keymap.set(
-      "n",
-      "<leader>mI",
-      "<Plug>(MarkdownPlusConvertToInline)",
-      { buffer = true, desc = "Convert to inline link" }
-    )
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusAutoLinkURL)", "n") == 0 then
-    vim.keymap.set("n", "<leader>ma", "<Plug>(MarkdownPlusAutoLinkURL)", { buffer = true, desc = "Auto-link URL" })
-  end
 end
 
 -- Parse link under cursor
@@ -178,14 +158,14 @@ end
 -- Insert a new link
 function M.insert_link()
   -- Prompt for link text
-  local text = vim.fn.input("Link text: ")
-  if text == "" then
+  local text = utils.input("Link text: ")
+  if not text then
     return
   end
 
   -- Prompt for URL
-  local url = vim.fn.input("URL: ")
-  if url == "" then
+  local url = utils.input("URL: ")
+  if not url then
     return
   end
 
@@ -201,7 +181,7 @@ function M.insert_link()
   -- Move cursor after the link
   utils.set_cursor(cursor[1], col + #link)
 
-  print("Link inserted")
+  utils.notify("Link inserted")
 end
 
 -- Convert selection to link
@@ -220,7 +200,7 @@ function M.selection_to_link()
 
   -- Only support single line for now
   if start_row ~= end_row then
-    print("Multi-line links not supported")
+    utils.notify("Multi-line links not supported", vim.log.levels.WARN)
     return
   end
 
@@ -233,13 +213,13 @@ function M.selection_to_link()
   text = text:match("^%s*(.-)%s*$")
 
   if text == "" then
-    print("No text selected")
+    utils.notify("No text selected", vim.log.levels.WARN)
     return
   end
 
   -- Prompt for URL
-  local url = vim.fn.input("URL: ")
-  if url == "" then
+  local url = utils.input("URL: ")
+  if not url then
     return
   end
 
@@ -251,7 +231,7 @@ function M.selection_to_link()
   -- Move cursor to after the link
   utils.set_cursor(start_row, start_col - 1 + #link)
 
-  print("Link created")
+  utils.notify("Link created")
 end
 
 -- Edit link under cursor
@@ -259,19 +239,19 @@ function M.edit_link()
   local link = M.get_link_at_cursor()
 
   if not link then
-    print("No link under cursor")
+    utils.notify("No link under cursor", vim.log.levels.WARN)
     return
   end
 
   if link.type == "inline" then
     -- Edit inline link
-    local new_text = vim.fn.input("Link text: ", link.text)
-    if new_text == "" then
+    local new_text = utils.input("Link text: ", link.text)
+    if not new_text then
       return
     end
 
-    local new_url = vim.fn.input("URL: ", link.url)
-    if new_url == "" then
+    local new_url = utils.input("URL: ", link.url)
+    if not new_url then
       return
     end
 
@@ -281,16 +261,16 @@ function M.edit_link()
     local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
     utils.set_line(link.line_num, new_line)
 
-    print("Link updated")
+    utils.notify("Link updated")
   elseif link.type == "reference" then
     -- Edit reference link
-    local new_text = vim.fn.input("Link text: ", link.text)
-    if new_text == "" then
+    local new_text = utils.input("Link text: ", link.text)
+    if not new_text then
       return
     end
 
-    local new_ref = vim.fn.input("Reference: ", link.ref)
-    if new_ref == "" then
+    local new_ref = utils.input("Reference: ", link.ref)
+    if not new_ref then
       return
     end
 
@@ -300,7 +280,7 @@ function M.edit_link()
     local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
     utils.set_line(link.line_num, new_line)
 
-    print("Reference link updated")
+    utils.notify("Reference link updated")
   end
 end
 
@@ -323,12 +303,12 @@ function M.convert_to_reference()
   local link = M.get_link_at_cursor()
 
   if not link then
-    print("No link under cursor")
+    utils.notify("No link under cursor", vim.log.levels.WARN)
     return
   end
 
   if link.type ~= "inline" then
-    print("Not an inline link")
+    utils.notify("Not an inline link", vim.log.levels.WARN)
     return
   end
 
@@ -337,7 +317,10 @@ function M.convert_to_reference()
 
   -- Validate that ref is not empty
   if ref == "" then
-    print("Cannot generate reference: link text does not contain any alphanumeric characters")
+    utils.notify(
+      "Cannot generate reference: link text does not contain any alphanumeric characters",
+      vim.log.levels.ERROR
+    )
     return
   end
 
@@ -349,7 +332,7 @@ function M.convert_to_reference()
     local new_link = "[" .. link.text .. "][" .. ref .. "]"
     local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
     utils.set_line(link.line_num, new_line)
-    print("Converted to reference link (existing ref)")
+    utils.notify("Converted to reference link (existing ref)")
     return
   end
 
@@ -373,7 +356,7 @@ function M.convert_to_reference()
   local ref_def = "[" .. ref .. "]: " .. link.url
   vim.api.nvim_buf_set_lines(0, last_line, last_line, false, { ref_def })
 
-  print("Converted to reference-style link")
+  utils.notify("Converted to reference-style link")
 end
 
 -- Convert reference link to inline
@@ -381,19 +364,19 @@ function M.convert_to_inline()
   local link = M.get_link_at_cursor()
 
   if not link then
-    print("No link under cursor")
+    utils.notify("No link under cursor", vim.log.levels.WARN)
     return
   end
 
   if link.type ~= "reference" then
-    print("Not a reference link")
+    utils.notify("Not a reference link", vim.log.levels.WARN)
     return
   end
 
   -- Find reference URL
   local url = M.find_reference_url(link.ref)
   if not url then
-    print("Reference definition not found: " .. link.ref)
+    utils.notify("Reference definition not found: " .. link.ref, vim.log.levels.ERROR)
     return
   end
 
@@ -403,7 +386,7 @@ function M.convert_to_inline()
   local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
   utils.set_line(link.line_num, new_line)
 
-  print("Converted to inline link")
+  utils.notify("Converted to inline link")
 end
 
 -- Auto-convert URL to link
@@ -436,7 +419,12 @@ function M.auto_link_url()
 
     if col >= start_idx and col <= end_idx then
       -- Prompt for link text (default to URL)
-      local text = vim.fn.input("Link text (empty for URL): ")
+      local text = utils.input("Link text (empty for URL): ")
+      -- If user cancelled, return without making changes
+      if text == nil then
+        return
+      end
+      -- If user entered empty string, use URL as text
       if text == "" then
         text = url_info.url
       end
@@ -449,12 +437,12 @@ function M.auto_link_url()
       -- Move cursor to after the link
       utils.set_cursor(cursor[1], url_info.start_pos - 1 + #link)
 
-      print("URL converted to link")
+      utils.notify("URL converted to link")
       return
     end
   end
 
-  print("No URL under cursor")
+  utils.notify("No URL under cursor", vim.log.levels.WARN)
 end
 
 return M
