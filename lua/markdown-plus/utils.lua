@@ -105,4 +105,166 @@ function M.debug_print(...)
   end
 end
 
+---Get visual selection range
+---@param include_col? boolean Whether to include column info (default: true)
+---@return {start_row: number, end_row: number, start_col?: number, end_col?: number}
+function M.get_visual_selection(include_col)
+  include_col = include_col ~= false -- default true
+
+  local mode = vim.fn.mode()
+
+  -- If in visual mode, use current selection
+  if mode:match("[vV\22]") then
+    local start_pos = vim.fn.getpos("v")
+    local end_pos = vim.fn.getpos(".")
+
+    local start_row = start_pos[2]
+    local start_col = start_pos[3]
+    local end_row = end_pos[2]
+    local end_col = end_pos[3]
+
+    -- Ensure start comes before end
+    if start_row > end_row or (start_row == end_row and start_col > end_col) then
+      start_row, end_row = end_row, start_row
+      start_col, end_col = end_col, start_col
+    end
+
+    -- Handle line-wise visual mode
+    if mode == "V" then
+      start_col = 1
+      local end_line = vim.api.nvim_buf_get_lines(0, end_row - 1, end_row, false)[1] or ""
+      end_col = #end_line
+    end
+
+    if include_col then
+      return {
+        start_row = start_row,
+        start_col = start_col,
+        end_row = end_row,
+        end_col = end_col,
+      }
+    else
+      return {
+        start_row = start_row,
+        end_row = end_row,
+      }
+    end
+  else
+    -- Use marks from previous visual selection
+    local start_pos = vim.fn.getpos("'<")
+    local end_pos = vim.fn.getpos("'>")
+
+    if include_col then
+      return {
+        start_row = start_pos[2],
+        start_col = start_pos[3],
+        end_row = end_pos[2],
+        end_col = end_pos[3],
+      }
+    else
+      return {
+        start_row = start_pos[2],
+        end_row = end_pos[2],
+      }
+    end
+  end
+end
+
+---Get text in a line range
+---@param start_row number Start row (1-indexed)
+---@param start_col number Start column (1-indexed)
+---@param end_row number End row (1-indexed)
+---@param end_col number End column (1-indexed)
+---@return string Text in range
+function M.get_text_in_range(start_row, start_col, end_row, end_col)
+  local lines = vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
+
+  if #lines == 0 then
+    return ""
+  end
+
+  if #lines == 1 then
+    return lines[1]:sub(start_col, end_col)
+  else
+    local text = {}
+    table.insert(text, lines[1]:sub(start_col))
+    for i = 2, #lines - 1 do
+      table.insert(text, lines[i])
+    end
+    table.insert(text, lines[#lines]:sub(1, end_col))
+    return table.concat(text, "\n")
+  end
+end
+
+---Set text in a range
+---@param start_row number Start row (1-indexed)
+---@param start_col number Start column (1-indexed)
+---@param end_row number End row (1-indexed)
+---@param end_col number End column (1-indexed)
+---@param new_text string New text to set
+---@return nil
+function M.set_text_in_range(start_row, start_col, end_row, end_col, new_text)
+  if start_row > end_row or (start_row == end_row and start_col > end_col) then
+    vim.notify("markdown-plus: Invalid range - start position is after end position", vim.log.levels.ERROR)
+    return
+  end
+
+  local lines = vim.split(new_text, "\n")
+
+  if start_row == end_row then
+    local line = M.get_line(start_row)
+    local before = line:sub(1, start_col - 1)
+    local after = line:sub(end_col + 1)
+    local new_line = before .. new_text .. after
+    M.set_line(start_row, new_line)
+  else
+    local first_line = M.get_line(start_row)
+    local last_line = M.get_line(end_row)
+    local before = first_line:sub(1, start_col - 1)
+    local after = last_line:sub(end_col + 1)
+    lines[1] = before .. lines[1]
+    lines[#lines] = lines[#lines] .. after
+    vim.api.nvim_buf_set_lines(0, start_row - 1, end_row, false, lines)
+  end
+end
+
+---Prompt user for input with optional default
+---@param prompt string Prompt message
+---@param default? string Default value
+---@param completion? string Completion type
+---@return string|nil User input or nil if cancelled
+function M.input(prompt, default, completion)
+  local result = vim.fn.input(prompt, default or "", completion or "")
+
+  -- Return nil if user cancelled (pressed ESC)
+  if result == "" and not default then
+    return nil
+  end
+
+  return result
+end
+
+---Prompt user for confirmation (y/n)
+---@param prompt string Prompt message
+---@param default? boolean Default value (true for yes, false for no)
+---@return boolean True if user confirmed
+function M.confirm(prompt, default)
+  local default_str = default and " [Y/n] " or " [y/N] "
+  local result = vim.fn.input(prompt .. default_str)
+
+  if result == "" then
+    return default or false
+  end
+
+  return result:lower():match("^y") ~= nil
+end
+
+---Show notification with appropriate level
+---@param msg string Message to show
+---@param level? number Log level (vim.log.levels.*)
+---@return nil
+function M.notify(msg, level)
+  vim.notify("markdown-plus: " .. msg, level or vim.log.levels.INFO)
+end
+
 return M

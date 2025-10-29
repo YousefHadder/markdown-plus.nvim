@@ -1,5 +1,6 @@
 -- List management module for markdown-plus.nvim
 local utils = require("markdown-plus.utils")
+local keymap_helper = require("markdown-plus.keymap_helper")
 local M = {}
 
 ---@type markdown-plus.InternalConfig
@@ -93,100 +94,75 @@ end
 ---Set up keymaps for list management
 ---@return nil
 function M.setup_keymaps()
-  if not M.config.keymaps or not M.config.keymaps.enabled then
-    return
-  end
-
-  -- Create <Plug> mappings first
-  vim.keymap.set("i", "<Plug>(MarkdownPlusListEnter)", M.handle_enter, {
-    silent = true,
-    desc = "Auto-continue list or break out",
+  keymap_helper.setup_keymaps(M.config, {
+    {
+      plug = keymap_helper.plug_name("ListEnter"),
+      fn = M.handle_enter,
+      modes = "i",
+      default_key = "<CR>",
+      desc = "Auto-continue list or break out",
+    },
+    {
+      plug = keymap_helper.plug_name("ListIndent"),
+      fn = M.handle_tab,
+      modes = "i",
+      default_key = "<Tab>",
+      desc = "Indent list item",
+    },
+    {
+      plug = keymap_helper.plug_name("ListOutdent"),
+      fn = M.handle_shift_tab,
+      modes = "i",
+      default_key = "<S-Tab>",
+      desc = "Outdent list item",
+    },
+    {
+      plug = keymap_helper.plug_name("ListBackspace"),
+      fn = M.handle_backspace,
+      modes = "i",
+      default_key = "<BS>",
+      desc = "Smart backspace (remove empty list)",
+    },
+    {
+      plug = keymap_helper.plug_name("RenumberLists"),
+      fn = M.renumber_ordered_lists,
+      modes = "n",
+      default_key = "<leader>mr",
+      desc = "Renumber ordered lists",
+    },
+    {
+      plug = keymap_helper.plug_name("DebugLists"),
+      fn = M.debug_list_groups,
+      modes = "n",
+      default_key = "<leader>md",
+      desc = "Debug list groups",
+    },
+    {
+      plug = keymap_helper.plug_name("NewListItemBelow"),
+      fn = M.handle_normal_o,
+      modes = "n",
+      default_key = "o",
+      desc = "New list item below",
+    },
+    {
+      plug = keymap_helper.plug_name("NewListItemAbove"),
+      fn = M.handle_normal_O,
+      modes = "n",
+      default_key = "O",
+      desc = "New list item above",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleCheckbox"),
+      fn = {
+        M.toggle_checkbox_line,
+        M.toggle_checkbox_range,
+        M.toggle_checkbox_insert,
+      },
+      modes = { "n", "x", "i" },
+      default_key = { "<leader>mx", "<leader>mx", "<C-t>" },
+      desc = "Toggle checkbox",
+    },
   })
-  vim.keymap.set("i", "<Plug>(MarkdownPlusListIndent)", M.handle_tab, {
-    silent = true,
-    desc = "Indent list item",
-  })
-  vim.keymap.set("i", "<Plug>(MarkdownPlusListOutdent)", M.handle_shift_tab, {
-    silent = true,
-    desc = "Outdent list item",
-  })
-  vim.keymap.set("i", "<Plug>(MarkdownPlusListBackspace)", M.handle_backspace, {
-    silent = true,
-    desc = "Smart backspace (remove empty list)",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusRenumberLists)", M.renumber_ordered_lists, {
-    silent = true,
-    desc = "Renumber ordered lists",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusDebugLists)", M.debug_list_groups, {
-    silent = true,
-    desc = "Debug list groups",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusNewListItemBelow)", M.handle_normal_o, {
-    silent = true,
-    desc = "New list item below",
-  })
-  vim.keymap.set("n", "<Plug>(MarkdownPlusNewListItemAbove)", M.handle_normal_O, {
-    silent = true,
-    desc = "New list item above",
-  })
-
-  -- Checkbox <Plug> mappings
-  vim.keymap.set("n", "<Plug>(MarkdownPlusToggleCheckbox)", M.toggle_checkbox_line, {
-    silent = true,
-    desc = "Toggle checkbox on line",
-  })
-  vim.keymap.set("x", "<Plug>(MarkdownPlusToggleCheckbox)", M.toggle_checkbox_range, {
-    silent = true,
-    desc = "Toggle checkbox",
-  })
-  vim.keymap.set("i", "<Plug>(MarkdownPlusToggleCheckbox)", M.toggle_checkbox_insert, {
-    silent = true,
-    desc = "Toggle checkbox in insert mode",
-  })
-
-  -- Set up default keymaps only if not already mapped
-  -- Note: vim.fn.hasmapto() returns 0 or 1, and in Lua 0 is truthy, so we must compare with == 0
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusListEnter)", "i") == 0 then
-    vim.keymap.set("i", "<CR>", "<Plug>(MarkdownPlusListEnter)", { buffer = true, desc = "Continue list item" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusListIndent)", "i") == 0 then
-    vim.keymap.set("i", "<Tab>", "<Plug>(MarkdownPlusListIndent)", { buffer = true, desc = "Indent list item" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusListOutdent)", "i") == 0 then
-    vim.keymap.set("i", "<S-Tab>", "<Plug>(MarkdownPlusListOutdent)", { buffer = true, desc = "Outdent list item" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusListBackspace)", "i") == 0 then
-    vim.keymap.set(
-      "i",
-      "<BS>",
-      "<Plug>(MarkdownPlusListBackspace)",
-      { buffer = true, desc = "Smart backspace in list" }
-    )
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusRenumberLists)", "n") == 0 then
-    vim.keymap.set("n", "<leader>mr", "<Plug>(MarkdownPlusRenumberLists)", { buffer = true, desc = "Renumber lists" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusDebugLists)", "n") == 0 then
-    vim.keymap.set("n", "<leader>md", "<Plug>(MarkdownPlusDebugLists)", { buffer = true, desc = "Debug lists" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusNewListItemBelow)", "n") == 0 then
-    vim.keymap.set("n", "o", "<Plug>(MarkdownPlusNewListItemBelow)", { buffer = true, desc = "New list item below" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusNewListItemAbove)", "n") == 0 then
-    vim.keymap.set("n", "O", "<Plug>(MarkdownPlusNewListItemAbove)", { buffer = true, desc = "New list item above" })
-  end
-
-  -- Checkbox default keymaps
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusToggleCheckbox)", "n") == 0 then
-    vim.keymap.set("n", "<leader>mx", "<Plug>(MarkdownPlusToggleCheckbox)", { buffer = true, desc = "Toggle checkbox" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusToggleCheckbox)", "x") == 0 then
-    vim.keymap.set("x", "<leader>mx", "<Plug>(MarkdownPlusToggleCheckbox)", { buffer = true, desc = "Toggle checkbox" })
-  end
-  if vim.fn.hasmapto("<Plug>(MarkdownPlusToggleCheckbox)", "i") == 0 then
-    vim.keymap.set("i", "<C-t>", "<Plug>(MarkdownPlusToggleCheckbox)", { buffer = true, desc = "Toggle checkbox" })
-  end
 
   -- Set up autocommands for auto-renumbering
   M.setup_renumber_autocmds()
