@@ -239,7 +239,7 @@ function M.input(prompt, default, completion)
   -- Return nil if user cancelled (pressed ESC)
   -- Note: vim.fn.input returns "" on both ESC and when user enters empty string
   -- We treat empty string as cancellation when no default is provided
-  if result == "" and not default then
+  if result == "" and default == nil then
     return nil
   end
 

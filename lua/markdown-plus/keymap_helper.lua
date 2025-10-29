@@ -5,9 +5,9 @@ local M = {}
 ---Keymap definition
 ---@class markdown-plus.KeymapDef
 ---@field plug string The <Plug> mapping name (e.g., "MarkdownPlusBold")
----@field fn function|string The function to call or <Plug> name
+---@field fn function|string|function[] The function to call, <Plug> name, or array of functions per mode
 ---@field modes string|string[] Mode(s) for the keymap ('n', 'v', 'x', 'i')
----@field default_key? string|string[] Default key binding (optional, per mode if array)
+---@field default_key? string|string[] Default key binding (optional). If both `modes` and `default_key` are arrays, they are indexed correspondingly (i.e., `modes[1]` gets `default_key[1]`, etc.).
 ---@field desc string Description for the keymap
 
 ---Setup keymaps for a module
