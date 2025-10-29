@@ -234,7 +234,12 @@ end
 ---@param completion? string Completion type
 ---@return string|nil User input or nil if cancelled
 function M.input(prompt, default, completion)
-  local result = vim.fn.input(prompt, default or "", completion or "")
+  local result
+  if completion then
+    result = vim.fn.input(prompt, default or "", completion)
+  else
+    result = vim.fn.input(prompt, default or "")
+  end
 
   -- Return nil if user cancelled (pressed ESC)
   -- Note: vim.fn.input returns "" on both ESC and when user enters empty string
