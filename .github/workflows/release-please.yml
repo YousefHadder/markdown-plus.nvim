@@ -1,0 +1,116 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+      - 'release-please-test/**'  # Allow testing on test branches
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      tag_name: ${{ steps.release.outputs.tag_name }}
+      version: ${{ steps.release.outputs.major }}.${{ steps.release.outputs.minor }}.${{ steps.release.outputs.patch }}
+
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: .release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  post-release:
+    name: Post-release tasks
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.ref }}
+          fetch-depth: 0
+
+      - name: Create versioned rockspec
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          ROCKSPEC_FILE="rockspecs/markdown-plus.nvim-${VERSION}-1.rockspec"
+
+          # Create rockspec from template
+          awk -v version="$VERSION" '
+          /^version = / {
+            print "version = \"" version "-1\""
+            next
+          }
+          /^  url = "git:\/\/github.com\/.*\.git",?$/ {
+            print "  url = \"git://github.com/YousefHadder/markdown-plus.nvim.git\","
+            print "  tag = \"v" version "\","
+            next
+          }
+          /^  tag = "v.*",?$/ {
+            next
+          }
+          { print }
+          ' rockspecs/markdown-plus.nvim-scm-1.rockspec > "$ROCKSPEC_FILE"
+
+          echo "✓ Created rockspec: $ROCKSPEC_FILE"
+
+      - name: Commit rockspec
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+          ROCKSPEC_FILE="rockspecs/markdown-plus.nvim-${VERSION}-1.rockspec"
+
+          # Verify rockspec was created
+          if [ ! -f "$ROCKSPEC_FILE" ]; then
+            echo "Error: Rockspec file not created: $ROCKSPEC_FILE"
+            exit 1
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add "$ROCKSPEC_FILE"
+          git commit -m "chore: add rockspec for v${VERSION} [skip ci]"
+          git push origin "${{ github.ref_name }}"
+
+      - name: Trigger LuaRocks publish
+        uses: actions/github-script@v8
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'release-to-luarocks.yml',
+              ref: inputs.ref_name,
+              inputs: {
+                version: '${{ needs.release-please.outputs.version }}'
+              }
+            });
+            console.log('✓ Triggered LuaRocks publish workflow');
+          inputs:
+            ref_name: ${{ github.ref_name }}
+      - name: Summary
+        run: |
+          VERSION="${{ needs.release-please.outputs.version }}"
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# ✅ Release v${VERSION} Created Successfully!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Release Information" >> $GITHUB_STEP_SUMMARY
+          echo "- 📦 **Tag**: ${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔗 **Release URL**: https://github.com/${{ github.repository }}/releases/tag/${{ needs.release-please.outputs.tag_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- 🪨 **Rockspec**: markdown-plus.nvim-${VERSION}-1.rockspec" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "✅ LuaRocks publish workflow has been triggered automatically" >> $GITHUB_STEP_SUMMARY
+          echo "Check the Actions tab to monitor the publish status" >> $GITHUB_STEP_SUMMARY
