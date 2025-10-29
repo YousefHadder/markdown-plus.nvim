@@ -5,6 +5,27 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.4.1...v1.5.0) (2025-10-29)
+
+
+### Features
+
+* add checkbox toggle functionality to list management ([67cab02](https://github.com/YousefHadder/markdown-plus.nvim/commit/67cab02ed753af240835d95c1d2971d6a6e8517d)), closes [#34](https://github.com/YousefHadder/markdown-plus.nvim/issues/34)
+* Add checkbox toggle functionality to list management ([515ac81](https://github.com/YousefHadder/markdown-plus.nvim/commit/515ac81b4c2a8ec97e1b71da654dc14bf4ea843e))
+
+
+### Bug Fixes
+
+* address PR comments - change insert keymap and improve cursor position ([bc0df18](https://github.com/YousefHadder/markdown-plus.nvim/commit/bc0df18b98457f0b7fd5c904653334db555e4be1))
+* **code_block:** add code_block to 'features' in init.lua ([57087e9](https://github.com/YousefHadder/markdown-plus.nvim/commit/57087e9b90bfa45f13b2f475b073c04fa5f24676))
+* **code_block:** add code_block to 'known_feature_fields' ([17ea5df](https://github.com/YousefHadder/markdown-plus.nvim/commit/17ea5df299f23053ec765d707fc86cd4af5a374e))
+* **code_block:** Add feature toggle check in `convert_to_code_block` ([fc76ece](https://github.com/YousefHadder/markdown-plus.nvim/commit/fc76ece427049bc81b356546396adce8d8c203b3))
+* **format:** change 'exit visual mode' ([0ac46cd](https://github.com/YousefHadder/markdown-plus.nvim/commit/0ac46cdf73211d169bf6625ea24b0be4e4174d9d))
+* **format:** fix code block feature config validation and tests ([2f547d5](https://github.com/YousefHadder/markdown-plus.nvim/commit/2f547d5306d29d9d80b4f3546c5d46c4387946a8))
+* **format:** stylua error ([9985ed1](https://github.com/YousefHadder/markdown-plus.nvim/commit/9985ed1223097ddc817b7a3ea1e1c30f2b1cd475))
+* visual line mode formatting applies to entire selected lines ([31dab1a](https://github.com/YousefHadder/markdown-plus.nvim/commit/31dab1a41fad378276778feeb40f4c6b5acd907e))
+* visual line mode formatting now applies to entire selected lines ([b5beb74](https://github.com/YousefHadder/markdown-plus.nvim/commit/b5beb74ba4b5e010791f13357c8369276b043b44))
+
 ## [Unreleased]
 
 ### Added
