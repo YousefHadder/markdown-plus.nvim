@@ -91,14 +91,13 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'release-to-luarocks.yml',
-              ref: inputs.ref_name,
+              ref: 'main',
               inputs: {
                 version: '${{ needs.release-please.outputs.version }}'
               }
             });
             console.log('✓ Triggered LuaRocks publish workflow');
-          inputs:
-            ref_name: ${{ github.ref_name }}
+      
       - name: Summary
         run: |
           VERSION="${{ needs.release-please.outputs.version }}"
