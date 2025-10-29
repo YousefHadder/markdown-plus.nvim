@@ -70,11 +70,17 @@ jobs:
           VERSION="${{ needs.release-please.outputs.version }}"
           ROCKSPEC_FILE="rockspecs/markdown-plus.nvim-${VERSION}-1.rockspec"
 
+          # Verify rockspec was created
+          if [ ! -f "$ROCKSPEC_FILE" ]; then
+            echo "Error: Rockspec file not created: $ROCKSPEC_FILE"
+            exit 1
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           git add "$ROCKSPEC_FILE"
-          git commit -m "chore: add rockspec for v${VERSION}"
+          git commit -m "chore: add rockspec for v${VERSION} [skip ci]"
           git push origin main
 
       - name: Trigger LuaRocks publish
