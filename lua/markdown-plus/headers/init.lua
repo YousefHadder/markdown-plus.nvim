@@ -22,7 +22,6 @@ M.header_pattern = parser.header_pattern
 ---@return nil
 function M.setup(config)
   M.config = config or {}
-  
   -- Pass config to sub-modules that need it
   toc_window.set_config(M.config)
 end

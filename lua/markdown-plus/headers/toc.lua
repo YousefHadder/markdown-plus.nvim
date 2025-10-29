@@ -43,9 +43,9 @@ function M.find_toc()
   local toc_start = nil
 
   for i, line in ipairs(lines) do
-    if line:match("^%s*<!%-%-%s*TOC%s*%-%->") then
+    if line:match("^%s*<!%-%-%s*TOC%s*%-%->%s*$") then
       toc_start = i
-    elseif toc_start and line:match("^%s*<!%-%-%s*/TOC%s*%-%->") then
+    elseif toc_start and line:match("^%s*<!%-%-%s*/TOC%s*%-%->%s*$") then
       local toc_end = i
 
       -- Validate that content between markers looks like a TOC

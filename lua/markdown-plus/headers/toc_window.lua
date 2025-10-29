@@ -4,7 +4,7 @@ local M = {}
 
 local TOC_DEFAULT_MAX_DEPTH = 2 -- Default initial depth to show
 local TOC_WINDOW_PADDING = 5 -- Extra padding for window width calculation
-local TOC_MAX_WIDTH_RATIO = 0.4 -- Maximum window width as ratio of total columns
+local TOC_MAX_WIDTH_RATIO = 0.5 -- Maximum window width as ratio of total columns
 
 ---@type markdown-plus.InternalConfig
 local config = {}
