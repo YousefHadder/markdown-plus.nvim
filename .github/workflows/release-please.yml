@@ -38,7 +38,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
         with:
-          ref: main
+          ref: ${{ github.ref }}
           fetch-depth: 0
 
       - name: Create versioned rockspec
@@ -53,7 +53,7 @@ jobs:
             next
           }
           /^  url = "git:\/\/github.com\/.*\.git",?$/ {
-            print "  url = \"git://github.com/yousefhadder/markdown-plus.nvim.git\","
+            print "  url = \"git://github.com/YousefHadder/markdown-plus.nvim.git\","
             print "  tag = \"v" version "\","
             next
           }
@@ -81,7 +81,7 @@ jobs:
 
           git add "$ROCKSPEC_FILE"
           git commit -m "chore: add rockspec for v${VERSION} [skip ci]"
-          git push origin main
+          git push origin "${{ github.ref_name }}"
 
       - name: Trigger LuaRocks publish
         uses: actions/github-script@v8
@@ -91,13 +91,14 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'release-to-luarocks.yml',
-              ref: 'main',
+              ref: inputs.ref_name,
               inputs: {
                 version: '${{ needs.release-please.outputs.version }}'
               }
             });
             console.log('✓ Triggered LuaRocks publish workflow');
-
+          inputs:
+            ref_name: ${{ github.ref_name }}
       - name: Summary
         run: |
           VERSION="${{ needs.release-please.outputs.version }}"
