@@ -420,7 +420,12 @@ function M.auto_link_url()
     if col >= start_idx and col <= end_idx then
       -- Prompt for link text (default to URL)
       local text = utils.input("Link text (empty for URL): ")
-      if not text or text == "" then
+      -- If user cancelled, return without making changes
+      if text == nil then
+        return
+      end
+      -- If user entered empty string, use URL as text
+      if text == "" then
         text = url_info.url
       end
 

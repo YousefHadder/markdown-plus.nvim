@@ -320,8 +320,8 @@ function M.convert_to_code_block()
 
   -- Prompt for the language of the code block
   local lang = utils.input("Language for code block: ")
+  -- User cancelled - silently return
   if not lang then
-    utils.notify("No language specified for code block.", vim.log.levels.WARN)
     return
   end
 
