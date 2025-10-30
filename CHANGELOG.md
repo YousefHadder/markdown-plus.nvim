@@ -5,6 +5,13 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.5.1...v1.5.2) (2025-10-30)
+
+
+### Bug Fixes
+
+* address Copilot PR review comments ([71a4c26](https://github.com/YousefHadder/markdown-plus.nvim/commit/71a4c26f1cd5e718308d3727ff58b96de5b0e7f2))
+
 ## [1.5.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.5.0...v1.5.1) (2025-10-30)
 
 
