@@ -112,6 +112,18 @@ function M.handle_shift_tab()
   local list_info = parser.parse_list_line(current_line)
 
   if not list_info then
+    -- Not a list line: remove up to shiftwidth spaces from start
+    local cursor = utils.get_cursor()
+    local row, col = cursor[1], cursor[2]
+    local indent_size = vim.bo.shiftwidth or 2
+    local leading = current_line:match("^(%s*)")
+    local to_remove = math.min(#leading, indent_size)
+    if to_remove > 0 then
+      local new_line = current_line:sub(to_remove + 1)
+      utils.set_line(row, new_line)
+      local new_col = math.max(0, col - to_remove)
+      utils.set_cursor(row, new_col)
+    end
     return
   end
 
@@ -155,8 +167,7 @@ function M.handle_backspace()
       -- At start of line, join with previous line
       local prev_line = utils.get_line(row - 1)
       local joined_line = prev_line .. current_line
-      utils.set_line(row - 1, joined_line)
-      vim.api.nvim_buf_set_lines(0, row - 1, row, false, {})
+      vim.api.nvim_buf_set_lines(0, row - 2, row, false, { joined_line })
       utils.set_cursor(row - 1, #prev_line)
     end
     return

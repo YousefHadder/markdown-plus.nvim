@@ -158,9 +158,11 @@ function M.next_letter(letter, is_upper)
   end
 end
 
----Get the next marker for a list item
----@param list_info table List information
----@return string Next marker
+---Get the next marker for a list item, incrementing numbers or letters as appropriate
+---For ordered lists: "1." -> "2.", for letters: "a." -> "b."
+---For unordered lists: returns same marker ("-", "+", "*")
+---@param list_info table Table containing list item information (type, marker, etc.)
+---@return string next_marker The next marker string for the list item (e.g., "2.", "b)", "-")
 function M.get_next_marker(list_info)
   if list_info.type == "ordered" then
     local current_num = tonumber(list_info.marker:match("(%d+)"))
@@ -187,9 +189,11 @@ function M.get_next_marker(list_info)
 end
 
 ---Get the previous/initial marker for inserting before current item
----@param list_info table Current list information
----@param row number Current row number
----@return string Previous marker
+---Checks if there's a previous list item at same indent and returns incremented marker,
+---otherwise returns initial marker ("1.", "a.", etc.)
+---@param list_info table Current list information (type, marker, indent, etc.)
+---@param row number Current row number (1-indexed)
+---@return string previous_marker The marker to use for item inserted above (e.g., "1.", "a)", "-")
 function M.get_previous_marker(list_info, row)
   local is_ordered = list_info.type == "ordered" or list_info.type == "ordered_paren"
   local is_letter_lower = list_info.type == "letter_lower" or list_info.type == "letter_lower_paren"
