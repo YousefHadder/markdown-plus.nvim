@@ -5,6 +5,39 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.4.1...v1.5.0) (2025-10-30)
+
+
+### Features
+
+* add checkbox toggle functionality to list management ([67cab02](https://github.com/YousefHadder/markdown-plus.nvim/commit/67cab02ed753af240835d95c1d2971d6a6e8517d)), closes [#34](https://github.com/YousefHadder/markdown-plus.nvim/issues/34)
+* Add checkbox toggle functionality to list management ([515ac81](https://github.com/YousefHadder/markdown-plus.nvim/commit/515ac81b4c2a8ec97e1b71da654dc14bf4ea843e))
+* **headers:** add navigable TOC window with fold/unfold support ([22f9173](https://github.com/YousefHadder/markdown-plus.nvim/commit/22f9173f054f4d4c3d20e8c1fcddd2ae1a849121)), closes [#39](https://github.com/YousefHadder/markdown-plus.nvim/issues/39)
+* **headers:** Add navigable TOC window with fold/unfold support ([b05d4ad](https://github.com/YousefHadder/markdown-plus.nvim/commit/b05d4ad0058b6f3b665e8ae2341e8b27d0e48f20))
+
+
+### Bug Fixes
+
+* address final 2 unresolved PR comments ([3304632](https://github.com/YousefHadder/markdown-plus.nvim/commit/3304632d1fe57750bccbcf2185969159943012ee))
+* address new PR review comments ([89018be](https://github.com/YousefHadder/markdown-plus.nvim/commit/89018be65423550dd16ee8de0598470135960605))
+* address PR comments - change insert keymap and improve cursor position ([bc0df18](https://github.com/YousefHadder/markdown-plus.nvim/commit/bc0df18b98457f0b7fd5c904653334db555e4be1))
+* address PR review comments and add documentation ([21178d4](https://github.com/YousefHadder/markdown-plus.nvim/commit/21178d492793f67e8072b8d961e33502ad42650e))
+* address remaining PR review comments ([2a16266](https://github.com/YousefHadder/markdown-plus.nvim/commit/2a162660c22b20f53edbbffe7b3da3c6d27595aa))
+* **code_block:** add code_block to 'features' in init.lua ([57087e9](https://github.com/YousefHadder/markdown-plus.nvim/commit/57087e9b90bfa45f13b2f475b073c04fa5f24676))
+* **code_block:** add code_block to 'known_feature_fields' ([17ea5df](https://github.com/YousefHadder/markdown-plus.nvim/commit/17ea5df299f23053ec765d707fc86cd4af5a374e))
+* **code_block:** Add feature toggle check in `convert_to_code_block` ([fc76ece](https://github.com/YousefHadder/markdown-plus.nvim/commit/fc76ece427049bc81b356546396adce8d8c203b3))
+* fix release-please file ([fe79a36](https://github.com/YousefHadder/markdown-plus.nvim/commit/fe79a3642b2c54d283e6787df01144122303ded2))
+* **format:** change 'exit visual mode' ([0ac46cd](https://github.com/YousefHadder/markdown-plus.nvim/commit/0ac46cdf73211d169bf6625ea24b0be4e4174d9d))
+* **format:** fix code block feature config validation and tests ([2f547d5](https://github.com/YousefHadder/markdown-plus.nvim/commit/2f547d5306d29d9d80b4f3546c5d46c4387946a8))
+* **format:** stylua error ([9985ed1](https://github.com/YousefHadder/markdown-plus.nvim/commit/9985ed1223097ddc817b7a3ea1e1c30f2b1cd475))
+* **headers:** improve syntax highlighting in TOC window ([da72a09](https://github.com/YousefHadder/markdown-plus.nvim/commit/da72a0989506626533914cf43556b8791849026c))
+* improve input cancellation handling ([7f5724b](https://github.com/YousefHadder/markdown-plus.nvim/commit/7f5724b6fbc81e29f177232a9593743ef2585966))
+* improve type annotations and cursor positioning ([570440b](https://github.com/YousefHadder/markdown-plus.nvim/commit/570440ba2fff3d17b2f6db292524aa50f49a3d36))
+* invalid completion value error in utils.input() ([91bdb2c](https://github.com/YousefHadder/markdown-plus.nvim/commit/91bdb2c5fbc88e92dfea717c02a1b10998a2cd02))
+* restore legacy TOC detection without HTML markers ([e7aefb0](https://github.com/YousefHadder/markdown-plus.nvim/commit/e7aefb0f565e73d46768e022fcba0281f3edf7ef))
+* visual line mode formatting applies to entire selected lines ([31dab1a](https://github.com/YousefHadder/markdown-plus.nvim/commit/31dab1a41fad378276778feeb40f4c6b5acd907e))
+* visual line mode formatting now applies to entire selected lines ([b5beb74](https://github.com/YousefHadder/markdown-plus.nvim/commit/b5beb74ba4b5e010791f13357c8369276b043b44))
+
 ## [1.5.0] - 2025-10-29
 
 ### Added
