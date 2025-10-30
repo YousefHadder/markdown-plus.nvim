@@ -25,7 +25,7 @@ function M.is_list_breaking_line(line)
     return true
   end
 
-  -- Only non-list content breaks list continuity
+  -- Any non-list content breaks list continuity
   if parser.parse_list_line(line) then
     return false
   end

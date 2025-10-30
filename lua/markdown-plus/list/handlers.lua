@@ -204,7 +204,7 @@ function M.handle_normal_o()
     -- Not in a list, insert blank line below and enter insert mode
     utils.insert_line(row + 1, "")
     utils.set_cursor(row + 1, 0)
-    vim.cmd("startinsert")
+    vim.cmd("startinsert!")
     return
   end
 
@@ -230,10 +230,10 @@ function M.handle_normal_O()
   local list_info = parser.parse_list_line(current_line)
 
   if not list_info then
-    -- Not in a list, default 'O' behavior
+    -- Not in a list, insert blank line above and enter insert mode
     utils.insert_line(row, "")
     utils.set_cursor(row, 0)
-    vim.cmd("startinsert")
+    vim.cmd("startinsert!")
     return
   end
 
