@@ -92,7 +92,7 @@ end
 
 ---Parse a line to detect list information
 ---@param line string Line to parse
----@return table|nil List info or nil if not a list
+---@return markdown-plus.ListInfo|nil List info or nil if not a list
 function M.parse_list_line(line)
   if not line then
     return nil
@@ -161,7 +161,7 @@ end
 ---Get the next marker for a list item, incrementing numbers or letters as appropriate
 ---For ordered lists: "1." -> "2.", for letters: "a." -> "b."
 ---For unordered lists: returns same marker ("-", "+", "*")
----@param list_info table Table containing list item information (type, marker, etc.)
+---@param list_info markdown-plus.ListInfo Table containing list item information
 ---@return string next_marker The next marker string for the list item (e.g., "2.", "b)", "-")
 function M.get_next_marker(list_info)
   if list_info.type == "ordered" then
@@ -191,7 +191,7 @@ end
 ---Get the previous/initial marker for inserting before current item
 ---Checks if there's a previous list item at same indent and returns incremented marker,
 ---otherwise returns initial marker ("1.", "a.", etc.)
----@param list_info table Current list information (type, marker, indent, etc.)
+---@param list_info markdown-plus.ListInfo Current list information
 ---@param row number Current row number (1-indexed)
 ---@return string previous_marker The marker to use for item inserted above (e.g., "1.", "a)", "-")
 function M.get_previous_marker(list_info, row)

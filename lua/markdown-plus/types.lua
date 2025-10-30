@@ -55,4 +55,11 @@
 ---@class markdown-plus.InternalKeymapConfig
 ---@field enabled boolean
 
+---@class markdown-plus.ListInfo
+---@field type string List type: "unordered", "ordered", "ordered_paren", "letter_lower", "letter_lower_paren", "letter_upper", "letter_upper_paren"
+---@field marker string The list marker without delimiter (e.g., "1", "a", "-")
+---@field full_marker string The complete marker with delimiter (e.g., "1.", "a)", "-")
+---@field indent string Leading whitespace before the marker
+---@field checkbox string|nil Checkbox state if present: "[ ]", "[x]", "[X]", or nil
+
 return {}
