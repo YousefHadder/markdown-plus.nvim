@@ -38,6 +38,7 @@ function M.setup_keymaps(config, keymaps)
 
       vim.keymap.set(mode, plug_name, fn, {
         silent = true,
+        noremap = true,
         desc = keymap.desc,
       })
 
@@ -45,6 +46,7 @@ function M.setup_keymaps(config, keymaps)
       if default_keys and default_keys[idx] and vim.fn.hasmapto(plug_name, mode) == 0 then
         vim.keymap.set(mode, default_keys[idx], plug_name, {
           buffer = true,
+          silent = true,
           desc = keymap.desc,
         })
       end
