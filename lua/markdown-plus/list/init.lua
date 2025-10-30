@@ -112,8 +112,18 @@ end
 function M.setup_renumber_autocmds()
   local group = vim.api.nvim_create_augroup("MarkdownPlusListRenumber", { clear = true })
 
-  -- Renumber on text changes
-  vim.api.nvim_create_autocmd({ "TextChanged", "TextChangedI" }, {
+  -- Renumber on text changes in normal mode only
+  -- Don't renumber during insert mode to avoid interfering with typing
+  vim.api.nvim_create_autocmd("TextChanged", {
+    group = group,
+    buffer = 0,
+    callback = function()
+      renumber.renumber_ordered_lists()
+    end,
+  })
+
+  -- Also renumber when leaving insert mode
+  vim.api.nvim_create_autocmd("InsertLeave", {
     group = group,
     buffer = 0,
     callback = function()

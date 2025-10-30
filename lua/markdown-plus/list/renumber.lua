@@ -137,7 +137,12 @@ function M.renumber_list_group(group)
       expected_marker = parser.index_to_letter(idx, true) .. DELIMITER_PAREN
     end
 
-    local expected_line = item.indent .. expected_marker .. checkbox_part .. " " .. item.content
+    local expected_line
+    if item.content == "" then
+      expected_line = item.indent .. expected_marker .. checkbox_part
+    else
+      expected_line = item.indent .. expected_marker .. checkbox_part .. " " .. item.content
+    end
 
     -- Only create change if line is different
     if expected_line ~= item.original_line then

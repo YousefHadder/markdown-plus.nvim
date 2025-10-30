@@ -26,23 +26,50 @@ local DELIMITER_PAREN = ")"
 ---@type markdown-plus.list.Patterns
 M.patterns = {
   unordered = "^(%s*)([%-%+%*])%s+",
+  unordered_empty = "^(%s*)([%-%+%*])%s*$",
   ordered = "^(%s*)(%d+)%.%s+",
+  ordered_empty = "^(%s*)(%d+)%.%s*$",
   checkbox = "^(%s*)([%-%+%*])%s+%[(.?)%]%s+",
   ordered_checkbox = "^(%s*)(%d+)%.%s+%[(.?)%]%s+",
   letter_lower = "^(%s*)([a-z])%.%s+",
+  letter_lower_empty = "^(%s*)([a-z])%.%s*$",
   letter_upper = "^(%s*)([A-Z])%.%s+",
+  letter_upper_empty = "^(%s*)([A-Z])%.%s*$",
   letter_lower_checkbox = "^(%s*)([a-z])%.%s+%[(.?)%]%s+",
   letter_upper_checkbox = "^(%s*)([A-Z])%.%s+%[(.?)%]%s+",
   ordered_paren = "^(%s*)(%d+)%)%s+",
+  ordered_paren_empty = "^(%s*)(%d+)%)%s*$",
   letter_lower_paren = "^(%s*)([a-z])%)%s+",
+  letter_lower_paren_empty = "^(%s*)([a-z])%)%s*$",
   letter_upper_paren = "^(%s*)([A-Z])%)%s+",
+  letter_upper_paren_empty = "^(%s*)([A-Z])%)%s*$",
   ordered_paren_checkbox = "^(%s*)(%d+)%)%s+%[(.?)%]%s+",
   letter_lower_paren_checkbox = "^(%s*)([a-z])%)%s+%[(.?)%]%s+",
   letter_upper_paren_checkbox = "^(%s*)([A-Z])%)%s+%[(.?)%]%s+",
 }
 
 -- Pattern configuration: defines order and metadata for pattern matching
+-- Empty patterns are tried FIRST to avoid matching partial input like "3.H"
 local PATTERN_CONFIG = {
+  -- Empty item patterns (must come before ALL other patterns)
+  { pattern = "ordered_empty", type = "ordered", delimiter = DELIMITER_DOT, has_checkbox = false },
+  { pattern = "letter_lower_empty", type = "letter_lower", delimiter = DELIMITER_DOT, has_checkbox = false },
+  { pattern = "letter_upper_empty", type = "letter_upper", delimiter = DELIMITER_DOT, has_checkbox = false },
+  { pattern = "ordered_paren_empty", type = "ordered_paren", delimiter = DELIMITER_PAREN, has_checkbox = false },
+  {
+    pattern = "letter_lower_paren_empty",
+    type = "letter_lower_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = false,
+  },
+  {
+    pattern = "letter_upper_paren_empty",
+    type = "letter_upper_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = false,
+  },
+  { pattern = "unordered_empty", type = "unordered", delimiter = "", has_checkbox = false },
+  -- Checkbox patterns
   { pattern = "ordered_checkbox", type = "ordered", delimiter = DELIMITER_DOT, has_checkbox = true },
   { pattern = "letter_lower_checkbox", type = "letter_lower", delimiter = DELIMITER_DOT, has_checkbox = true },
   { pattern = "letter_upper_checkbox", type = "letter_upper", delimiter = DELIMITER_DOT, has_checkbox = true },
@@ -60,6 +87,7 @@ local PATTERN_CONFIG = {
     delimiter = DELIMITER_PAREN,
     has_checkbox = true,
   },
+  -- Regular patterns with content
   { pattern = "ordered", type = "ordered", delimiter = DELIMITER_DOT, has_checkbox = false },
   { pattern = "letter_lower", type = "letter_lower", delimiter = DELIMITER_DOT, has_checkbox = false },
   { pattern = "letter_upper", type = "letter_upper", delimiter = DELIMITER_DOT, has_checkbox = false },

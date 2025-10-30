@@ -470,6 +470,46 @@ describe("markdown-plus list management", function()
       assert.are.equal("", result[3])
       assert.are.equal("a. Third", result[4]) -- Should restart at a
     end)
+
+    it("handles empty list items without trailing space (issue #17)", function()
+      -- This reproduces the bug where empty list items like "3." (no trailing space)
+      -- would break list continuity and cause incorrect renumbering
+      local lines = {
+        "1. A",
+        "2. b",
+        "3.", -- Empty item without trailing space
+        "4. c",
+        "5.", -- Empty item without trailing space
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      -- All items should be recognized as one continuous list and maintain proper numbering
+      assert.are.equal("1. A", result[1])
+      assert.are.equal("2. b", result[2])
+      assert.are.equal("3.", result[3]) -- Empty item stays as 3, no trailing space added
+      assert.are.equal("4. c", result[4])
+      assert.are.equal("5.", result[5]) -- Empty item stays as 5, no trailing space added
+    end)
+
+    it("handles empty list items with trailing space", function()
+      -- Verify that empty list items WITH trailing space also work correctly
+      local lines = {
+        "1. Item one",
+        "2. ", -- Empty item with trailing space
+        "3. Item three",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. Item one", result[1])
+      assert.are.equal("2.", result[2]) -- Trailing space removed from empty item
+      assert.are.equal("3. Item three", result[3])
+    end)
   end)
 
   describe("checkbox management", function()
