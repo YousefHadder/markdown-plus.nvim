@@ -2,6 +2,17 @@
 local parser = require("markdown-plus.headers.parser")
 local M = {}
 
+local TOC_DEFAULT_MAX_DEPTH = 2 -- Default depth for TOC generation
+
+---@type markdown-plus.InternalConfig
+local config = {}
+
+---Set module configuration
+---@param cfg markdown-plus.InternalConfig
+function M.set_config(cfg)
+  config = cfg or {}
+end
+
 ---Check if content between markers looks like a valid TOC
 ---@param lines string[] All lines in buffer
 ---@param start_line number Start line (1-indexed)
@@ -139,6 +150,9 @@ function M.generate_toc()
     toc_insert_line = headers[1].line_num + 1
   end
 
+  -- Get max depth from config
+  local max_depth = config.toc and config.toc.initial_depth or TOC_DEFAULT_MAX_DEPTH
+
   -- Build TOC lines with HTML comment markers
   local toc_lines = {
     "",
@@ -148,13 +162,15 @@ function M.generate_toc()
     "",
   }
 
+  local entry_count = 0
   for _, header in ipairs(headers) do
-    -- Skip H1 (usually the document title)
-    if header.level > 1 then
+    -- Skip H1 (usually the document title) and headers beyond max_depth
+    if header.level > 1 and header.level <= max_depth then
       local indent = string.rep("  ", header.level - 2)
       local slug = parser.generate_slug(header.text)
       local toc_line = indent .. "- [" .. header.text .. "](#" .. slug .. ")"
       table.insert(toc_lines, toc_line)
+      entry_count = entry_count + 1
     end
   end
 
@@ -165,7 +181,7 @@ function M.generate_toc()
   -- Insert TOC into buffer
   vim.api.nvim_buf_set_lines(0, toc_insert_line - 1, toc_insert_line - 1, false, toc_lines)
 
-  vim.notify("TOC generated with " .. (#headers - 1) .. " entries", vim.log.levels.INFO)
+  vim.notify("TOC generated with " .. entry_count .. " entries", vim.log.levels.INFO)
 end
 
 ---Update existing table of contents
@@ -185,6 +201,9 @@ function M.update_toc()
     return
   end
 
+  -- Get max depth from config
+  local max_depth = config.toc and config.toc.initial_depth or TOC_DEFAULT_MAX_DEPTH
+
   -- Build new TOC content (between markers)
   local toc_lines = {
     "",
@@ -192,13 +211,15 @@ function M.update_toc()
     "",
   }
 
+  local entry_count = 0
   for _, header in ipairs(headers) do
-    -- Skip H1 (usually the document title)
-    if header.level > 1 then
+    -- Skip H1 (usually the document title) and headers beyond max_depth
+    if header.level > 1 and header.level <= max_depth then
       local indent = string.rep("  ", header.level - 2)
       local slug = parser.generate_slug(header.text)
       local toc_line = indent .. "- [" .. header.text .. "](#" .. slug .. ")"
       table.insert(toc_lines, toc_line)
+      entry_count = entry_count + 1
     end
   end
 
@@ -214,7 +235,7 @@ function M.update_toc()
   -- Insert new content
   vim.api.nvim_buf_set_lines(0, start_line, start_line, false, toc_lines)
 
-  vim.notify("TOC updated with " .. (#headers - 1) .. " entries", vim.log.levels.INFO)
+  vim.notify("TOC updated with " .. entry_count .. " entries", vim.log.levels.INFO)
 end
 
 return M

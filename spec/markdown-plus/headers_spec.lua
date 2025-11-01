@@ -180,6 +180,150 @@ describe("markdown-plus headers", function()
       end
       assert.are.equal(1, toc_count)
     end)
+
+    it("respects initial_depth config (depth=2)", function()
+      local toc_mod = require("markdown-plus.headers.toc")
+      toc_mod.set_config({ toc = { initial_depth = 2 } })
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Main Title",
+        "",
+        "## Section 1",
+        "### Subsection 1.1",
+        "#### Deep 1.1.1",
+        "## Section 2",
+        "### Subsection 2.1",
+      })
+
+      headers.generate_toc()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+      -- Find TOC section and check its contents
+      local in_toc = false
+      local toc_has_section = false
+      local toc_has_subsection = false
+      local toc_has_deep = false
+
+      for _, line in ipairs(lines) do
+        if line:match("<!%-%- TOC %-%->") then
+          in_toc = true
+        elseif line:match("<!%-%- /TOC %-%->") then
+          in_toc = false
+        elseif in_toc and line:match("^%s*%-%s+%[") then
+          -- This is a TOC entry
+          if line:match("Section") and not line:match("Subsection") then
+            toc_has_section = true
+          end
+          if line:match("Subsection") then
+            toc_has_subsection = true
+          end
+          if line:match("Deep") then
+            toc_has_deep = true
+          end
+        end
+      end
+
+      assert.is_true(toc_has_section)
+      assert.is_false(toc_has_subsection) -- Should not include H3 in TOC
+      assert.is_false(toc_has_deep) -- Should not include H4 in TOC
+    end)
+
+    it("respects initial_depth config (depth=3)", function()
+      local toc_mod = require("markdown-plus.headers.toc")
+      toc_mod.set_config({ toc = { initial_depth = 3 } })
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Main Title",
+        "",
+        "## Section 1",
+        "### Subsection 1.1",
+        "#### Deep 1.1.1",
+        "## Section 2",
+      })
+
+      headers.generate_toc()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+      -- Find TOC section and check its contents
+      local in_toc = false
+      local toc_has_section = false
+      local toc_has_subsection = false
+      local toc_has_deep = false
+
+      for _, line in ipairs(lines) do
+        if line:match("<!%-%- TOC %-%->") then
+          in_toc = true
+        elseif line:match("<!%-%- /TOC %-%->") then
+          in_toc = false
+        elseif in_toc and line:match("^%s*%-%s+%[") then
+          -- This is a TOC entry
+          if line:match("Section 1") then
+            toc_has_section = true
+          end
+          if line:match("Subsection") then
+            toc_has_subsection = true
+          end
+          if line:match("Deep") then
+            toc_has_deep = true
+          end
+        end
+      end
+
+      assert.is_true(toc_has_section)
+      assert.is_true(toc_has_subsection) -- Should include H3 in TOC
+      assert.is_false(toc_has_deep) -- Should not include H4 in TOC
+    end)
+
+    it("update_toc respects initial_depth config", function()
+      local toc_mod = require("markdown-plus.headers.toc")
+      toc_mod.set_config({ toc = { initial_depth = 2 } })
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Main Title",
+        "<!-- TOC -->",
+        "- [Old Entry](#old)",
+        "<!-- /TOC -->",
+        "",
+        "## Section 1",
+        "### Subsection 1.1",
+        "## Section 2",
+      })
+
+      headers.update_toc()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+
+      -- Find TOC section and check its contents
+      local in_toc = false
+      local toc_has_section1 = false
+      local toc_has_section2 = false
+      local toc_has_subsection = false
+
+      for _, line in ipairs(lines) do
+        if line:match("<!%-%- TOC %-%->") then
+          in_toc = true
+        elseif line:match("<!%-%- /TOC %-%->") then
+          in_toc = false
+        elseif in_toc and line:match("^%s*%-%s+%[") then
+          -- This is a TOC entry
+          if line:match("Section 1") then
+            toc_has_section1 = true
+          end
+          if line:match("Section 2") then
+            toc_has_section2 = true
+          end
+          if line:match("Subsection") then
+            toc_has_subsection = true
+          end
+        end
+      end
+
+      assert.is_true(toc_has_section1)
+      assert.is_true(toc_has_section2)
+      assert.is_false(toc_has_subsection) -- Should not include H3 in TOC with depth=2
+    end)
   end)
 
   describe("open_toc_window", function()

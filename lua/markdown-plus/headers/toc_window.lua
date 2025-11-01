@@ -53,31 +53,64 @@ local function get_children(header_idx)
   return children
 end
 
+--- Check if all ancestors of a header are expanded
+---@param header_idx number Index of the header in headers array
+---@return boolean True if all ancestors are expanded (or no ancestors exist)
+local function are_all_ancestors_expanded(header_idx)
+  local current_level = toc_state.headers[header_idx].level
+
+  -- H1 has no ancestors
+  if current_level == 1 then
+    return true
+  end
+
+  -- Find direct parent and check ancestor chain
+  local check_idx = header_idx - 1
+  while check_idx >= 1 do
+    local check_header = toc_state.headers[check_idx]
+    if check_header.level < current_level then
+      -- Found an ancestor at higher level
+      if check_header.level == current_level - 1 then
+        -- Direct parent - check if expanded
+        if not is_expanded(check_idx) then
+          return false
+        end
+        -- Continue checking parent's ancestors
+        current_level = check_header.level
+      end
+    end
+    check_idx = check_idx - 1
+  end
+
+  return true
+end
+
 --- Build the visible headers list based on expansion state
 local function build_visible_headers()
   toc_state.visible_headers = {}
 
   for i, header in ipairs(toc_state.headers) do
     -- Check if this header should be visible
-    local should_show = false
+    local should_show
 
-    if header.level <= toc_state.max_depth then
-      -- Within initial depth
+    -- Find direct parent (one level up)
+    local parent_idx = nil
+    for j = i - 1, 1, -1 do
+      if toc_state.headers[j].level == header.level - 1 then
+        parent_idx = j
+        break
+      end
+    end
+
+    if header.level == 1 then
+      -- H1 is always visible
       should_show = true
+    elseif header.level <= toc_state.max_depth then
+      -- Within initial depth - show if all ancestors are expanded
+      should_show = not parent_idx or are_all_ancestors_expanded(i)
     else
-      -- Check if any parent is expanded
-      local parent_idx = nil
-      for j = i - 1, 1, -1 do
-        if toc_state.headers[j].level < header.level then
-          parent_idx = j
-          break
-        end
-      end
-
-      if parent_idx and is_expanded(parent_idx) then
-        -- Direct parent is expanded, check if we should show this level
-        should_show = header.level <= toc_state.headers[parent_idx].level + 1
-      end
+      -- Beyond initial depth - only show if parent is expanded AND all ancestors are expanded
+      should_show = parent_idx and is_expanded(parent_idx) and are_all_ancestors_expanded(i)
     end
 
     if should_show then
@@ -391,12 +424,34 @@ function M.open_toc_window(window_type)
   -- Capture cursor position in source buffer before switching windows
   local source_cursor_line = vim.fn.line(".")
 
+  -- Get initial_depth from config
+  local initial_depth = config.toc and config.toc.initial_depth or TOC_DEFAULT_MAX_DEPTH
+
   -- Store state
   toc_state.source_bufnr = vim.api.nvim_get_current_buf()
   toc_state.headers = headers
   toc_state.expanded_levels = {}
   toc_state.visible_headers = {}
-  toc_state.max_depth = config.toc and config.toc.initial_depth or TOC_DEFAULT_MAX_DEPTH
+  toc_state.max_depth = initial_depth
+
+  -- Auto-expand headers below initial_depth that have children
+  for i, header in ipairs(headers) do
+    if header.level < initial_depth then
+      -- Check if this header has children
+      local has_children = false
+      for j = i + 1, #headers do
+        if headers[j].level > header.level then
+          has_children = true
+          break
+        elseif headers[j].level <= header.level then
+          break
+        end
+      end
+      if has_children then
+        toc_state.expanded_levels[i] = true
+      end
+    end
+  end
 
   -- Create or reuse TOC buffer
   if not toc_state.toc_bufnr or not vim.api.nvim_buf_is_valid(toc_state.toc_bufnr) then

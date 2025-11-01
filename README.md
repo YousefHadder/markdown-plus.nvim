@@ -1165,7 +1165,7 @@ require("markdown-plus").setup({
 
   -- TOC window configuration
   toc = {
-    initial_depth = 2,          -- default: 2 (range 1-6) depth initially shown in :Toc window
+    initial_depth = 2,          -- default: 2 (range 1-6) depth shown in :Toc window and generated TOC
   },
 
   -- Table configuration

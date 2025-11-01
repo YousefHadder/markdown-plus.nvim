@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Bug Fixes
 
+* TOC generation and window now respect initial_depth configuration ([503c2a2](https://github.com/YousefHadder/markdown-plus.nvim/commit/503c2a2))
 * address Copilot PR review comments ([71a4c26](https://github.com/YousefHadder/markdown-plus.nvim/commit/71a4c26f1cd5e718308d3727ff58b96de5b0e7f2))
 * address PR review comments and critical bugs ([0b2a42a](https://github.com/YousefHadder/markdown-plus.nvim/commit/0b2a42a3028433e50c3f8c39210eab69c2c3f762))
 * correct LuaRocks publication workflow ([ee7f149](https://github.com/YousefHadder/markdown-plus.nvim/commit/ee7f14932f1afe5c7c058d2f39e1ac66ea19cde9))

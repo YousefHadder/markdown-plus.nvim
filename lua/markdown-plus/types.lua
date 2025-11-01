@@ -51,6 +51,7 @@
 ---@field features markdown-plus.InternalFeatureConfig
 ---@field keymaps markdown-plus.InternalKeymapConfig
 ---@field code_block markdown-plus.InternalCodeBlockConfig
+---@field toc? markdown-plus.TocConfig
 
 ---Internal feature configuration
 ---@class markdown-plus.InternalFeatureConfig
