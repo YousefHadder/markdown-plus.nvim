@@ -132,7 +132,7 @@ make check             # Run lint + format-check + test
 
 #### Version Control
 - [ ] Create atomic commits (one logical change per commit)
-- [ ] Write clear commit messages
+- [ ] Write simple, concise one-line commit messages (no detailed descriptions)
 - [ ] Update CHANGELOG.md with changes
 - [ ] **ASK PERMISSION before committing or pushing**
 
@@ -164,6 +164,7 @@ make check             # Run lint + format-check + test
 - Bypass validation for user configuration
 - Commit large refactors without test coverage
 - Create multiple top-level commands (prefer `<Plug>` or subcommands)
+- Write verbose multi-line commit messages (keep it one line)
 - **Commit or push without explicit user permission**
 
 #### DO
@@ -172,6 +173,7 @@ make check             # Run lint + format-check + test
 - Keep changes surgical and focused
 - Write tests before implementation when fixing bugs
 - Update all related documentation in the same changeset
+- Write concise one-line commit messages in conventional commit format
 - **Always ask permission before committing or pushing**
 
 ### Performance & Safety
