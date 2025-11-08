@@ -165,19 +165,19 @@ function M.csv_to_table()
 
   -- Find end of CSV block (move down while lines are CSV)
   local total_lines = vim.api.nvim_buf_line_count(0)
-  while end_row <= total_lines do
+  while end_row < total_lines do
     local line = vim.api.nvim_buf_get_lines(0, end_row, end_row + 1, false)[1]
-    if not is_csv_line(line) then
+    if not line or not is_csv_line(line) then
       break
     end
     end_row = end_row + 1
   end
 
-  -- end_row now points to first line after CSV block (or total_lines + 1)
+  -- end_row now points to first line after CSV block (or total_lines)
   -- nvim_buf_get_lines uses exclusive end, so this is perfect for the range
 
   -- Get CSV lines
-  local csv_lines = vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
+  local csv_lines = vim.api.nvim_buf_get_lines(0, start_row - 1, math.min(end_row, total_lines), false)
   if #csv_lines == 0 then
     vim.notify("No CSV data found", vim.log.levels.WARN)
     return false

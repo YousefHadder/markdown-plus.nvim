@@ -367,7 +367,8 @@ function M.toggle_cell_alignment()
   end
 
   -- Get current alignment (1-indexed in alignments array)
-  local current_alignment = table_info.alignments[pos.col + 1] or "left"
+  local col_index = pos.col + 1
+  local current_alignment = table_info.alignments[col_index] or "left"
 
   -- Cycle to next alignment
   local next_alignment
@@ -380,7 +381,7 @@ function M.toggle_cell_alignment()
   end
 
   -- Update alignment
-  table_info.alignments[pos.col + 1] = next_alignment
+  table_info.alignments[col_index] = next_alignment
 
   -- Reformat and update buffer
   formatter.format_table(table_info)

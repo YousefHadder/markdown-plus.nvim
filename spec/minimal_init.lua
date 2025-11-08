@@ -30,10 +30,6 @@ end
 vim.opt.rtp:prepend(root)
 vim.opt.rtp:prepend(plenary_dir)
 
--- Set up package path to find lua modules
-vim.cmd("set runtimepath+=" .. root)
-vim.cmd("set runtimepath+=" .. plenary_dir)
-
 -- Disable swap files for testing
 vim.opt.swapfile = false
 vim.opt.backup = false
