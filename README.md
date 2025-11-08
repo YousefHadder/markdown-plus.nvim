@@ -1216,6 +1216,17 @@ logical cell (usually first cell of new/modified row/column).
 | `<leader>tiC` | Normal | Insert column to the left |
 | `<leader>tdc` | Normal | Delete current column |
 | `<leader>tyc` | Normal | Duplicate current column |
+| `<leader>ta` | Normal | Toggle cell alignment (left/center/right) |
+| `<leader>tx` | Normal | Clear cell content |
+| `<leader>tmh` | Normal | Move column left |
+| `<leader>tml` | Normal | Move column right |
+| `<leader>tmk` | Normal | Move row up |
+| `<leader>tmj` | Normal | Move row down |
+| `<leader>tt` | Normal | Transpose table (swap rows/columns) |
+| `<leader>tsa` | Normal | Sort table by column (ascending) |
+| `<leader>tsd` | Normal | Sort table by column (descending) |
+| `<leader>tvx` | Normal | Convert table to CSV |
+| `<leader>tvi` | Normal | Convert CSV to table |
 | `<A-h>` | Insert | Move to cell on the left (wraps) |
 | `<A-l>` | Insert | Move to cell on the right (wraps) |
 | `<A-j>` | Insert | Move to cell below (wraps) |
@@ -1257,6 +1268,7 @@ require("markdown-plus").setup({
   table = {
     auto_format = true,         -- default: true  auto format table after operations
     default_alignment = "left", -- default: "left"  alignment used for new columns
+    confirm_destructive = true, -- default: true  confirm before transpose/sort operations
     keymaps = {                 -- Table-specific keymaps (prefix based)
       enabled = true,           -- default: true  provide table keymaps
       prefix = "<leader>t",     -- default: "<leader>t"  prefix for table ops

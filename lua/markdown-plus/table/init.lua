@@ -28,6 +28,7 @@ M.defaults = {
   enabled = true,
   auto_format = true,
   default_alignment = "left",
+  confirm_destructive = true,
   keymaps = {
     enabled = true,
     prefix = "<leader>t",
@@ -158,6 +159,83 @@ end
 function M.move_down()
   local nav = require("markdown-plus.table.navigation")
   return nav.move_down()
+end
+
+---Toggle alignment of current column (left → center → right)
+---@return boolean success True if alignment was toggled
+function M.toggle_cell_alignment()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.toggle_cell_alignment()
+end
+
+---Move current row up
+---@return boolean success True if row was moved
+function M.move_row_up()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.move_row_up()
+end
+
+---Move current row down
+---@return boolean success True if row was moved
+function M.move_row_down()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.move_row_down()
+end
+
+---Clear content of current cell
+---@return boolean success True if cell was cleared
+function M.clear_cell()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.clear_cell()
+end
+
+---Move column left
+---@return boolean success True if column was moved
+function M.move_column_left()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.move_column_left()
+end
+
+---Move column right
+---@return boolean success True if column was moved
+function M.move_column_right()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.move_column_right()
+end
+
+---Transpose table (swap rows and columns)
+---@return boolean success True if table was transposed
+function M.transpose_table()
+  local calc = require("markdown-plus.table.calculator")
+  return calc.transpose_table()
+end
+
+---Sort table by current column (ascending)
+---@return boolean success True if table was sorted
+function M.sort_ascending()
+  local calc = require("markdown-plus.table.calculator")
+  return calc.sort_by_column(true)
+end
+
+---Sort table by current column (descending)
+---@return boolean success True if table was sorted
+function M.sort_descending()
+  local calc = require("markdown-plus.table.calculator")
+  return calc.sort_by_column(false)
+end
+
+---Convert table to CSV format
+---@return boolean success True if conversion succeeded
+function M.table_to_csv()
+  local conv = require("markdown-plus.table.conversion")
+  return conv.table_to_csv()
+end
+
+---Convert CSV to markdown table
+---@return boolean success True if conversion succeeded
+function M.csv_to_table()
+  local conv = require("markdown-plus.table.conversion")
+  return conv.csv_to_table()
 end
 
 return M

@@ -26,6 +26,7 @@
 ---@field enabled? boolean Enable table features (default: true)
 ---@field auto_format? boolean Automatically format tables on edit (default: true)
 ---@field default_alignment? string Default column alignment: 'left', 'center', 'right' (default: 'left')
+---@field confirm_destructive? boolean Confirm before destructive operations like transpose/sort (default: true)
 ---@field keymaps? markdown-plus.TableKeymapConfig Table keymap configuration
 
 ---Table keymap configuration
@@ -69,6 +70,7 @@
 ---@field enabled boolean
 ---@field auto_format boolean
 ---@field default_alignment string
+---@field confirm_destructive boolean
 ---@field keymaps markdown-plus.InternalTableKeymapConfig
 
 ---Internal table keymap configuration

@@ -110,6 +110,102 @@ local function register_plug_mappings()
       end,
       "Duplicate column",
     },
+
+    -- Phase 2: Cell operations
+    {
+      "n",
+      "<Plug>(markdown-plus-table-toggle-cell-alignment)",
+      function()
+        require("markdown-plus.table").toggle_cell_alignment()
+      end,
+      "Toggle cell alignment",
+    },
+    {
+      "n",
+      "<Plug>(markdown-plus-table-clear-cell)",
+      function()
+        require("markdown-plus.table").clear_cell()
+      end,
+      "Clear cell content",
+    },
+
+    -- Phase 2: Row movement
+    {
+      "n",
+      "<Plug>(markdown-plus-table-move-row-up)",
+      function()
+        require("markdown-plus.table").move_row_up()
+      end,
+      "Move row up",
+    },
+    {
+      "n",
+      "<Plug>(markdown-plus-table-move-row-down)",
+      function()
+        require("markdown-plus.table").move_row_down()
+      end,
+      "Move row down",
+    },
+
+    -- Phase 2: Column movement
+    {
+      "n",
+      "<Plug>(markdown-plus-table-move-column-left)",
+      function()
+        require("markdown-plus.table").move_column_left()
+      end,
+      "Move column left",
+    },
+    {
+      "n",
+      "<Plug>(markdown-plus-table-move-column-right)",
+      function()
+        require("markdown-plus.table").move_column_right()
+      end,
+      "Move column right",
+    },
+
+    -- Phase 2: Advanced operations
+    {
+      "n",
+      "<Plug>(markdown-plus-table-transpose)",
+      function()
+        require("markdown-plus.table").transpose_table()
+      end,
+      "Transpose table",
+    },
+    {
+      "n",
+      "<Plug>(markdown-plus-table-sort-ascending)",
+      function()
+        require("markdown-plus.table").sort_ascending()
+      end,
+      "Sort table by column (ascending)",
+    },
+    {
+      "n",
+      "<Plug>(markdown-plus-table-sort-descending)",
+      function()
+        require("markdown-plus.table").sort_descending()
+      end,
+      "Sort table by column (descending)",
+    },
+    {
+      "n",
+      "<Plug>(markdown-plus-table-to-csv)",
+      function()
+        require("markdown-plus.table").table_to_csv()
+      end,
+      "Convert table to CSV",
+    },
+    {
+      "n",
+      "<Plug>(markdown-plus-table-from-csv)",
+      function()
+        require("markdown-plus.table").csv_to_table()
+      end,
+      "Convert CSV to table",
+    },
   }
 
   -- Register all <Plug> mappings
@@ -146,6 +242,30 @@ local function setup_buffer_keymaps(config)
       { "n", prefix .. "iC", "<Plug>(markdown-plus-table-insert-column-left)", "Insert column left" },
       { "n", prefix .. "dc", "<Plug>(markdown-plus-table-delete-column)", "Delete column" },
       { "n", prefix .. "yc", "<Plug>(markdown-plus-table-duplicate-column)", "Duplicate column" },
+
+      -- Phase 2: Cell operations
+      {
+        "n",
+        prefix .. "a",
+        "<Plug>(markdown-plus-table-toggle-cell-alignment)",
+        "Toggle cell alignment (left/center/right)",
+      },
+      { "n", prefix .. "x", "<Plug>(markdown-plus-table-clear-cell)", "Clear cell content" },
+
+      -- Phase 2: Row movement
+      { "n", prefix .. "mj", "<Plug>(markdown-plus-table-move-row-down)", "Move row down" },
+      { "n", prefix .. "mk", "<Plug>(markdown-plus-table-move-row-up)", "Move row up" },
+
+      -- Phase 2: Column movement
+      { "n", prefix .. "mh", "<Plug>(markdown-plus-table-move-column-left)", "Move column left" },
+      { "n", prefix .. "ml", "<Plug>(markdown-plus-table-move-column-right)", "Move column right" },
+
+      -- Phase 2: Advanced operations
+      { "n", prefix .. "t", "<Plug>(markdown-plus-table-transpose)", "Transpose table (swap rows/columns)" },
+      { "n", prefix .. "sa", "<Plug>(markdown-plus-table-sort-ascending)", "Sort table by column (ascending)" },
+      { "n", prefix .. "sd", "<Plug>(markdown-plus-table-sort-descending)", "Sort table by column (descending)" },
+      { "n", prefix .. "vx", "<Plug>(markdown-plus-table-to-csv)", "Convert table to CSV" },
+      { "n", prefix .. "vi", "<Plug>(markdown-plus-table-from-csv)", "Convert CSV to table" },
     }
 
     for _, mapping in ipairs(default_mappings) do

@@ -1,28 +1,44 @@
--- Minimal init for testing
--- This file sets up the minimal Neovim environment needed for tests
+-- spec/minimal_init.lua
+-- Minimal init for running tests
 
--- Add plugin to runtime path
-vim.opt.rtp:prepend(".")
+-- Set runtimepath to include plenary and this plugin
+local root = vim.fn.fnamemodify(vim.fn.getcwd(), ":p")
 
--- Add plenary.nvim if available (for plenary.busted)
-local plenary_dir = os.getenv("PLENARY_DIR") or vim.fn.expand("~/.local/share/nvim/lazy/plenary.nvim")
-if vim.fn.isdirectory(plenary_dir) == 1 then
-  vim.opt.rtp:append(plenary_dir)
+-- Find plenary.nvim
+local plenary_dir = os.getenv("PLENARY_DIR")
+
+if not plenary_dir or vim.fn.isdirectory(plenary_dir) == 0 then
+  local possible_paths = {
+    vim.fn.expand("~/.local/share/nvim/lazy/plenary.nvim"),
+    vim.fn.expand("~/.local/share/nvim/site/pack/vendor/start/plenary.nvim"),
+    vim.fn.expand("~/.local/share/nvim/site/pack/packer/start/plenary.nvim"),
+  }
+
+  for _, path in ipairs(possible_paths) do
+    if vim.fn.isdirectory(path) == 1 then
+      plenary_dir = path
+      break
+    end
+  end
 end
 
--- Set up basic vim options for testing
+if not plenary_dir or vim.fn.isdirectory(plenary_dir) == 0 then
+  error("plenary.nvim not found! Searched paths and PLENARY_DIR env var")
+end
+
+-- Set up runtimepath
+vim.opt.rtp:prepend(root)
+vim.opt.rtp:prepend(plenary_dir)
+
+-- Set up package path to find lua modules
+vim.cmd("set runtimepath+=" .. root)
+vim.cmd("set runtimepath+=" .. plenary_dir)
+
+-- Disable swap files for testing
 vim.opt.swapfile = false
-vim.opt.hidden = true
+vim.opt.backup = false
+vim.opt.writebackup = false
 
--- Ensure markdown filetype is recognized
-vim.cmd([[
-  augroup test_markdown
-    autocmd!
-    autocmd BufRead,BufNewFile *.md setfiletype markdown
-  augroup END
-]])
-
--- Load the plugin
-require("markdown-plus")
-
-print("Test environment initialized")
+-- Ensure plugin files are loaded
+vim.cmd("runtime! plugin/**/*.vim")
+vim.cmd("runtime! plugin/**/*.lua")

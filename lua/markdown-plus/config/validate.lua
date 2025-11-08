@@ -95,6 +95,7 @@ function M.validate(opts)
       enabled = { opts.table.enabled, "boolean", true },
       auto_format = { opts.table.auto_format, "boolean", true },
       default_alignment = { opts.table.default_alignment, "string", true },
+      confirm_destructive = { opts.table.confirm_destructive, "boolean", true },
       keymaps = { opts.table.keymaps, "table", true },
     })
     if not ok then
@@ -174,7 +175,8 @@ function M.validate(opts)
 
   -- Check for unknown table fields
   if opts.table then
-    local known_table_fields = { enabled = true, auto_format = true, default_alignment = true, keymaps = true }
+    local known_table_fields =
+      { enabled = true, auto_format = true, default_alignment = true, confirm_destructive = true, keymaps = true }
     for key in pairs(opts.table) do
       if not known_table_fields[key] then
         return false,

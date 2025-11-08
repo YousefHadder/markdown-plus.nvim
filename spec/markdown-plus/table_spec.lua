@@ -883,3 +883,314 @@ describe("table.insert_mode_navigation", function()
     end)
   end)
 end)
+
+-- Phase 2 Tests
+describe("table.manipulation Phase 2", function()
+  local manipulation = require("markdown-plus.table.manipulation")
+
+  before_each(function()
+    vim.cmd("enew")
+    vim.bo.filetype = "markdown"
+  end)
+
+  describe("toggle_cell_alignment", function()
+    it("should cycle through alignments: left → center → right → left", function()
+      local lines = {
+        "| Column 1 | Column 2 |",
+        "| --- | --- |",
+        "| A | B |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 5) -- First column
+
+      -- Should be left initially
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("left", table_info.alignments[1])
+
+      -- Toggle to center
+      manipulation.toggle_cell_alignment()
+      table_info = parser.get_table_at_cursor()
+      assert.equals("center", table_info.alignments[1])
+
+      -- Toggle to right
+      manipulation.toggle_cell_alignment()
+      table_info = parser.get_table_at_cursor()
+      assert.equals("right", table_info.alignments[1])
+
+      -- Toggle back to left
+      manipulation.toggle_cell_alignment()
+      table_info = parser.get_table_at_cursor()
+      assert.equals("left", table_info.alignments[1])
+    end)
+  end)
+
+  describe("move_row_up", function()
+    it("should move data row up", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| --- | --- |",
+        "| Row1 | A |",
+        "| Row2 | B |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(4, 5) -- Row2
+
+      manipulation.move_row_up()
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("Row2", table_info.cells[2][1])
+      assert.equals("Row1", table_info.cells[3][1])
+    end)
+
+    it("should not move first data row up", function()
+      local lines = {
+        "| H1 |",
+        "| --- |",
+        "| Row1 |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(3, 5) -- First data row
+
+      local result = manipulation.move_row_up()
+      assert.is_false(result)
+    end)
+  end)
+
+  describe("move_row_down", function()
+    it("should move data row down", function()
+      local lines = {
+        "| H1 |",
+        "| --- |",
+        "| Row1 |",
+        "| Row2 |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(3, 5) -- Row1
+
+      manipulation.move_row_down()
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("Row2", table_info.cells[2][1])
+      assert.equals("Row1", table_info.cells[3][1])
+    end)
+  end)
+
+  describe("clear_cell", function()
+    it("should clear cell content", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| --- | --- |",
+        "| Data | More |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(3, 5) -- First cell
+
+      manipulation.clear_cell()
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("", table_info.cells[2][1])
+      assert.equals("More", table_info.cells[2][2]) -- Other cell unchanged
+    end)
+  end)
+
+  describe("move_column_left", function()
+    it("should swap column with left neighbor", function()
+      local lines = {
+        "| Col1 | Col2 | Col3 |",
+        "| --- | :---: | ---: |",
+        "| A | B | C |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 15) -- Col2
+
+      manipulation.move_column_left()
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("Col2", table_info.cells[1][1])
+      assert.equals("Col1", table_info.cells[1][2])
+      -- Check alignments swapped too
+      assert.equals("center", table_info.alignments[1])
+      assert.equals("left", table_info.alignments[2])
+    end)
+  end)
+
+  describe("move_column_right", function()
+    it("should swap column with right neighbor", function()
+      local lines = {
+        "| Col1 | Col2 | Col3 |",
+        "| :--- | --- | ---: |",
+        "| A | B | C |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 5) -- Col1
+
+      manipulation.move_column_right()
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("Col2", table_info.cells[1][1])
+      assert.equals("Col1", table_info.cells[1][2])
+    end)
+  end)
+end)
+
+describe("table.calculator", function()
+  local calculator = require("markdown-plus.table.calculator")
+
+  before_each(function()
+    vim.cmd("enew")
+    vim.bo.filetype = "markdown"
+    -- Disable confirmation prompts for tests
+    require("markdown-plus.table").config.confirm_destructive = false
+  end)
+
+  describe("transpose_table", function()
+    it("should swap rows and columns", function()
+      -- Mock confirmation to always return true
+      local utils = require("markdown-plus.utils")
+      utils.confirm = function()
+        return true
+      end
+
+      -- Create a 2x4 table (2 cols, 4 rows including header)
+      local lines = {
+        "| H1 | H2 |",
+        "| --- | --- |",
+        "| A | B |",
+        "| C | D |",
+        "| E | F |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+
+      calculator.transpose_table()
+      local table_info = parser.get_table_at_cursor()
+
+      -- Original: 4 rows x 2 cols → Transposed: 2 rows x 4 cols
+      assert.equals(4, table_info.cols) -- Now 4 columns
+      assert.equals(2, #table_info.cells) -- Now 2 rows (including header)
+      assert.equals("H1", table_info.cells[1][1])
+      assert.equals("A", table_info.cells[1][2])
+      assert.equals("C", table_info.cells[1][3])
+      assert.equals("E", table_info.cells[1][4])
+      assert.equals("H2", table_info.cells[2][1])
+      assert.equals("B", table_info.cells[2][2])
+      assert.equals("D", table_info.cells[2][3])
+      assert.equals("F", table_info.cells[2][4])
+    end)
+  end)
+
+  describe("sort_by_column", function()
+    before_each(function()
+      -- Mock confirmation to always return true
+      local utils = require("markdown-plus.utils")
+      utils.confirm = function()
+        return true
+      end
+    end)
+
+    it("should sort numeric column ascending", function()
+      local lines = {
+        "| Name | Age |",
+        "| --- | --- |",
+        "| Alice | 30 |",
+        "| Bob | 25 |",
+        "| Charlie | 35 |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 15) -- Age column
+
+      calculator.sort_by_column(true)
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("Bob", table_info.cells[2][1])
+      assert.equals("Alice", table_info.cells[3][1])
+      assert.equals("Charlie", table_info.cells[4][1])
+    end)
+
+    it("should sort text column alphabetically", function()
+      local lines = {
+        "| Name | City |",
+        "| --- | --- |",
+        "| Charlie | Chicago |",
+        "| Alice | Austin |",
+        "| Bob | Boston |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 5) -- Name column
+
+      calculator.sort_by_column(true)
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("Alice", table_info.cells[2][1])
+      assert.equals("Bob", table_info.cells[3][1])
+      assert.equals("Charlie", table_info.cells[4][1])
+    end)
+  end)
+end)
+
+describe("table.conversion", function()
+  local conversion = require("markdown-plus.table.conversion")
+
+  before_each(function()
+    vim.cmd("enew")
+    vim.bo.filetype = "markdown"
+  end)
+
+  describe("table_to_csv", function()
+    it("should convert simple table to CSV", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| --- | --- |",
+        "| A | B |",
+        "| C | D |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+
+      conversion.table_to_csv()
+      local result_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals(3, #result_lines)
+      assert.equals("H1,H2", result_lines[1])
+      assert.equals("A,B", result_lines[2])
+    end)
+
+    it("should quote fields with commas", function()
+      local lines = {
+        "| Name | Description |",
+        "| --- | --- |",
+        "| Item1 | Red, blue |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+
+      conversion.table_to_csv()
+      local result_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.is_true(result_lines[2]:match('"Red, blue"') ~= nil)
+    end)
+  end)
+
+  describe("csv_to_table", function()
+    it("should convert simple CSV to table", function()
+      local lines = {
+        "H1,H2",
+        "A,B",
+        "C,D",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+
+      conversion.csv_to_table()
+      local table_info = parser.get_table_at_cursor()
+      assert.is_not_nil(table_info)
+      assert.equals(2, table_info.cols)
+      assert.equals("H1", table_info.cells[1][1])
+      assert.equals("A", table_info.cells[2][1])
+    end)
+
+    it("should handle quoted fields with commas", function()
+      local lines = {
+        "Name,Description",
+        '"Item1","Red, blue"',
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+
+      conversion.csv_to_table()
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("Red, blue", table_info.cells[2][2])
+    end)
+  end)
+end)

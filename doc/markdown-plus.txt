@@ -838,6 +838,17 @@ Default keymaps:
         table_insert_column_left = '<leader>tiC',  -- Insert column left
         table_delete_column = '<leader>tdc',       -- Delete current column
         table_duplicate_column = '<leader>tyc',    -- Duplicate current column
+        table_toggle_alignment = '<leader>ta',     -- Toggle cell alignment
+        table_clear_cell = '<leader>tx',           -- Clear cell content
+        table_move_column_left = '<leader>tmh',    -- Move column left
+        table_move_column_right = '<leader>tml',   -- Move column right
+        table_move_row_up = '<leader>tmk',         -- Move row up
+        table_move_row_down = '<leader>tmj',       -- Move row down
+        table_transpose = '<leader>tt',            -- Transpose table
+        table_sort_ascending = '<leader>tsa',      -- Sort by column (ascending)
+        table_sort_descending = '<leader>tsd',     -- Sort by column (descending)
+        table_to_csv = '<leader>tvx',              -- Convert table to CSV
+        csv_to_table = '<leader>tvi',              -- Convert CSV to table
 
         -- Table operations (Insert mode)
         table_move_left = '<A-h>',         -- Move to cell left (wraps)
@@ -871,6 +882,7 @@ The plugin can be configured through the setup function:
       table = {                  -- Table sub-configuration
         auto_format = true,
         default_alignment = 'left', -- 'left' | 'center' | 'right'
+        confirm_destructive = true,  -- Confirm before transpose/sort operations
         keymaps = {
           enabled = true,
           prefix = '<leader>t',

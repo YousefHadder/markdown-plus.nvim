@@ -348,4 +348,292 @@ function M.duplicate_column()
   return true
 end
 
+---Toggle alignment of the current column
+---Cycles through: left → center → right → left
+---@return boolean success True if alignment was toggled
+function M.toggle_cell_alignment()
+  local parser = require("markdown-plus.table.parser")
+  local formatter = require("markdown-plus.table.format")
+
+  local table_info = parser.get_table_at_cursor()
+  if not table_info then
+    vim.notify("Not in a table", vim.log.levels.WARN)
+    return false
+  end
+
+  local pos = parser.get_cursor_position_in_table()
+  if not pos then
+    return false
+  end
+
+  -- Get current alignment (1-indexed in alignments array)
+  local current_alignment = table_info.alignments[pos.col + 1] or "left"
+
+  -- Cycle to next alignment
+  local next_alignment
+  if current_alignment == "left" then
+    next_alignment = "center"
+  elseif current_alignment == "center" then
+    next_alignment = "right"
+  else
+    next_alignment = "left"
+  end
+
+  -- Update alignment
+  table_info.alignments[pos.col + 1] = next_alignment
+
+  -- Reformat and update buffer
+  formatter.format_table(table_info)
+
+  vim.notify(string.format("Column alignment: %s", next_alignment), vim.log.levels.INFO)
+  return true
+end
+
+---Move current row up (swap with row above)
+---@return boolean success True if row was moved
+function M.move_row_up()
+  local parser = require("markdown-plus.table.parser")
+  local formatter = require("markdown-plus.table.format")
+  local navigation = require("markdown-plus.table.navigation")
+  local row_mapper = require("markdown-plus.table.row_mapper")
+
+  local table_info = parser.get_table_at_cursor()
+  if not table_info then
+    vim.notify("Not in a table", vim.log.levels.WARN)
+    return false
+  end
+
+  local pos = parser.get_cursor_position_in_table()
+  if not pos then
+    return false
+  end
+
+  -- Cannot move header or separator
+  if row_mapper.is_header_row(pos.row) or row_mapper.is_separator_row(pos.row) then
+    vim.notify("Cannot move header or separator row", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Convert to cells index
+  local cells_index = row_mapper.pos_row_to_cells_index(pos.row)
+  if not cells_index then
+    return false
+  end
+
+  -- Check if we can move up (must be at least second data row, cells[3])
+  if cells_index <= 2 then
+    vim.notify("Cannot move row up - already at top", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Swap with row above
+  table_info.cells[cells_index], table_info.cells[cells_index - 1] =
+    table_info.cells[cells_index - 1], table_info.cells[cells_index]
+
+  -- Reformat and update buffer
+  formatter.format_table(table_info)
+
+  -- Re-parse to get updated table info
+  table_info = parser.get_table_at_cursor()
+  if not table_info then
+    return false
+  end
+
+  -- Move cursor to the new position (one row up)
+  navigation.move_to_cell(table_info, pos.row - 1, pos.col)
+
+  return true
+end
+
+---Move current row down (swap with row below)
+---@return boolean success True if row was moved
+function M.move_row_down()
+  local parser = require("markdown-plus.table.parser")
+  local formatter = require("markdown-plus.table.format")
+  local navigation = require("markdown-plus.table.navigation")
+  local row_mapper = require("markdown-plus.table.row_mapper")
+
+  local table_info = parser.get_table_at_cursor()
+  if not table_info then
+    vim.notify("Not in a table", vim.log.levels.WARN)
+    return false
+  end
+
+  local pos = parser.get_cursor_position_in_table()
+  if not pos then
+    return false
+  end
+
+  -- Cannot move header or separator
+  if row_mapper.is_header_row(pos.row) or row_mapper.is_separator_row(pos.row) then
+    vim.notify("Cannot move header or separator row", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Convert to cells index
+  local cells_index = row_mapper.pos_row_to_cells_index(pos.row)
+  if not cells_index then
+    return false
+  end
+
+  -- Check if we can move down
+  if cells_index >= #table_info.cells then
+    vim.notify("Cannot move row down - already at bottom", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Swap with row below
+  table_info.cells[cells_index], table_info.cells[cells_index + 1] =
+    table_info.cells[cells_index + 1], table_info.cells[cells_index]
+
+  -- Reformat and update buffer
+  formatter.format_table(table_info)
+
+  -- Re-parse to get updated table info
+  table_info = parser.get_table_at_cursor()
+  if not table_info then
+    return false
+  end
+
+  -- Move cursor to the new position (one row down)
+  navigation.move_to_cell(table_info, pos.row + 1, pos.col)
+
+  return true
+end
+
+---Clear content of the current cell
+---@return boolean success True if cell was cleared
+function M.clear_cell()
+  local parser = require("markdown-plus.table.parser")
+  local formatter = require("markdown-plus.table.format")
+
+  local table_info = parser.get_table_at_cursor()
+  if not table_info then
+    vim.notify("Not in a table", vim.log.levels.WARN)
+    return false
+  end
+
+  local pos = parser.get_cursor_position_in_table()
+  if not pos then
+    return false
+  end
+
+  -- Cannot clear separator row
+  local row_mapper = require("markdown-plus.table.row_mapper")
+  if row_mapper.is_separator_row(pos.row) then
+    vim.notify("Cannot clear separator row", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Convert to cells index (header is at cells[1], data rows start at cells[2])
+  local cells_index = row_mapper.pos_row_to_cells_index(pos.row)
+  if not cells_index then
+    return false
+  end
+
+  -- Clear the cell
+  table_info.cells[cells_index][pos.col + 1] = ""
+
+  -- Reformat and update buffer
+  formatter.format_table(table_info)
+
+  return true
+end
+
+---Move column left (swap with column to the left)
+---@return boolean success True if column was moved
+function M.move_column_left()
+  local parser = require("markdown-plus.table.parser")
+  local formatter = require("markdown-plus.table.format")
+  local navigation = require("markdown-plus.table.navigation")
+
+  local table_info = parser.get_table_at_cursor()
+  if not table_info then
+    vim.notify("Not in a table", vim.log.levels.WARN)
+    return false
+  end
+
+  local pos = parser.get_cursor_position_in_table()
+  if not pos then
+    return false
+  end
+
+  -- Check if we can move left
+  if pos.col == 0 then
+    vim.notify("Cannot move column left - already at leftmost position", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Swap columns in each row
+  for _, row in ipairs(table_info.cells) do
+    row[pos.col], row[pos.col + 1] = row[pos.col + 1], row[pos.col]
+  end
+
+  -- Swap alignments
+  table_info.alignments[pos.col], table_info.alignments[pos.col + 1] =
+    table_info.alignments[pos.col + 1], table_info.alignments[pos.col]
+
+  -- Reformat and update buffer
+  formatter.format_table(table_info)
+
+  -- Re-parse to get updated table info
+  table_info = parser.get_table_at_cursor()
+  if not table_info then
+    return false
+  end
+
+  -- Move cursor to the new position (one column left)
+  navigation.move_to_cell(table_info, pos.row, pos.col - 1)
+
+  return true
+end
+
+---Move column right (swap with column to the right)
+---@return boolean success True if column was moved
+function M.move_column_right()
+  local parser = require("markdown-plus.table.parser")
+  local formatter = require("markdown-plus.table.format")
+  local navigation = require("markdown-plus.table.navigation")
+
+  local table_info = parser.get_table_at_cursor()
+  if not table_info then
+    vim.notify("Not in a table", vim.log.levels.WARN)
+    return false
+  end
+
+  local pos = parser.get_cursor_position_in_table()
+  if not pos then
+    return false
+  end
+
+  -- Check if we can move right
+  if pos.col >= table_info.cols - 1 then
+    vim.notify("Cannot move column right - already at rightmost position", vim.log.levels.WARN)
+    return false
+  end
+
+  -- Swap columns in each row
+  for _, row in ipairs(table_info.cells) do
+    row[pos.col + 1], row[pos.col + 2] = row[pos.col + 2], row[pos.col + 1]
+  end
+
+  -- Swap alignments
+  table_info.alignments[pos.col + 1], table_info.alignments[pos.col + 2] =
+    table_info.alignments[pos.col + 2], table_info.alignments[pos.col + 1]
+
+  -- Reformat and update buffer
+  formatter.format_table(table_info)
+
+  -- Re-parse to get updated table info
+  table_info = parser.get_table_at_cursor()
+  if not table_info then
+    return false
+  end
+
+  -- Move cursor to the new position (one column right)
+  navigation.move_to_cell(table_info, pos.row, pos.col + 1)
+
+  return true
+end
+
 return M
