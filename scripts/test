@@ -1,0 +1,13 @@
+#!/bin/bash
+set -e
+
+# Install plenary.nvim if not present
+PLENARY_DIR="${PLENARY_DIR:-.tests/plenary.nvim}"
+if [ ! -d "$PLENARY_DIR" ]; then
+  echo "Installing plenary.nvim to $PLENARY_DIR..."
+  mkdir -p "$(dirname "$PLENARY_DIR")"
+  git clone --depth=1 https://github.com/nvim-lua/plenary.nvim.git "$PLENARY_DIR"
+fi
+
+export PLENARY_DIR
+make test
