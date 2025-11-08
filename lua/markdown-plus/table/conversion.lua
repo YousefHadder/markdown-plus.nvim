@@ -104,8 +104,6 @@ function M.table_to_csv()
   return true
 end
 
----Convert CSV to markdown table
----Converts CSV lines under cursor to a formatted table
 ---Check if a line looks like CSV data (contains at least one comma)
 ---@param line string Line to check
 ---@return boolean
@@ -134,6 +132,8 @@ local function is_csv_line(line)
   return line:find(",") ~= nil
 end
 
+---Convert CSV to markdown table
+---Converts CSV lines under cursor to a formatted table
 ---@return boolean success True if conversion succeeded
 function M.csv_to_table()
   local formatter = require("markdown-plus.table.format")

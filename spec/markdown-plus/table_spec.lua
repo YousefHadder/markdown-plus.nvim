@@ -1040,12 +1040,6 @@ describe("table.calculator", function()
 
   describe("transpose_table", function()
     it("should swap rows and columns", function()
-      -- Mock confirmation to always return true
-      local utils = require("markdown-plus.utils")
-      utils.confirm = function()
-        return true
-      end
-
       -- Create a 2x4 table (2 cols, 4 rows including header)
       local lines = {
         "| H1 | H2 |",
@@ -1075,14 +1069,6 @@ describe("table.calculator", function()
   end)
 
   describe("sort_by_column", function()
-    before_each(function()
-      -- Mock confirmation to always return true
-      local utils = require("markdown-plus.utils")
-      utils.confirm = function()
-        return true
-      end
-    end)
-
     it("should sort numeric column ascending", function()
       local lines = {
         "| Name | Age |",
