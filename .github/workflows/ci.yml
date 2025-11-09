@@ -12,3 +12,4 @@ jobs:
     with:
       plugin: markdown-plus
       repo: YousefHadder/markdown-plus.nvim
+      docs: false
