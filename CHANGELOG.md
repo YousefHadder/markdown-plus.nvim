@@ -5,6 +5,13 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.7.1...v1.8.0) (2025-11-09)
+
+
+### Features
+
+* **tables:** add phase 2 table features ([#114](https://github.com/YousefHadder/markdown-plus.nvim/issues/114)) ([2924405](https://github.com/YousefHadder/markdown-plus.nvim/commit/292440560154e896c36a12ddb88a85e4de6fbeac))
+
 ## [1.7.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.7.0...v1.7.1) (2025-11-07)
 
 
