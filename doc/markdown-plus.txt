@@ -608,6 +608,66 @@ Select multiple lines in visual mode and press `<leader>mq`:
     > Normal line 2
 <
 
+CALLOUTS                                        *markdown-plus-usage-callouts*
+
+GitHub Flavored Markdown callouts (also called admonitions) provide visually
+distinct blocks for notes, warnings, tips, and other special content.
+
+INSERT CALLOUT ~
+
+Insert a callout with `<leader>mQi` in normal mode:
+1. Press `<leader>mQi`
+2. Select callout type (NOTE, TIP, IMPORTANT, WARNING, CAUTION)
+3. Callout is inserted and insert mode is activated
+
+>markdown
+    (empty line) -> > [!NOTE]
+                    > █
+<
+WRAP SELECTION ~
+
+Wrap selected text in a callout with `<leader>mQi` in visual mode:
+>markdown
+    This is important
+    Users should know this
+    ->
+    > [!IMPORTANT] This is important
+    > Users should know this
+<
+TOGGLE CALLOUT TYPE ~
+
+Cycle through callout types with `<leader>mQt`:
+>markdown
+    > [!NOTE]           > [!TIP]           > [!IMPORTANT]
+    > Content    ->     > Content    ->    > Content
+<
+Cycle order: NOTE → TIP → IMPORTANT → WARNING → CAUTION → NOTE
+
+CONVERT BLOCKQUOTE ~
+
+Convert a blockquote to callout with `<leader>mQc`:
+>markdown
+    > Regular blockquote        > [!WARNING] Regular blockquote
+    > More content        ->    > More content
+<
+CONVERT TO BLOCKQUOTE ~
+
+Remove callout markers with `<leader>mQb`:
+>markdown
+    > [!CAUTION]        >
+    > Content     ->    > Content
+<
+CALLOUT TYPES ~
+
+Standard GitHub Flavored Markdown callout types:
+
+    NOTE        - Useful information users should know
+    TIP         - Helpful advice for doing things better
+    IMPORTANT   - Key information for achieving goals
+    WARNING     - Urgent info needing immediate attention
+    CAUTION     - Risks or negative outcomes
+
+Custom types can be added via configuration (see |markdown-plus-config|).
 
 TABLES                                            *markdown-plus-usage-tables*
 
@@ -874,10 +934,15 @@ The plugin can be configured through the setup function:
         headers_toc = true,      -- Header manipulation and TOC generation
         links = true,            -- Link management and references
         quotes = true,           -- Blockquote (>) management
+        callouts = true,         -- GitHub Flavored Markdown callouts/admonitions
         code_block = true,       -- Convert selected text to code blocks
       },
       toc = {                    -- TOC window configuration
         initial_depth = 2,
+      },
+      callouts = {               -- Callouts configuration
+        default_type = 'NOTE',   -- Default type: NOTE, TIP, IMPORTANT, WARNING, CAUTION
+        custom_types = {},       -- Add custom types: { 'DANGER', 'SUCCESS' }
       },
       table = {                  -- Table sub-configuration
         auto_format = true,
@@ -1106,6 +1171,13 @@ LIST MANAGEMENT ~
 QUOTES ~
 
     <Plug>(MarkdownPlusToggleQuote)        - Toggle blockquote (n, x)
+
+CALLOUTS ~
+
+    <Plug>(MarkdownPlusInsertCallout)      - Insert/wrap callout (n, x)
+    <Plug>(MarkdownPlusToggleCalloutType)  - Toggle callout type (n)
+    <Plug>(MarkdownPlusConvertToCallout)   - Convert blockquote to callout (n)
+    <Plug>(MarkdownPlusConvertToBlockquote)- Convert callout to blockquote (n)
 
 TABLES ~
 
@@ -1350,6 +1422,60 @@ QUOTES MODULE                                           *markdown-plus.quote*
 markdown-plus.quote.toggle_quote()
     Toggles blockquote on the current line or visual selection.
 
+
+CALLOUTS MODULE                                      *markdown-plus.callouts*
+
+                                          *markdown-plus.callouts.insert_callout*
+markdown-plus.callouts.insert_callout({type})
+    Inserts a callout of the specified type. If no type is provided, uses the
+    configured default type.
+
+    Parameters: ~
+        {type}  (string, optional) Callout type (NOTE, TIP, IMPORTANT, WARNING,
+                CAUTION, or custom types)
+
+                                   *markdown-plus.callouts.insert_callout_prompt*
+markdown-plus.callouts.insert_callout_prompt()
+    Prompts user to select a callout type, then inserts it.
+
+                                  *markdown-plus.callouts.wrap_selection_in_callout*
+markdown-plus.callouts.wrap_selection_in_callout()
+    Wraps the current visual selection in a callout, prompting for type.
+
+                                      *markdown-plus.callouts.toggle_callout_type*
+markdown-plus.callouts.toggle_callout_type()
+    Cycles to the next callout type: NOTE → TIP → IMPORTANT → WARNING →
+    CAUTION → NOTE (or through custom types if configured).
+
+                                         *markdown-plus.callouts.convert_to_callout*
+markdown-plus.callouts.convert_to_callout()
+    Converts a regular blockquote to a callout, prompting for type.
+
+                                      *markdown-plus.callouts.convert_to_blockquote*
+markdown-plus.callouts.convert_to_blockquote()
+    Converts a callout back to a regular blockquote by removing the type marker.
+
+                                     *markdown-plus.callouts.get_callout_at_cursor*
+markdown-plus.callouts.get_callout_at_cursor()
+    Detects and returns information about the callout at cursor position.
+
+    Returns: ~
+        {table|nil}  Callout info table with fields:
+                     - type: string (callout type)
+                     - start_line: number (1-indexed)
+                     - end_line: number (1-indexed)
+                     Returns nil if not in a callout.
+
+                                    *markdown-plus.callouts.is_valid_callout_type*
+markdown-plus.callouts.is_valid_callout_type({type})
+    Checks if a type is valid (standard or custom).
+
+    Parameters: ~
+        {type}  (string) Type to validate
+
+    Returns: ~
+        {boolean}  True if valid
+
 Example usage:
 >lua
     -- Call API functions directly
@@ -1360,6 +1486,8 @@ Example usage:
     require('markdown-plus').links.insert_link()
     require('markdown-plus').links.convert_to_reference()
     require('markdown-plus').quote.toggle_quote()
+    require('markdown-plus').callouts.insert_callout('NOTE')
+    require('markdown-plus').callouts.toggle_callout_type()
 <
 
 

@@ -168,8 +168,23 @@ See [Configuration](#configuration) for all available options.
     <img src="https://stuff.charm.sh/vhs/badge.svg">
   </a>
 
-- **Toggle blockquote**: Use `<leader>mq` to toggle `>` blockquote formatting on the current line or visual selection.
-- **Visual and normal mode**: Works in both visual selection and normal mode.
+- **Toggle blockquote**: Use `<leader>mq` to toggle `>` blockquote formatting on the current line or visual selection
+- **Empty line creation**: On empty lines, creates blockquote and enters insert mode for quick typing
+- **Visual and normal mode**: Works in both visual selection and normal mode
+
+</details>
+
+<details>
+<summary><b>Callouts/Admonitions (GitHub Flavored Markdown)</b></summary>
+
+- **Insert callouts**: `<leader>mQi` to insert a callout block with type selection (NOTE, TIP, IMPORTANT, WARNING, CAUTION)
+- **Wrap selection**: Select text in visual mode and `<leader>mQi` to wrap it in a callout
+- **Toggle type**: `<leader>mQt` to cycle through callout types (NOTE → TIP → IMPORTANT → WARNING → CAUTION)
+- **Convert blockquote**: `<leader>mQc` to convert a regular blockquote to a callout
+- **Convert to blockquote**: `<leader>mQb` to remove callout markers and convert back to regular blockquote
+- **Custom types**: Configure custom callout types beyond the standard GFM types
+- **Preserves indentation**: Works correctly with nested/indented content
+- **GitHub compatible**: Uses official GitHub Flavored Markdown callout syntax `> [!TYPE]`
 
 </details>
 
@@ -838,6 +853,139 @@ Normal line 2
 </details>
 
 <details>
+<summary>Callouts/Admonitions Examples (GitHub Flavored Markdown)</summary>
+
+### Insert Callout
+
+```markdown
+Position cursor on an empty line or existing line and press `<leader>mQi`:
+1. A menu appears with callout types: NOTE, TIP, IMPORTANT, WARNING, CAUTION
+2. Select your desired type
+3. Callout is inserted and you enter insert mode
+
+Empty line example:
+█
+
+→ (after selecting "NOTE")
+
+> [!NOTE]
+> █
+
+Existing content example:
+Some existing content
+
+→ (after selecting "WARNING")
+
+> [!WARNING]
+> █
+Some existing content
+```
+
+### Wrap Selection in Callout
+
+```markdown
+Select text in visual mode and press `<leader>mQi`:
+1. Enter visual mode with `V` (line-wise)
+2. Select the lines to wrap
+3. Press `<leader>mQi`
+4. Choose callout type
+
+Example:
+This is important information
+Users should pay attention to this
+
+→ (after selecting "IMPORTANT")
+
+> [!IMPORTANT] This is important information
+> Users should pay attention to this
+```
+
+### Toggle Callout Type
+
+```markdown
+Position cursor in a callout and press `<leader>mQt` to cycle through types:
+
+> [!NOTE]
+> Some content
+
+→ Press `<leader>mQt`
+
+> [!TIP]
+> Some content
+
+→ Press `<leader>mQt` again
+
+> [!IMPORTANT]
+> Some content
+
+Continues cycling: NOTE → TIP → IMPORTANT → WARNING → CAUTION → NOTE
+```
+
+### Convert Blockquote to Callout
+
+```markdown
+Position cursor in a blockquote and press `<leader>mQc`:
+
+> This is a regular blockquote
+> With multiple lines
+
+→ (after selecting "WARNING")
+
+> [!WARNING] This is a regular blockquote
+> With multiple lines
+```
+
+### Convert Callout to Blockquote
+
+```markdown
+Position cursor in a callout and press `<leader>mQb`:
+
+> [!CAUTION]
+> This was a callout
+
+→
+
+>
+> This was a callout
+```
+
+### All Callout Types
+
+GitHub renders these with distinct colors and icons:
+
+```markdown
+> [!NOTE]
+> Useful information that users should know, even when skimming content.
+
+> [!TIP]
+> Helpful advice for doing things better or more easily.
+
+> [!IMPORTANT]
+> Key information users need to know to achieve their goal.
+
+> [!WARNING]
+> Urgent info that needs immediate user attention to avoid problems.
+
+> [!CAUTION]
+> Advises about risks or negative outcomes of certain actions.
+```
+
+### Custom Callout Types
+
+```lua
+require("markdown-plus").setup({
+  callouts = {
+    default_type = "TIP",  -- Change default from NOTE to TIP
+    custom_types = { "DANGER", "SUCCESS" },  -- Add custom types
+  },
+})
+```
+
+After configuration, your custom types will appear in the selection menu and can be cycled through with `<leader>mQt`.
+
+</details>
+
+<details>
 <summary>Table Support Examples</summary>
 
 ### Create a New Table
@@ -1323,6 +1471,16 @@ logical cell (usually first cell of new/modified row/column).
  | `<leader>mq` | Normal     | Toggle blockquote on current line    |
  | `<leader>mq` | Visual     | Toggle blockquote on selected lines  |
 
+### Callouts/Admonitions (Normal & Visual Mode)
+
+ | Keymap        | Mode       | Description                          |
+ |---------------|------------|--------------------------------------|
+ | `<leader>mQi` | Normal     | Insert callout (prompts for type)    |
+ | `<leader>mQi` | Visual     | Wrap selection in callout            |
+ | `<leader>mQt` | Normal     | Toggle/cycle callout type            |
+ | `<leader>mQc` | Normal     | Convert blockquote to callout        |
+ | `<leader>mQb` | Normal     | Convert callout to blockquote        |
+
 ### Tables (Normal & Insert Mode)
 
 | Keymap | Mode | Description |
@@ -1377,6 +1535,7 @@ require("markdown-plus").setup({
     headers_toc = true,         -- default: true (headers nav + TOC generation & window)
     links = true,               -- default: true (insert/edit/convert/reference links)
     quotes = true,              -- default: true (blockquote toggle)
+    callouts = true,            -- default: true (GFM callouts/admonitions)
     code_block = true,          -- default: true (visual selection -> fenced block)
     table = true,               -- default: true (table creation & editing)
   },
@@ -1384,6 +1543,12 @@ require("markdown-plus").setup({
   -- TOC window configuration
   toc = {
     initial_depth = 2,          -- default: 2 (range 1-6) depth shown in :Toc window and generated TOC
+  },
+
+  -- Callouts configuration
+  callouts = {
+    default_type = "NOTE",      -- default: "NOTE"  default callout type when inserting
+    custom_types = {},          -- default: {}  add custom types (e.g., { "DANGER", "SUCCESS" })
   },
 
   -- Table configuration
