@@ -244,6 +244,7 @@ See [Configuration](#configuration) for all available options.
         headers_toc = true,      -- Headers + TOC features
         links = true,            -- Link management features
         quotes = true,           -- Blockquote toggling feature
+        callouts = true,         -- GFM callouts/admonitions feature
         code_block = true,       -- Code block conversion feature
         table = true,            -- Table support features
       },
@@ -252,6 +253,10 @@ See [Configuration](#configuration) for all available options.
       },
       toc = {            -- TOC window configuration
         initial_depth = 2,
+      },
+      callouts = {       -- Callouts configuration
+        default_type = "NOTE",
+        custom_types = {},  -- Add custom types like { "DANGER", "SUCCESS" }
       },
       table = {          -- Table sub-configuration
         auto_format = true,
@@ -1714,6 +1719,78 @@ This allows you to:
 - Set global defaults with `vim.g`
 - Override specific settings with `setup()` for certain filetypes or conditions
 - Mix both methods for maximum flexibility
+
+</details>
+
+### Callouts-Specific Configuration Examples
+
+<details>
+<summary>Configuring Callouts</summary>
+
+#### Change Default Callout Type
+
+```lua
+require("markdown-plus").setup({
+  callouts = {
+    default_type = "TIP",  -- Change from NOTE to TIP
+  },
+})
+```
+
+#### Add Custom Callout Types
+
+```lua
+require("markdown-plus").setup({
+  callouts = {
+    custom_types = { "DANGER", "SUCCESS", "INFO" },
+  },
+})
+```
+
+After adding custom types, they will:
+- Appear in the type selection menu when inserting callouts
+- Be included in the cycling order when using `<leader>mQt`
+- Work with all callout operations (insert, wrap, convert, etc.)
+
+#### Custom Types with Different Default
+
+```lua
+require("markdown-plus").setup({
+  callouts = {
+    default_type = "DANGER",  -- Must be either standard or custom type
+    custom_types = { "DANGER", "SUCCESS" },
+  },
+})
+```
+
+#### Disable Callouts Feature
+
+```lua
+require("markdown-plus").setup({
+  features = {
+    callouts = false,  -- Disable callouts entirely
+  },
+})
+```
+
+#### Callouts Only Configuration
+
+If you only want callouts and blockquotes:
+
+```lua
+require("markdown-plus").setup({
+  features = {
+    list_management = false,
+    text_formatting = false,
+    headers_toc = false,
+    links = false,
+    quotes = true,       -- Keep blockquote toggle
+    callouts = true,     -- Enable callouts
+    code_block = false,
+    table = false,
+  },
+})
+```
 
 </details>
 

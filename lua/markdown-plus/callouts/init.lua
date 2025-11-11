@@ -192,9 +192,6 @@ end
 function M.insert_callout_prompt()
   vim.ui.select(M.CALLOUT_TYPES, {
     prompt = "Select callout type:",
-    format_item = function(item)
-      return item
-    end,
   }, function(choice)
     if choice then
       M.insert_callout(choice)
@@ -207,9 +204,6 @@ end
 function M.wrap_selection_in_callout()
   vim.ui.select(M.CALLOUT_TYPES, {
     prompt = "Select callout type:",
-    format_item = function(item)
-      return item
-    end,
   }, function(choice)
     if not choice then
       return
@@ -320,9 +314,6 @@ function M.convert_to_callout()
   -- Prompt for callout type
   vim.ui.select(M.CALLOUT_TYPES, {
     prompt = "Select callout type:",
-    format_item = function(item)
-      return item
-    end,
   }, function(choice)
     if not choice then
       return
