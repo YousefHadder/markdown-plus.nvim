@@ -29,6 +29,7 @@ function M.validate(opts)
     filetypes = { opts.filetypes, "table", true },
     toc = { opts.toc, "table", true },
     table = { opts.table, "table", true },
+    callouts = { opts.callouts, "table", true },
   })
   if not ok then
     return false, err
@@ -54,6 +55,7 @@ function M.validate(opts)
       headers_toc = { opts.features.headers_toc, "boolean", true },
       links = { opts.features.links, "boolean", true },
       quotes = { opts.features.quotes, "boolean", true },
+      callouts = { opts.features.callouts, "boolean", true },
       code_block = { opts.features.code_block, "boolean", true },
       table = { opts.features.table, "boolean", true },
     })
@@ -123,7 +125,15 @@ function M.validate(opts)
   end
 
   -- Check for unknown top-level fields
-  local known_fields = { enabled = true, features = true, keymaps = true, filetypes = true, toc = true, table = true }
+  local known_fields = {
+    enabled = true,
+    features = true,
+    keymaps = true,
+    filetypes = true,
+    toc = true,
+    table = true,
+    callouts = true,
+  }
   for key in pairs(opts) do
     if not known_fields[key] then
       return false,
@@ -143,6 +153,7 @@ function M.validate(opts)
       headers_toc = true,
       links = true,
       quotes = true,
+      callouts = true,
       code_block = true,
       table = true,
     }
@@ -214,6 +225,47 @@ function M.validate(opts)
             "config.keymaps: unknown field '%s'. Valid fields are: %s",
             key,
             table.concat(vim.tbl_keys(known_keymap_fields), ", ")
+          )
+      end
+    end
+  end
+
+  -- Validate callouts config
+  if opts.callouts then
+    ok, err = validate_path("config.callouts", {
+      default_type = { opts.callouts.default_type, "string", true },
+      custom_types = { opts.callouts.custom_types, "table", true },
+    })
+    if not ok then
+      return false, err
+    end
+
+    -- Validate custom_types array
+    if opts.callouts.custom_types then
+      if not vim.islist(opts.callouts.custom_types) then
+        return false, "config.callouts.custom_types: must be an array (list)"
+      end
+      for i, custom_type in ipairs(opts.callouts.custom_types) do
+        if type(custom_type) ~= "string" then
+          return false,
+            string.format("config.callouts.custom_types[%d]: must be a string, got %s", i, type(custom_type))
+        end
+        -- Validate uppercase format
+        if custom_type ~= custom_type:upper() then
+          return false, string.format("config.callouts.custom_types[%d]: must be uppercase (got '%s')", i, custom_type)
+        end
+      end
+    end
+
+    -- Check for unknown callouts fields
+    local known_callouts_fields = { default_type = true, custom_types = true }
+    for key in pairs(opts.callouts) do
+      if not known_callouts_fields[key] then
+        return false,
+          string.format(
+            "config.callouts: unknown field '%s'. Valid fields are: %s",
+            key,
+            table.concat(vim.tbl_keys(known_callouts_fields), ", ")
           )
       end
     end

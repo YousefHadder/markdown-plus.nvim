@@ -53,11 +53,15 @@ describe("markdown-plus quote", function()
       assert.are.equal("   Leading spaces.", line)
     end)
 
-    it("does not modify empty lines", function()
+    it("creates a blockquote on empty lines and enters insert mode", function()
       utils.set_line(1, "")
       quote.toggle_quote_on_line(1)
       local line = utils.get_line(1)
-      assert.are.equal("", line)
+      assert.are.equal("> ", line)
+      -- Check cursor position is at end of line (column 2)
+      local cursor = vim.api.nvim_win_get_cursor(0)
+      assert.are.equal(1, cursor[1]) -- line number
+      assert.are.equal(2, cursor[2]) -- column (0-indexed)
     end)
 
     it("handles lines without spaces after >", function()

@@ -10,6 +10,7 @@
 ---@field code_block? markdown-plus.CodeBlockConfig Code block configuration
 ---@field toc? markdown-plus.TocConfig TOC window configuration
 ---@field table? markdown-plus.TableConfig Table configuration
+---@field callouts? markdown-plus.CalloutsConfig Callouts configuration
 
 ---Feature configuration
 ---@class markdown-plus.FeatureConfig
@@ -18,6 +19,7 @@
 ---@field headers_toc? boolean Enable headers and TOC (default: true)
 ---@field links? boolean Enable link management (default: true)
 ---@field quotes? boolean Enable quote management (default: true)
+---@field callouts? boolean Enable callout management (default: true)
 ---@field code_block? boolean Enable code block management (default: true)
 ---@field table? boolean Enable table management (default: true)
 
@@ -34,6 +36,11 @@
 ---@field enabled? boolean Enable default table keymaps (default: true)
 ---@field prefix? string Keymap prefix (default: '<leader>t')
 ---@field insert_mode_navigation? boolean Enable insert mode cell navigation with Alt+hjkl (default: true)
+
+---Callouts configuration
+---@class markdown-plus.CalloutsConfig
+---@field default_type? string Default callout type (default: "NOTE")
+---@field custom_types? string[] Custom callout types to add to standard GFM types (default: {})
 
 ---Code block configuration
 ---@class markdown-plus.CodeBlockConfig
@@ -62,6 +69,7 @@
 ---@field headers_toc boolean
 ---@field links boolean
 ---@field quotes boolean
+---@field callouts boolean
 ---@field code_block boolean
 ---@field table boolean
 

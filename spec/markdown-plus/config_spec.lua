@@ -339,4 +339,79 @@ describe("markdown-plus configuration", function()
       assert.are.equal(1, mapping.buffer)
     end)
   end)
+
+  describe("callouts configuration", function()
+    it("accepts valid callouts config", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          callouts = {
+            default_type = "WARNING",
+            custom_types = { "DANGER", "SUCCESS" },
+          },
+        })
+      end)
+      -- Verify the callouts module is loaded when config is valid
+      assert.is_not_nil(markdown_plus.callouts)
+    end)
+
+    it("rejects invalid custom_types (not an array)", function()
+      -- Setup with invalid config - should notify and not load callouts
+      local original_callouts = markdown_plus.callouts
+      markdown_plus.callouts = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          callouts = {
+            custom_types = "not_an_array",
+          },
+        })
+      end)
+
+      -- Module should not be loaded due to validation failure
+      assert.is_nil(markdown_plus.callouts)
+      markdown_plus.callouts = original_callouts
+    end)
+
+    it("rejects invalid custom_types (contains non-strings)", function()
+      local original_callouts = markdown_plus.callouts
+      markdown_plus.callouts = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          callouts = {
+            custom_types = { "VALID", 123 },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.callouts)
+      markdown_plus.callouts = original_callouts
+    end)
+
+    it("rejects invalid custom_types (not uppercase)", function()
+      local original_callouts = markdown_plus.callouts
+      markdown_plus.callouts = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          callouts = {
+            custom_types = { "lowercase" },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.callouts)
+      markdown_plus.callouts = original_callouts
+    end)
+
+    it("accepts empty custom_types", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          callouts = {
+            custom_types = {},
+          },
+        })
+      end)
+    end)
+  end)
 end)

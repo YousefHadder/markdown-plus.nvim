@@ -10,6 +10,7 @@ M.config = {
     links = true,
     headers_toc = true,
     quotes = true,
+    callouts = true,
     code_block = true,
     table = true,
   },
@@ -26,6 +27,10 @@ M.config = {
       prefix = "<leader>t",
     },
   },
+  callouts = {
+    default_type = "NOTE",
+    custom_types = {},
+  },
 }
 
 -- Module references
@@ -34,6 +39,7 @@ M.format = nil
 M.links = nil
 M.headers = nil
 M.quotes = nil
+M.callouts = nil
 M.table = nil
 
 ---Get user configuration from vim.g.markdown_plus
@@ -128,6 +134,11 @@ function M.setup(opts)
     M.quotes.setup(M.config)
   end
 
+  if M.config.features.callouts then
+    M.callouts = require("markdown-plus.callouts")
+    M.callouts.setup(M.config)
+  end
+
   if M.config.features.table then
     M.table = require("markdown-plus.table")
     if M.config.table then
@@ -165,6 +176,9 @@ function M.setup_autocmds()
       end
       if M.quotes then
         M.quotes.enable()
+      end
+      if M.callouts then
+        M.callouts.enable()
       end
       if M.table then
         -- Set up buffer-local table keymaps

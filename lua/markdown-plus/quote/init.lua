@@ -59,7 +59,11 @@ end
 function M.toggle_quote_on_line(line_num)
   local line = utils.get_line(line_num)
   if line == "" then
-    return -- Do nothing for empty lines
+    -- Create a new blockquote and enter insert mode at the end
+    utils.set_line(line_num, "> ")
+    vim.api.nvim_win_set_cursor(0, { line_num, 2 })
+    vim.cmd("startinsert!")
+    return
   end
   -- Check if the line starts with '>'
   if line:match("^%s*>") then
