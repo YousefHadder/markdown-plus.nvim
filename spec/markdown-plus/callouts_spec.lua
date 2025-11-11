@@ -282,6 +282,35 @@ describe("markdown-plus callouts", function()
       assert.are.equal(1, info.start_line)
       assert.are.equal(2, info.end_line)
     end)
+
+    it("preserves indentation when wrapping indented blockquote", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "  > This is indented",
+        "  > Two spaces before",
+      })
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 2, 1, 0 })
+
+      -- Simulate wrapping in callout with visual mode
+      -- We need to test this manually since vim.ui.select is async
+      local selection = utils.get_visual_selection(false)
+      local lines = vim.api.nvim_buf_get_lines(0, selection.start_row - 1, selection.end_row, false)
+      local new_lines = {}
+
+      for i, line in ipairs(lines) do
+        if i == 1 then
+          -- First line - should preserve indentation
+          line = line:gsub("^(%s*)>%s?", "%1> [!NOTE] ", 1)
+        end
+        table.insert(new_lines, line)
+      end
+
+      vim.api.nvim_buf_set_lines(0, selection.start_row - 1, selection.end_row, false, new_lines)
+
+      local result = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.are.equal("  > [!NOTE] This is indented", result[1])
+      assert.are.equal("  > Two spaces before", result[2])
+    end)
   end)
 
   describe("get_default_type", function()

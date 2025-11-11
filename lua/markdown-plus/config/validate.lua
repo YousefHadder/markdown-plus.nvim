@@ -240,6 +240,26 @@ function M.validate(opts)
       return false, err
     end
 
+    -- Standard GFM callout types
+    local standard_types = { NOTE = true, TIP = true, IMPORTANT = true, WARNING = true, CAUTION = true }
+
+    -- Validate default_type is a valid type
+    if opts.callouts.default_type then
+      local is_standard = standard_types[opts.callouts.default_type]
+      local is_custom = opts.callouts.custom_types
+        and vim.tbl_contains(opts.callouts.custom_types, opts.callouts.default_type)
+
+      if not is_standard and not is_custom then
+        return false,
+          string.format(
+            "config.callouts.default_type: '%s' is not a valid callout type. Must be one of: %s%s",
+            opts.callouts.default_type,
+            table.concat(vim.tbl_keys(standard_types), ", "),
+            opts.callouts.custom_types and " or one of your custom_types" or ""
+          )
+      end
+    end
+
     -- Validate custom_types array
     if opts.callouts.custom_types then
       if not vim.islist(opts.callouts.custom_types) then
@@ -250,9 +270,14 @@ function M.validate(opts)
           return false,
             string.format("config.callouts.custom_types[%d]: must be a string, got %s", i, type(custom_type))
         end
-        -- Validate uppercase format
-        if custom_type ~= custom_type:upper() then
-          return false, string.format("config.callouts.custom_types[%d]: must be uppercase (got '%s')", i, custom_type)
+        -- Validate only A-Z letters
+        if not custom_type:match("^[A-Z]+$") then
+          return false,
+            string.format(
+              "config.callouts.custom_types[%d]: must contain only uppercase letters A-Z (got '%s')",
+              i,
+              custom_type
+            )
         end
       end
     end

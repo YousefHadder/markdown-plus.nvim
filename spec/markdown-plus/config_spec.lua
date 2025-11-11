@@ -404,6 +404,50 @@ describe("markdown-plus configuration", function()
       markdown_plus.callouts = original_callouts
     end)
 
+    it("rejects invalid custom_types (contains non-letter characters)", function()
+      local original_callouts = markdown_plus.callouts
+      markdown_plus.callouts = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          callouts = {
+            custom_types = { "TYPE-123" },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.callouts)
+      markdown_plus.callouts = original_callouts
+    end)
+
+    it("rejects invalid default_type (not a valid type)", function()
+      local original_callouts = markdown_plus.callouts
+      markdown_plus.callouts = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          callouts = {
+            default_type = "INVALID",
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.callouts)
+      markdown_plus.callouts = original_callouts
+    end)
+
+    it("accepts default_type that is a custom_type", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          callouts = {
+            default_type = "DANGER",
+            custom_types = { "DANGER", "SUCCESS" },
+          },
+        })
+      end)
+      assert.is_not_nil(markdown_plus.callouts)
+    end)
+
     it("accepts empty custom_types", function()
       assert.has_no.errors(function()
         markdown_plus.setup({

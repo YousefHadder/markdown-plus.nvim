@@ -153,25 +153,6 @@ function M.get_default_type()
   return "NOTE"
 end
 
---- Prompt user to select callout type
----@return string|nil selected_type Selected type or nil if cancelled
-function M.prompt_for_type()
-  vim.ui.select(M.CALLOUT_TYPES, {
-    prompt = "Select callout type:",
-    format_item = function(item)
-      return item
-    end,
-  }, function(choice)
-    if choice then
-      return choice
-    end
-  end)
-
-  -- Since vim.ui.select is async, we need to handle it differently
-  -- For now, return the default and let the caller use vim.ui.select
-  return nil
-end
-
 --- Insert callout with specified type (normal mode)
 ---@param type? string Callout type (prompts if not provided)
 ---@return nil
@@ -247,8 +228,8 @@ function M.wrap_selection_in_callout()
       if i == 1 then
         -- First line gets the callout marker
         if line:match("^%s*>") then
-          -- Already has >, replace with callout marker
-          line = line:gsub("^%s*>%s?", string.format("> [!%s] ", choice), 1)
+          -- Already has >, replace with callout marker, preserving indentation
+          line = line:gsub("^(%s*)>%s?", string.format("%%1> [!%s] ", choice), 1)
         else
           -- Add callout marker
           if line == "" then
