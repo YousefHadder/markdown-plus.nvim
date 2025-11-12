@@ -161,6 +161,19 @@ See [Configuration](#configuration) for all available options.
 </details>
 
 <details>
+<summary><b>Image Links</b></summary>
+
+- **Insert image link**: `<leader>mL` to insert a new markdown image with alt text and URL
+- **Convert selection to image**: Select text and `<leader>mL` to convert it to an image link
+- **Edit image link**: `<leader>mE` on an image to edit its alt text, URL, and optional title
+- **Toggle link/image**: `<leader>mA` to convert between regular links `[text](url)` and image links `![text](url)`
+- **Title attribute support**: Optional title attribute for images: `![alt](url "title")`
+- **Smart detection**: Accurately detects images with or without title attributes
+- **Visual and normal mode**: All commands work in both visual selection and normal mode
+
+</details>
+
+<details>
 <summary><b>Quotes Management</b></summary>
 
   <img src="https://vhs.charm.sh/vhs-6scYF4Dxo7gAtsxEWXxOQU.gif" alt="Made with VHS">
@@ -253,6 +266,7 @@ See [Configuration](#configuration) for all available options.
         text_formatting = true,  -- Text formatting features
         headers_toc = true,      -- Headers + TOC features
         links = true,            -- Link management features
+        images = true,           -- Image link management features
         quotes = true,           -- Blockquote toggling feature
         callouts = true,         -- GFM callouts/admonitions feature
         code_block = true,       -- Code block conversion feature
@@ -832,6 +846,112 @@ Result:
 
 [dotfiles]: https://github.com/yousefhadder/dotfiles
 [my-dotfiles]: https://github.com/yousefhadder/dotfiles
+```
+
+</details>
+
+<details>
+<summary>Image Links Examples</summary>
+
+### Insert New Image Link
+
+```markdown
+In normal mode, press <leader>mL:
+1. You'll be prompted: "Alt text: "
+2. Enter alt text (e.g., "Screenshot")
+3. You'll be prompted: "URL: "
+4. Enter URL (e.g., "images/screenshot.png")
+5. You'll be prompted: "Title (optional): "
+6. Enter title or leave empty
+
+Result: ![Screenshot](images/screenshot.png)
+Or with title: ![Screenshot](images/screenshot.png "My Screenshot")
+```
+
+### Convert Selection to Image
+
+```markdown
+Select text in visual mode:
+A beautiful sunset  ← Select "A beautiful sunset" with visual mode
+
+Press <leader>mL:
+1. You'll be prompted: "URL: "
+2. Enter URL (e.g., "photos/sunset.jpg")
+3. You'll be prompted: "Title (optional): "
+4. Enter title or leave empty
+
+Result: ![A beautiful sunset](photos/sunset.jpg)
+```
+
+### Edit Existing Image
+
+```markdown
+Position cursor anywhere on an image and press <leader>mE:
+
+![Old Alt](old-image.png)  ← cursor here
+
+Press <leader>mE:
+1. Alt text: Old Alt (edit or press Enter)
+2. URL: old-image.png (edit or press Enter)
+3. Title (optional): (edit, add, or press Enter)
+
+Result: ![New Alt](new-image.png "Updated Title")
+```
+
+### Toggle Between Link and Image
+
+```markdown
+# Convert regular link to image:
+[My Photo](photo.jpg)  ← cursor here
+
+Press <leader>mA:
+Result: ![My Photo](photo.jpg)
+
+# Convert image back to regular link:
+![My Photo](photo.jpg)  ← cursor here
+
+Press <leader>mA:
+Result: [My Photo](photo.jpg)
+```
+
+### Working with Titles
+
+```markdown
+Images can have optional title attributes that appear as tooltips:
+
+![Diagram](diagrams/flow.svg "System Architecture Diagram")
+
+When editing, you can:
+- Add a title to an image that doesn't have one
+- Modify an existing title
+- Remove a title by leaving it empty
+
+Press <leader>mE on the image:
+1. Alt text: Diagram
+2. URL: diagrams/flow.svg
+3. Title (optional): System Architecture Diagram
+   (Leave empty to remove)
+```
+
+### Common Use Cases
+
+```markdown
+# Local images:
+![Logo](./assets/logo.png)
+![Icon](../images/icon.svg)
+
+# Remote images:
+![Banner](https://example.com/banner.jpg)
+
+# With title attributes:
+![Graph](data/graph.png "Q4 Sales Performance")
+![Screenshot](screens/demo.png "Feature Demo")
+
+# Converting selections quickly:
+Select: Product Image
+Press <leader>mL
+Enter URL: products/item-42.jpg
+Result: ![Product Image](products/item-42.jpg)
 ```
 
 </details>
@@ -1479,6 +1599,15 @@ logical cell (usually first cell of new/modified row/column).
 | `<leader>mI` | Normal | Convert to inline link |
 | `gx` | Normal | Open link in browser (native Neovim) |
 
+### Image Links (Normal & Visual Mode)
+
+| Keymap | Mode | Description |
+|--------|------|-------------|
+| `<leader>mL` | Normal | Insert new markdown image |
+| `<leader>mL` | Visual | Convert selection to image |
+| `<leader>mE` | Normal | Edit image under cursor |
+| `<leader>mA` | Normal | Toggle between link and image |
+
 ### Quotes Management (Normal & Visual Mode)
 
  | Keymap       | Mode       | Description                          |
@@ -1549,6 +1678,7 @@ require("markdown-plus").setup({
     text_formatting = true,     -- default: true (bold/italic/strike/code + clear)
     headers_toc = true,         -- default: true (headers nav + TOC generation & window)
     links = true,               -- default: true (insert/edit/convert/reference links)
+    images = true,              -- default: true (insert/edit image links + toggle link/image)
     quotes = true,              -- default: true (blockquote toggle)
     callouts = true,            -- default: true (GFM callouts/admonitions)
     code_block = true,          -- default: true (visual selection -> fenced block)
@@ -1874,6 +2004,15 @@ vim.keymap.set("n", "<leader>ln", "<Plug>(MarkdownPlusConvertToInline)")
 vim.keymap.set("n", "<leader>la", "<Plug>(MarkdownPlusAutoLinkURL)")
 ```
 
+#### Images
+
+```lua
+vim.keymap.set("n", "<leader>mL", "<Plug>(MarkdownPlusInsertImage)")
+vim.keymap.set("v", "<leader>mL", "<Plug>(MarkdownPlusSelectionToImage)")
+vim.keymap.set("n", "<leader>mE", "<Plug>(MarkdownPlusEditImage)")
+vim.keymap.set("n", "<leader>mA", "<Plug>(MarkdownPlusToggleImageLink)")
+```
+
 #### List Management
 
 ```lua
@@ -1968,6 +2107,13 @@ vim.keymap.set("n", "<leader>Tyc", "<Plug>(markdown-plus-table-duplicate-column)
 - `<Plug>(MarkdownPlusConvertToReference)` - Convert to reference-style (n)
 - `<Plug>(MarkdownPlusConvertToInline)` - Convert to inline link (n)
 - `<Plug>(MarkdownPlusAutoLinkURL)` - Auto-convert URL to link (n)
+
+#### Images
+
+- `<Plug>(MarkdownPlusInsertImage)` - Insert new image (n)
+- `<Plug>(MarkdownPlusSelectionToImage)` - Convert selection to image (v)
+- `<Plug>(MarkdownPlusEditImage)` - Edit image under cursor (n)
+- `<Plug>(MarkdownPlusToggleImageLink)` - Toggle between link and image (n)
 
 #### List Management
 

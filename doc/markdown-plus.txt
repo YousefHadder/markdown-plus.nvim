@@ -13,6 +13,7 @@ Table of Contents                            *markdown-plus-table-of-contents*
   - Lists                                            |markdown-plus-usage-lists|
   - Formatting                                  |markdown-plus-usage-formatting|
   - Links                                            |markdown-plus-usage-links|
+  - Images                                          |markdown-plus-usage-images|
   - Quotes                                          |markdown-plus-usage-quotes|
   - Tables                                          |markdown-plus-usage-tables|
 4. Configuration                                     |markdown-plus-configuration|
@@ -71,6 +72,13 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Convert between inline and reference-style links
   - Smart reference ID generation and reuse
   - Open links with native Neovim (gx)
+
+- Image Links:
+  - Insert and edit markdown image links
+  - Convert text selection to images
+  - Toggle between regular links and image links
+  - Support for optional title attributes
+  - Smart image detection and editing
 
 - Quotes Management:
   - Toggle blockquote on current line or visual selection
@@ -586,6 +594,116 @@ Links with different text create separate references even with same URL:
     [dotfiles]: https://github.com/yousefhadder/dotfiles
     [my-dotfiles]: https://github.com/yousefhadder/dotfiles
 <
+
+==============================================================================
+IMAGES                                              *markdown-plus-usage-images*
+
+markdown-plus.nvim provides comprehensive image link management with support
+for alt text, URLs, and optional title attributes.
+
+
+INSERT NEW IMAGE LINK ~
+
+Press `<leader>mL` in normal mode to insert a new image:
+
+>markdown
+    Cursor here|          ->    ![Screenshot](images/screenshot.png)|
+<
+
+You'll be prompted for:
+1. Alt text (e.g., "Screenshot")
+2. URL (e.g., "images/screenshot.png")
+3. Title (optional, press Enter to skip)
+
+Result with title: `![Screenshot](images/screenshot.png "My Screenshot")`
+
+
+CONVERT SELECTION TO IMAGE ~
+
+Select text in visual mode and press `<leader>mL`:
+
+>markdown
+    A beautiful sunset      ->    ![A beautiful sunset](photos/sunset.jpg)
+    ^^^^^^^^^^^^^^^^^^
+    (selected)
+<
+
+You'll be prompted for the URL and optional title.
+
+
+EDIT EXISTING IMAGE ~
+
+Place cursor anywhere on an image and press `<leader>mE`:
+
+>markdown
+    ![Old Alt](old-image.png)
+
+    Press <leader>mE:
+    1. Alt text: Old Alt (edit or press Enter)
+    2. URL: old-image.png (edit or press Enter)
+    3. Title (optional): (edit, add, or press Enter)
+
+    Result: ![New Alt](new-image.png "Updated Title")
+<
+
+You can add, modify, or remove the title attribute during editing.
+
+
+TOGGLE BETWEEN LINK AND IMAGE ~
+
+Convert a regular link to an image with `<leader>mA`:
+
+>markdown
+    [My Photo](photo.jpg)
+
+    Press <leader>mA:
+
+    Result: ![My Photo](photo.jpg)
+<
+
+Convert an image back to a regular link:
+
+>markdown
+    ![My Photo](photo.jpg)
+
+    Press <leader>mA:
+
+    Result: [My Photo](photo.jpg)
+<
+
+The toggle operation preserves title attributes if present.
+
+
+TITLE ATTRIBUTES ~
+
+Images can have optional title attributes that appear as tooltips:
+
+>markdown
+    ![Diagram](diagrams/flow.svg "System Architecture Diagram")
+<
+
+When editing images with `<leader>mE`, you can:
+- Add a title to an image that doesn't have one
+- Modify an existing title
+- Remove a title by leaving the prompt empty
+
+
+COMMON USE CASES ~
+
+>markdown
+    # Local images:
+    ![Logo](./assets/logo.png)
+    ![Icon](../images/icon.svg)
+
+    # Remote images:
+    ![Banner](https://example.com/banner.jpg)
+
+    # With title attributes:
+    ![Graph](data/graph.png "Q4 Sales Performance")
+    ![Screenshot](screens/demo.png "Feature Demo")
+<
+
+==============================================================================
 QUOTES                                            *markdown-plus-usage-quotes*
 
 Toggle blockquote on current line or visual selection with `<leader>mq`.
@@ -883,6 +1001,11 @@ Default keymaps:
         follow_link = 'gd',                -- Follow TOC link
         open_link = 'gx',                  -- Open link in browser (native)
 
+        -- Image operations
+        insert_image = '<leader>mL',       -- Insert/convert to image
+        edit_image = '<leader>mE',         -- Edit image under cursor
+        toggle_image_link = '<leader>mA',  -- Toggle link/image
+
         -- Quotes operations
         toggle_quote = '<leader>mq',       -- Toggle blockquote
 
@@ -1156,6 +1279,13 @@ LINKS ~
     <Plug>(MarkdownPlusConvertToReference) - Convert to reference-style (n)
     <Plug>(MarkdownPlusConvertToInline)    - Convert to inline link (n)
     <Plug>(MarkdownPlusAutoLinkURL)        - Auto-convert URL to link (n)
+
+IMAGES ~
+
+    <Plug>(MarkdownPlusInsertImage)        - Insert new image (n)
+    <Plug>(MarkdownPlusSelectionToImage)   - Convert selection to image (v)
+    <Plug>(MarkdownPlusEditImage)          - Edit image under cursor (n)
+    <Plug>(MarkdownPlusToggleImageLink)    - Toggle link/image (n)
 
 LIST MANAGEMENT ~
 

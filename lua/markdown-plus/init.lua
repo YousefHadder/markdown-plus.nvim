@@ -8,6 +8,7 @@ M.config = {
     list_management = true,
     text_formatting = true,
     links = true,
+    images = true,
     headers_toc = true,
     quotes = true,
     callouts = true,
@@ -37,6 +38,7 @@ M.config = {
 M.list = nil
 M.format = nil
 M.links = nil
+M.images = nil
 M.headers = nil
 M.quotes = nil
 M.callouts = nil
@@ -129,6 +131,11 @@ function M.setup(opts)
     M.links.setup(M.config)
   end
 
+  if M.config.features.images then
+    M.images = require("markdown-plus.images")
+    M.images.setup(M.config)
+  end
+
   if M.config.features.quotes then
     M.quotes = require("markdown-plus.quote")
     M.quotes.setup(M.config)
@@ -173,6 +180,9 @@ function M.setup_autocmds()
       end
       if M.links then
         M.links.enable()
+      end
+      if M.images then
+        M.images.enable()
       end
       if M.quotes then
         M.quotes.enable()

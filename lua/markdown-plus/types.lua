@@ -18,6 +18,7 @@
 ---@field text_formatting? boolean Enable text formatting (default: true)
 ---@field headers_toc? boolean Enable headers and TOC (default: true)
 ---@field links? boolean Enable link management (default: true)
+---@field images? boolean Enable image link management (default: true)
 ---@field quotes? boolean Enable quote management (default: true)
 ---@field callouts? boolean Enable callout management (default: true)
 ---@field code_block? boolean Enable code block management (default: true)
@@ -68,6 +69,7 @@
 ---@field text_formatting boolean
 ---@field headers_toc boolean
 ---@field links boolean
+---@field images boolean
 ---@field quotes boolean
 ---@field callouts boolean
 ---@field code_block boolean
