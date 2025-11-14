@@ -186,7 +186,7 @@ function M.get_visual_selection(include_col)
   else
     -- Use marks from previous visual selection
     local start_pos = vim.fn.getpos("'<")
-    local end_pos = vim.fn.getpos(">")
+    local end_pos = vim.fn.getpos("'>")
 
     local start_col = start_pos[3]
     local end_col = end_pos[3]
