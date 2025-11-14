@@ -163,7 +163,8 @@ function M.get_visual_selection(include_col)
       local end_line = vim.api.nvim_buf_get_lines(0, end_row - 1, end_row, false)[1] or ""
       end_col = #end_line
     else
-      -- For character-wise visual mode, adjust end_col to handle multi-byte characters
+      -- For character-wise (v) and block-wise (<C-v>) visual modes,
+      -- adjust end_col to handle multi-byte characters
       -- getpos() returns the byte position of the first byte of a multi-byte character
       -- We need the byte position of the last byte for proper text extraction
       local end_line = vim.api.nvim_buf_get_lines(0, end_row - 1, end_row, false)[1] or ""
@@ -192,23 +193,21 @@ function M.get_visual_selection(include_col)
     local end_col = end_pos[3]
 
     -- Adjust end_col for multi-byte characters in previous visual selection
-    if include_col then
-      local end_row = end_pos[2]
-      local end_line = vim.api.nvim_buf_get_lines(0, end_row - 1, end_row, false)[1] or ""
-      end_col = M.get_char_end_byte(end_line, end_col)
-    end
+    local end_row = end_pos[2]
+    local end_line = vim.api.nvim_buf_get_lines(0, end_row - 1, end_row, false)[1] or ""
+    end_col = M.get_char_end_byte(end_line, end_col)
 
     if include_col then
       return {
         start_row = start_pos[2],
         start_col = start_col,
-        end_row = end_pos[2],
+        end_row = end_row,
         end_col = end_col,
       }
     else
       return {
         start_row = start_pos[2],
-        end_row = end_pos[2],
+        end_row = end_row,
       }
     end
   end
