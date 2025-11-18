@@ -340,6 +340,109 @@ describe("markdown-plus configuration", function()
     end)
   end)
 
+  describe("lazy-loading behavior", function()
+    local buf
+
+    before_each(function()
+      -- Reset module state
+      markdown_plus.list = nil
+      markdown_plus.format = nil
+      markdown_plus.headers = nil
+      markdown_plus.links = nil
+      markdown_plus.images = nil
+      markdown_plus.quotes = nil
+      markdown_plus.callouts = nil
+      markdown_plus.table = nil
+    end)
+
+    after_each(function()
+      if buf and vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("enables features immediately when setup() is called in markdown buffer", function()
+      -- Create and open a markdown buffer first
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+      vim.api.nvim_set_current_buf(buf)
+
+      -- Setup should enable features immediately
+      markdown_plus.setup({
+        features = {
+          list_management = true,
+          text_formatting = true,
+        },
+      })
+
+      -- Verify modules are loaded and enabled
+      assert.is_not_nil(markdown_plus.list)
+      assert.is_not_nil(markdown_plus.format)
+    end)
+
+    it("does not enable features when setup() is called without markdown buffer", function()
+      -- Create a non-markdown buffer
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_option(buf, "filetype", "lua")
+      vim.api.nvim_set_current_buf(buf)
+
+      -- Setup should NOT enable features immediately
+      markdown_plus.setup({
+        features = {
+          list_management = true,
+        },
+      })
+
+      -- Module should be loaded but not yet enabled for current buffer
+      assert.is_not_nil(markdown_plus.list)
+    end)
+
+    it("enables features on FileType autocmd when buffer is opened later", function()
+      -- Setup in a non-markdown buffer
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_option(buf, "filetype", "lua")
+      vim.api.nvim_set_current_buf(buf)
+
+      markdown_plus.setup({
+        features = {
+          list_management = true,
+        },
+      })
+
+      -- Now switch to a markdown buffer
+      local md_buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_option(md_buf, "filetype", "markdown")
+      vim.api.nvim_set_current_buf(md_buf)
+
+      -- Trigger FileType autocmd
+      vim.api.nvim_exec_autocmds("FileType", { pattern = "markdown" })
+
+      -- Features should now be enabled
+      assert.is_not_nil(markdown_plus.list)
+
+      if vim.api.nvim_buf_is_valid(md_buf) then
+        vim.api.nvim_buf_delete(md_buf, { force = true })
+      end
+    end)
+
+    it("handles custom filetypes correctly", function()
+      -- Create a custom filetype buffer
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_option(buf, "filetype", "mdx")
+      vim.api.nvim_set_current_buf(buf)
+
+      markdown_plus.setup({
+        filetypes = { "markdown", "mdx" },
+        features = {
+          list_management = true,
+        },
+      })
+
+      -- Should enable for mdx since it's in filetypes
+      assert.is_not_nil(markdown_plus.list)
+    end)
+  end)
+
   describe("callouts configuration", function()
     it("accepts valid callouts config", function()
       assert.has_no.errors(function()

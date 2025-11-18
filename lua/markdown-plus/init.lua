@@ -161,32 +161,37 @@ function M.setup(opts)
   -- If we're already in a markdown buffer, enable features immediately
   -- This handles the case where setup() is called via lazy-loading after FileType event
   if vim.tbl_contains(M.config.filetypes, vim.bo.filetype) then
-    -- Trigger enable for all loaded modules (same as the autocmd callback)
-    if M.list then
-      M.list.enable()
-    end
-    if M.format then
-      M.format.enable()
-    end
-    if M.headers then
-      M.headers.enable()
-    end
-    if M.links then
-      M.links.enable()
-    end
-    if M.images then
-      M.images.enable()
-    end
-    if M.quotes then
-      M.quotes.enable()
-    end
-    if M.callouts then
-      M.callouts.enable()
-    end
-    if M.table then
-      -- Set up buffer-local table keymaps
-      require("markdown-plus.table.keymaps").setup_buffer_keymaps(M.config.table or M.table.config)
-    end
+    M.enable_features_for_buffer()
+  end
+end
+
+---Enable all loaded modules for the current buffer
+---@return nil
+function M.enable_features_for_buffer()
+  if M.list then
+    M.list.enable()
+  end
+  if M.format then
+    M.format.enable()
+  end
+  if M.headers then
+    M.headers.enable()
+  end
+  if M.links then
+    M.links.enable()
+  end
+  if M.images then
+    M.images.enable()
+  end
+  if M.quotes then
+    M.quotes.enable()
+  end
+  if M.callouts then
+    M.callouts.enable()
+  end
+  if M.table then
+    -- Set up buffer-local table keymaps
+    require("markdown-plus.table.keymaps").setup_buffer_keymaps(M.config.table or M.table.config)
   end
 end
 
@@ -199,32 +204,7 @@ function M.setup_autocmds()
     group = group,
     pattern = M.config.filetypes or "markdown",
     callback = function()
-      -- Enable features for markdown files
-      if M.list then
-        M.list.enable()
-      end
-      if M.format then
-        M.format.enable()
-      end
-      if M.headers then
-        M.headers.enable()
-      end
-      if M.links then
-        M.links.enable()
-      end
-      if M.images then
-        M.images.enable()
-      end
-      if M.quotes then
-        M.quotes.enable()
-      end
-      if M.callouts then
-        M.callouts.enable()
-      end
-      if M.table then
-        -- Set up buffer-local table keymaps
-        require("markdown-plus.table.keymaps").setup_buffer_keymaps(M.config.table or M.table.config)
-      end
+      M.enable_features_for_buffer()
     end,
   })
 end
