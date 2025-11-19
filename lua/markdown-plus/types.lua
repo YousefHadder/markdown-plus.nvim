@@ -61,10 +61,10 @@
 ---@field features markdown-plus.InternalFeatureConfig
 ---@field keymaps markdown-plus.InternalKeymapConfig
 ---@field filetypes string[]
----@field code_block markdown-plus.InternalCodeBlockConfig
 ---@field toc markdown-plus.InternalTocConfig
 ---@field table markdown-plus.InternalTableConfig
 ---@field callouts markdown-plus.InternalCalloutsConfig
+---@field code_block markdown-plus.InternalCodeBlockConfig
 
 ---Internal feature configuration
 ---@class markdown-plus.InternalFeatureConfig
