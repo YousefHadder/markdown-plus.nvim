@@ -30,6 +30,7 @@ function M.validate(opts)
     toc = { opts.toc, "table", true },
     table = { opts.table, "table", true },
     callouts = { opts.callouts, "table", true },
+    code_block = { opts.code_block, "table", true },
   })
   if not ok then
     return false, err
@@ -125,6 +126,29 @@ function M.validate(opts)
     end
   end
 
+  -- Validate code_block config
+  if opts.code_block then
+    ok, err = validate_path("config.code_block", {
+      enabled = { opts.code_block.enabled, "boolean", true },
+    })
+    if not ok then
+      return false, err
+    end
+
+    -- Check for unknown code_block fields
+    local known_code_block_fields = { enabled = true }
+    for key in pairs(opts.code_block) do
+      if not known_code_block_fields[key] then
+        return false,
+          string.format(
+            "config.code_block: unknown field '%s'. Valid fields are: %s",
+            key,
+            table.concat(vim.tbl_keys(known_code_block_fields), ", ")
+          )
+      end
+    end
+  end
+
   -- Check for unknown top-level fields
   local known_fields = {
     enabled = true,
@@ -134,6 +158,7 @@ function M.validate(opts)
     toc = true,
     table = true,
     callouts = true,
+    code_block = true,
   }
   for key in pairs(opts) do
     if not known_fields[key] then

@@ -60,8 +60,11 @@
 ---@field enabled boolean
 ---@field features markdown-plus.InternalFeatureConfig
 ---@field keymaps markdown-plus.InternalKeymapConfig
+---@field filetypes string[]
 ---@field code_block markdown-plus.InternalCodeBlockConfig
----@field toc? markdown-plus.TocConfig
+---@field toc markdown-plus.InternalTocConfig
+---@field table markdown-plus.InternalTableConfig
+---@field callouts markdown-plus.InternalCalloutsConfig
 
 ---Internal feature configuration
 ---@class markdown-plus.InternalFeatureConfig
@@ -87,6 +90,7 @@
 ---@class markdown-plus.InternalTableKeymapConfig
 ---@field enabled boolean
 ---@field prefix string
+---@field insert_mode_navigation boolean
 
 ---Internal code block configuration
 ---@class markdown-plus.InternalCodeBlockConfig
@@ -95,6 +99,15 @@
 ---Internal keymap configuration
 ---@class markdown-plus.InternalKeymapConfig
 ---@field enabled boolean
+
+---Internal TOC configuration
+---@class markdown-plus.InternalTocConfig
+---@field initial_depth number
+
+---Internal callouts configuration
+---@class markdown-plus.InternalCalloutsConfig
+---@field default_type string
+---@field custom_types string[]
 
 ---@class markdown-plus.ListInfo
 ---@field type string List type: "unordered", "ordered", "ordered_paren", "letter_lower", "letter_lower_paren", "letter_upper", "letter_upper_paren"

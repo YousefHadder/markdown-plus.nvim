@@ -219,7 +219,7 @@ local function register_plug_mappings()
 end
 
 ---Setup buffer-local default keymaps
----@param config TableConfig Table configuration
+---@param config markdown-plus.InternalTableConfig Table configuration
 local function setup_buffer_keymaps(config)
   local prefix = config.keymaps.prefix or "<leader>t"
 
@@ -326,14 +326,14 @@ function M.register_plug_mappings()
 end
 
 ---Setup buffer-local keymaps for current buffer
----@param config TableConfig Table configuration
+---@param config markdown-plus.InternalTableConfig Table configuration
 function M.setup_buffer_keymaps(config)
   setup_buffer_keymaps(config)
 end
 
 ---Setup table keymaps (registers <Plug> mappings once, then sets up buffer-local defaults)
 ---For backward compatibility - prefer calling register_plug_mappings() once and setup_buffer_keymaps() per buffer
----@param config TableConfig Table configuration
+---@param config markdown-plus.InternalTableConfig Table configuration
 function M.setup(config)
   register_plug_mappings()
   setup_buffer_keymaps(config)

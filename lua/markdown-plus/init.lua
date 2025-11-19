@@ -19,18 +19,26 @@ M.config = {
     enabled = true,
   },
   filetypes = { "markdown" },
+  toc = {
+    initial_depth = 2,
+  },
   table = {
     enabled = true,
     auto_format = true,
     default_alignment = "left",
+    confirm_destructive = true,
     keymaps = {
       enabled = true,
       prefix = "<leader>t",
+      insert_mode_navigation = true,
     },
   },
   callouts = {
     default_type = "NOTE",
     custom_types = {},
+  },
+  code_block = {
+    enabled = true,
   },
 }
 

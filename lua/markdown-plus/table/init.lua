@@ -12,18 +12,8 @@
 
 local M = {}
 
----@class TableConfig
----@field enabled boolean Enable table features
----@field auto_format boolean Automatically format tables on edit
----@field default_alignment string Default column alignment ('left', 'center', 'right')
----@field keymaps TableKeymaps Keymap configuration
-
----@class TableKeymaps
----@field enabled boolean Enable default keymaps
----@field prefix string Keymap prefix (default: '<leader>t')
-
 ---Default configuration for table module
----@type TableConfig
+---@type markdown-plus.InternalTableConfig
 M.defaults = {
   enabled = true,
   auto_format = true,
@@ -32,15 +22,16 @@ M.defaults = {
   keymaps = {
     enabled = true,
     prefix = "<leader>t",
+    insert_mode_navigation = true,
   },
 }
 
 ---Current table configuration
----@type TableConfig
+---@type markdown-plus.InternalTableConfig
 M.config = vim.deepcopy(M.defaults)
 
 ---Setup table module with user configuration
----@param opts? TableConfig User configuration
+---@param opts? markdown-plus.TableConfig User configuration
 function M.setup(opts)
   M.config = vim.tbl_deep_extend("force", M.defaults, opts or {})
 

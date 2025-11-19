@@ -7,7 +7,9 @@
   "diagnostics.globals": [
     "vim"
   ],
-  "diagnostics.disable": [],
+  "diagnostics.disable": [
+        "undefined-field"
+    ],
   "workspace.library": [
     "${3rd}/luv/library",
     "${3rd}/busted/library"
