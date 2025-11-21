@@ -6,6 +6,86 @@ local M = {}
 ---@type markdown-plus.InternalConfig
 M.config = {}
 
+---State for dot-repeat operations
+M._repeat_state = {
+  format_type = nil,
+  is_visual = false,
+}
+
+---Register a mapping for dot-repeat support (for use with repeat.vim if available)
+---@param plug string The plug mapping to register (e.g., "<Plug>(MarkdownPlusBold)")
+---@return nil
+function M.register_repeat(plug)
+  if not plug then
+    return
+  end
+
+  -- Check if repeat.vim is available
+  local has_repeat = vim.fn.exists("*repeat#set") == 1
+  if not has_repeat then
+    return
+  end
+
+  -- Schedule the repeat registration to happen after current operation completes
+  vim.schedule(function()
+    local termcodes = vim.api.nvim_replace_termcodes(plug, true, true, true)
+    vim.fn["repeat#set"](termcodes)
+  end)
+end
+
+---Operatorfunc callback for dot-repeat support
+---@return nil
+function M._format_operatorfunc()
+  if not M._repeat_state.format_type then
+    return
+  end
+
+  -- Apply the formatting operation on the range
+  M.toggle_format_word(M._repeat_state.format_type)
+end
+
+---Operatorfunc callback for clear formatting
+---@return nil
+function M._clear_operatorfunc()
+  M.clear_formatting_word()
+end
+
+---Wrapper to make formatting dot-repeatable using operatorfunc
+---@param format_type string The type of formatting to apply
+---@param plug string? Optional plug mapping for repeat.vim support
+---@return string The operator sequence for expr mapping
+function M._toggle_format_with_repeat(format_type, plug)
+  -- Save state for repeat
+  M._repeat_state.format_type = format_type
+
+  -- Set operatorfunc
+  vim.go.operatorfunc = "v:lua.require'markdown-plus.format'._format_operatorfunc"
+
+  -- Register with repeat.vim if available
+  if plug then
+    M.register_repeat(plug)
+  end
+
+  -- Return g@l for linewise operation (acts on current word/line)
+  return "g@l"
+end
+
+---Wrapper to make clear formatting dot-repeatable
+---@param plug string? Optional plug mapping for repeat.vim support
+---@return string The operator sequence for expr mapping
+function M._clear_with_repeat(plug)
+  -- Set operatorfunc
+  vim.go.operatorfunc = "v:lua.require'markdown-plus.format'._clear_operatorfunc"
+
+  -- Register with repeat.vim if available
+  if plug then
+    M.register_repeat(plug)
+  end
+
+  -- Return g@l for linewise operation
+  return "g@l"
+end
+
 ---Formatting pattern definition
 ---@class markdown-plus.format.Pattern
 ---@field start string Start pattern (Lua pattern)
@@ -47,7 +127,7 @@ function M.setup_keymaps()
       plug = keymap_helper.plug_name("Bold"),
       fn = {
         function()
-          M.toggle_format_word("bold")
+          return M._toggle_format_with_repeat("bold", string.format("<Plug>(%s)", keymap_helper.plug_name("Bold")))
         end,
         function()
           M.toggle_format("bold")
@@ -56,12 +136,13 @@ function M.setup_keymaps()
       modes = { "n", "x" },
       default_key = { "<leader>mb", "<leader>mb" },
       desc = "Toggle bold formatting",
+      expr = { true, false },
     },
     {
       plug = keymap_helper.plug_name("Italic"),
       fn = {
         function()
-          M.toggle_format_word("italic")
+          return M._toggle_format_with_repeat("italic", string.format("<Plug>(%s)", keymap_helper.plug_name("Italic")))
         end,
         function()
           M.toggle_format("italic")
@@ -70,12 +151,16 @@ function M.setup_keymaps()
       modes = { "n", "x" },
       default_key = { "<leader>mi", "<leader>mi" },
       desc = "Toggle italic formatting",
+      expr = { true, false },
     },
     {
       plug = keymap_helper.plug_name("Strikethrough"),
       fn = {
         function()
-          M.toggle_format_word("strikethrough")
+          return M._toggle_format_with_repeat(
+            "strikethrough",
+            string.format("<Plug>(%s)", keymap_helper.plug_name("Strikethrough"))
+          )
         end,
         function()
           M.toggle_format("strikethrough")
@@ -84,12 +169,13 @@ function M.setup_keymaps()
       modes = { "n", "x" },
       default_key = { "<leader>ms", "<leader>ms" },
       desc = "Toggle strikethrough formatting",
+      expr = { true, false },
     },
     {
       plug = keymap_helper.plug_name("Code"),
       fn = {
         function()
-          M.toggle_format_word("code")
+          return M._toggle_format_with_repeat("code", string.format("<Plug>(%s)", keymap_helper.plug_name("Code")))
         end,
         function()
           M.toggle_format("code")
@@ -98,6 +184,7 @@ function M.setup_keymaps()
       modes = { "n", "x" },
       default_key = { "<leader>mc", "<leader>mc" },
       desc = "Toggle inline code formatting",
+      expr = { true, false },
     },
     {
       plug = keymap_helper.plug_name("CodeBlock"),
@@ -109,12 +196,17 @@ function M.setup_keymaps()
     {
       plug = keymap_helper.plug_name("ClearFormatting"),
       fn = {
-        M.clear_formatting_word,
-        M.clear_formatting,
+        function()
+          return M._clear_with_repeat(string.format("<Plug>(%s)", keymap_helper.plug_name("ClearFormatting")))
+        end,
+        function()
+          M.clear_formatting()
+        end,
       },
       modes = { "n", "x" },
       default_key = { "<leader>mC", "<leader>mC" },
       desc = "Clear all formatting",
+      expr = { true, false },
     },
   })
 end

@@ -64,6 +64,7 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Smart formatting that respects word boundaries
   - Clear all formatting from selected text
   - Works in both normal and visual mode
+  - Dot-repeat support in normal mode (press `.` to reapply to next word)
 
 - Links & References:
   - Insert and edit markdown links
@@ -380,7 +381,11 @@ The `<BS>` key in insert mode is context-aware:
 FORMATTING                                      *markdown-plus-usage-formatting*
 
 All formatting commands work in both normal and visual mode. Use `<leader>m`
-prefix for formatting operations.
+prefix for formatting operations. 
+
+In normal mode, formatting actions are dot-repeatable - after running a 
+formatter once (e.g. `<leader>mb` to make a word bold), press `.` to apply 
+the same format to the next word without reselecting.
 
 
 BOLD ~
@@ -388,9 +393,22 @@ BOLD ~
 Toggle bold with `<leader>mb`:
 
 >markdown
-    This is text           ->    This is *bold text*
-    This is *bold text*    ->    This is text
+    This is text           ->    This is **bold text**
+    This is **bold text**  ->    This is text
 <
+
+Dot-repeat example (normal mode only):
+>markdown
+    word1 word2 word3
+    
+    1. Position cursor on "word1"
+    2. Press <leader>mb  ->  **word1** word2 word3
+    3. Move cursor to "word2"
+    4. Press .           ->  **word1** **word2** word3
+    5. Move to "word3", press .  ->  **word1** **word2** **word3**
+<
+
+Note: Visual mode formatting does not support dot-repeat.
 
 
 ITALIC ~

@@ -117,6 +117,9 @@ See [Configuration](#configuration) for all available options.
 - **Clear all formatting**: `<leader>mC` to remove all markdown formatting from selection or word
 - **Smart word detection**: Works with words containing hyphens (`test-word`), dots (`file.name`), and underscores (`snake_case`)
 - **Visual and normal mode**: All formatting commands work in both visual selection and normal mode (on current word)
+- **Dot-repeat support**: Normal mode formatting actions are dot-repeatable - press `.` to apply the same format to another word
+  - Example: `<leader>mb` on "word1" to make it bold, then move to "word2" and press `.` to make it bold too
+  - Note: Visual mode formatting does not support dot-repeat
 
 </details>
 

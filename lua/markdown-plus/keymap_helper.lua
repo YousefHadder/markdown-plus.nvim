@@ -9,6 +9,7 @@ local M = {}
 ---@field modes string|string[] Mode(s) for the keymap ('n', 'v', 'x', 'i')
 ---@field default_key? string|string[] Default key binding (optional). If both `modes` and `default_key` are arrays, they are indexed correspondingly (i.e., `modes[1]` gets `default_key[1]`, etc.).
 ---@field desc string Description for the keymap
+---@field expr? boolean|boolean[] Whether the mapping is an expression mapping (optional). Can be a single boolean or array per mode.
 
 ---Setup keymaps for a module
 ---@param config markdown-plus.InternalConfig Plugin configuration
@@ -21,6 +22,10 @@ function M.setup_keymaps(config, keymaps)
     if default_keys and type(default_keys) ~= "table" then
       default_keys = { default_keys }
     end
+    local exprs = keymap.expr
+    if exprs and type(exprs) ~= "table" then
+      exprs = { exprs }
+    end
 
     for idx, mode in ipairs(modes) do
       -- Always create <Plug> mapping (regardless of keymaps.enabled)
@@ -32,9 +37,13 @@ function M.setup_keymaps(config, keymaps)
         fn = fn[idx]
       end
 
+      -- Determine if this mode uses expr mapping
+      local is_expr = exprs and exprs[idx] or false
+
       vim.keymap.set(mode, plug_name, fn, {
         silent = true,
         desc = keymap.desc,
+        expr = is_expr,
       })
 
       -- Set default keymap only if keymaps are enabled and default is specified
