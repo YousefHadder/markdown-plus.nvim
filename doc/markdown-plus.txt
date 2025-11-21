@@ -381,10 +381,10 @@ The `<BS>` key in insert mode is context-aware:
 FORMATTING                                      *markdown-plus-usage-formatting*
 
 All formatting commands work in both normal and visual mode. Use `<leader>m`
-prefix for formatting operations. 
+prefix for formatting operations.
 
-In normal mode, formatting actions are dot-repeatable - after running a 
-formatter once (e.g. `<leader>mb` to make a word bold), press `.` to apply 
+In normal mode, formatting actions are dot-repeatable - after running a
+formatter once (e.g. `<leader>mb` to make a word bold), press `.` to apply
 the same format to the next word without reselecting.
 
 
@@ -393,8 +393,8 @@ BOLD ~
 Toggle bold with `<leader>mb`:
 
 >markdown
-    This is text           ->    This is **bold text**
-    This is **bold text**  ->    This is text
+    This is text           ->    This is **text**
+    This is **text**       ->    This is text
 <
 
 Dot-repeat example (normal mode only):

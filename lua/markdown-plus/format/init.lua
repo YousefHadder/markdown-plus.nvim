@@ -9,7 +9,6 @@ M.config = {}
 ---State for dot-repeat operations
 M._repeat_state = {
   format_type = nil,
-  is_visual = false,
 }
 
 ---Register a mapping for dot-repeat support (for use with repeat.vim if available)
@@ -58,15 +57,15 @@ function M._toggle_format_with_repeat(format_type, plug)
   -- Save state for repeat
   M._repeat_state.format_type = format_type
 
-  -- Set operatorfunc
-  vim.go.operatorfunc = "v:lua.require'markdown-plus.format'._format_operatorfunc"
+  -- Set operatorfunc (buffer-local to avoid conflicts)
+  vim.bo.operatorfunc = "v:lua.require'markdown-plus.format'._format_operatorfunc"
 
   -- Register with repeat.vim if available
   if plug then
     M.register_repeat(plug)
   end
 
-  -- Return g@l for linewise operation (acts on current word/line)
+  -- Return g@l for linewise operation (operatorfunc will handle word detection)
   return "g@l"
 end
 
@@ -74,15 +73,15 @@ end
 ---@param plug string? Optional plug mapping for repeat.vim support
 ---@return string The operator sequence for expr mapping
 function M._clear_with_repeat(plug)
-  -- Set operatorfunc
-  vim.go.operatorfunc = "v:lua.require'markdown-plus.format'._clear_operatorfunc"
+  -- Set operatorfunc (buffer-local to avoid conflicts)
+  vim.bo.operatorfunc = "v:lua.require'markdown-plus.format'._clear_operatorfunc"
 
   -- Register with repeat.vim if available
   if plug then
     M.register_repeat(plug)
   end
 
-  -- Return g@l for linewise operation
+  -- Return g@l for linewise operation (operatorfunc will handle word detection)
   return "g@l"
 end
 
