@@ -130,29 +130,9 @@
 ---@field indent string Leading whitespace before the marker
 ---@field checkbox string|nil Checkbox state if present: "[ ]", "[x]", "[X]", or nil
 
----Footnote reference found in text (e.g., [^1])
----@class FootnoteReference
----@field id string The footnote identifier (e.g., "1", "example")
----@field line number 1-indexed line number where reference was found
----@field col_start number 1-indexed column start position
----@field col_end number 1-indexed column end position
-
----Footnote definition (e.g., [^1]: Definition text)
----@class FootnoteDefinition
----@field id string The footnote identifier
----@field line number 1-indexed line number where definition starts
----@field end_line number 1-indexed line number where definition ends (for multi-line)
----@field content string The definition text content
----@field col_start number 1-indexed column start position
-
----Combined footnote information for listing
----@class FootnoteInfo
----@field id string The footnote identifier
----@field definition FootnoteDefinition|nil The definition if it exists
----@field references FootnoteReference[] All references to this footnote
----@field has_definition boolean Whether a definition exists
----@field has_references boolean Whether any references exist
----@field is_orphan boolean Definition exists but no references
----@field is_missing boolean References exist but no definition
+-- Note: Footnote types are defined in lua/markdown-plus/footnotes/parser.lua:
+-- - markdown-plus.footnotes.Reference
+-- - markdown-plus.footnotes.Definition
+-- - markdown-plus.footnotes.Footnote
 
 return {}

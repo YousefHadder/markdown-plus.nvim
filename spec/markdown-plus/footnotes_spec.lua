@@ -104,6 +104,46 @@ describe("markdown-plus footnotes", function()
         local refs = parser.find_all_references(0)
         assert.equals(0, #refs)
       end)
+
+      it("ignores references inside fenced code blocks with backticks", function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "Real reference[^1] here.",
+          "```",
+          "Code with [^fake] reference",
+          "```",
+          "More text[^2].",
+        })
+
+        local refs = parser.find_all_references(0)
+        assert.equals(2, #refs)
+        assert.equals("1", refs[1].id)
+        assert.equals("2", refs[2].id)
+      end)
+
+      it("ignores references inside fenced code blocks with tildes", function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "Real reference[^1] here.",
+          "~~~",
+          "Code with [^fake] reference",
+          "~~~",
+          "More text.",
+        })
+
+        local refs = parser.find_all_references(0)
+        assert.equals(1, #refs)
+        assert.equals("1", refs[1].id)
+      end)
+
+      it("ignores references inside inline code", function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "Real[^1] and `inline [^fake] code` here.",
+          "Also ``double [^fake2] backticks`` work.",
+        })
+
+        local refs = parser.find_all_references(0)
+        assert.equals(1, #refs)
+        assert.equals("1", refs[1].id)
+      end)
     end)
 
     describe("find_all_definitions", function()
@@ -132,6 +172,21 @@ describe("markdown-plus footnotes", function()
         assert.equals(1, #defs)
         assert.equals(1, defs[1].line_num)
         assert.equals(3, defs[1].end_line)
+      end)
+
+      it("ignores definitions inside fenced code blocks", function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "[^1]: Real definition.",
+          "```",
+          "[^fake]: Not a real definition",
+          "```",
+          "[^2]: Another real one.",
+        })
+
+        local defs = parser.find_all_definitions(0)
+        assert.equals(2, #defs)
+        assert.equals("1", defs[1].id)
+        assert.equals("2", defs[2].id)
       end)
     end)
 

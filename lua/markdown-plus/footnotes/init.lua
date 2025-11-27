@@ -45,8 +45,6 @@ end
 --- Set up keymaps for footnotes functionality
 ---@return nil
 function M.setup_keymaps()
-  local footnotes_config = M.get_config()
-
   keymap_helper.setup_keymaps(M.config, {
     {
       plug = keymap_helper.plug_name("FootnoteInsert"),
@@ -176,7 +174,7 @@ end
 -- =============================================================================
 
 --- Get all footnotes in the current buffer
---- @return FootnoteInfo[] Array of footnote information
+--- @return markdown-plus.footnotes.Footnote[] Array of footnote information
 function M.get_all_footnotes()
   return parser.get_all_footnotes()
 end

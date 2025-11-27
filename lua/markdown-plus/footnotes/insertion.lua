@@ -207,7 +207,7 @@ function M.delete_footnote()
 
   -- Confirm deletion if configured
   local function do_delete()
-    -- Delete definition first (to preserve line numbers for references)
+    -- Collect definition lines first, then delete references, then definition
     -- Work from bottom to top to avoid line number shifts
     local lines_to_delete = {}
 
