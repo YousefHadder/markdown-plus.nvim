@@ -5,6 +5,23 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.8.0...v1.9.0) (2025-11-27)
+
+
+### Features
+
+* add comprehensive image link support ([#117](https://github.com/YousefHadder/markdown-plus.nvim/issues/117)) ([#123](https://github.com/YousefHadder/markdown-plus.nvim/issues/123)) ([6507297](https://github.com/YousefHadder/markdown-plus.nvim/commit/6507297dcbbd9e5ea5be49449629a7cdbb0d5a4e))
+* **callouts:** add github flavored markdown callouts support ([#121](https://github.com/YousefHadder/markdown-plus.nvim/issues/121)) ([a6ff424](https://github.com/YousefHadder/markdown-plus.nvim/commit/a6ff4249e83f08317a3fdd6335d463a4a9d7b541))
+* **footnotes:** add comprehensive footnotes support ([#135](https://github.com/YousefHadder/markdown-plus.nvim/issues/135)) ([a18473f](https://github.com/YousefHadder/markdown-plus.nvim/commit/a18473f19f5c635b1c6be39b0bf16349f0e40694))
+* **format:** add dot-repeat support for normal mode formatting actions ([#132](https://github.com/YousefHadder/markdown-plus.nvim/issues/132)) ([300abe9](https://github.com/YousefHadder/markdown-plus.nvim/commit/300abe94983fbd46018d4f3283953f7185e1e740))
+
+
+### Bug Fixes
+
+* **bug:** basic lazy-loading setup ([#128](https://github.com/YousefHadder/markdown-plus.nvim/issues/128)) ([35c977e](https://github.com/YousefHadder/markdown-plus.nvim/commit/35c977ef2f6c1ca1c988782869d97d1b788792de))
+* **bug:** correct multi-byte character handling in get_visual_selection ([#126](https://github.com/YousefHadder/markdown-plus.nvim/issues/126)) ([0b74213](https://github.com/YousefHadder/markdown-plus.nvim/commit/0b74213f846f9c3bd72aa40eacd5626b6b55be7e))
+* **format:** use global operatorfunc instead of buffer-local ([#133](https://github.com/YousefHadder/markdown-plus.nvim/issues/133)) ([8d97fc8](https://github.com/YousefHadder/markdown-plus.nvim/commit/8d97fc89af60f6a4e6f4b40a3c5d61f3c50831e1))
+
 ## [1.8.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.7.1...v1.8.0) (2025-11-09)
 
 
