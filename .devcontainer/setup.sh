@@ -42,6 +42,7 @@ cargo install stylua
 echo "Installing lua-language-server..."
 sudo apt-get install -y ninja-build
 cd /tmp
+rm -rf lua-language-server
 git clone https://github.com/LuaLS/lua-language-server
 cd lua-language-server
 ./make.sh
