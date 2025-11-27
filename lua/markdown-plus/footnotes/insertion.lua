@@ -44,10 +44,10 @@ end
 ---@return boolean has_existing_defs Whether there are existing definitions (for spacing)
 local function ensure_footnotes_section(bufnr)
   bufnr = bufnr or 0
-  local section_header = get_section_header()
+  local header = get_section_header()
 
   -- Check if section already exists
-  local existing = parser.find_footnotes_section(bufnr, section_header)
+  local existing = parser.find_footnotes_section(bufnr, header)
   if existing then
     -- Find the last line of definitions in this section
     local lines = vim.api.nvim_buf_get_lines(bufnr, existing, -1, false)
@@ -81,7 +81,7 @@ local function ensure_footnotes_section(bufnr)
   end
 
   -- Add section header
-  table.insert(new_lines, "## " .. section_header)
+  table.insert(new_lines, "## " .. header)
   table.insert(new_lines, "")
 
   vim.api.nvim_buf_set_lines(bufnr, total_lines, total_lines, false, new_lines)

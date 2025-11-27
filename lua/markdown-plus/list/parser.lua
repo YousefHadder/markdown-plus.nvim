@@ -22,6 +22,13 @@ local DELIMITER_PAREN = ")"
 ---@field ordered_paren_checkbox string Pattern for parenthesized ordered checkbox lists (1) [ ])
 ---@field letter_lower_paren_checkbox string Pattern for parenthesized lowercase letter checkbox lists (a) [ ])
 ---@field letter_upper_paren_checkbox string Pattern for parenthesized uppercase letter checkbox lists (A) [ ])
+---@field unordered_empty string Pattern for empty unordered lists at EOL (-, +, *)
+---@field ordered_empty string Pattern for empty ordered lists at EOL (1., 2., etc.)
+---@field letter_lower_empty string Pattern for empty lowercase letter lists at EOL (a., b., c.)
+---@field letter_upper_empty string Pattern for empty uppercase letter lists at EOL (A., B., C.)
+---@field ordered_paren_empty string Pattern for empty parenthesized ordered lists at EOL (1), 2), etc.)
+---@field letter_lower_paren_empty string Pattern for empty parenthesized lowercase letter lists at EOL (a), b), c.)
+---@field letter_upper_paren_empty string Pattern for empty parenthesized uppercase letter lists at EOL (A), B), C.)
 
 ---@type markdown-plus.list.Patterns
 M.patterns = {
@@ -39,6 +46,15 @@ M.patterns = {
   ordered_paren_checkbox = "^(%s*)(%d+)%)%s+%[(.?)%]%s+",
   letter_lower_paren_checkbox = "^(%s*)([a-z])%)%s+%[(.?)%]%s+",
   letter_upper_paren_checkbox = "^(%s*)([A-Z])%)%s+%[(.?)%]%s+",
+  -- Empty item patterns (marker at end of line, no trailing space required)
+  -- These handle the case where trim_trailing_whitespace removes the space
+  unordered_empty = "^(%s*)([%-%+%*])$",
+  ordered_empty = "^(%s*)(%d+)%.$",
+  letter_lower_empty = "^(%s*)([a-z])%.$",
+  letter_upper_empty = "^(%s*)([A-Z])%.$",
+  ordered_paren_empty = "^(%s*)(%d+)%)$",
+  letter_lower_paren_empty = "^(%s*)([a-z])%)$",
+  letter_upper_paren_empty = "^(%s*)([A-Z])%)$",
 }
 
 -- Pattern configuration: defines order and metadata for pattern matching
@@ -67,6 +83,25 @@ local PATTERN_CONFIG = {
   { pattern = "letter_lower_paren", type = "letter_lower_paren", delimiter = DELIMITER_PAREN, has_checkbox = false },
   { pattern = "letter_upper_paren", type = "letter_upper_paren", delimiter = DELIMITER_PAREN, has_checkbox = false },
   { pattern = "unordered", type = "unordered", delimiter = "", has_checkbox = false },
+  -- Empty item patterns (marker at EOL without trailing space)
+  -- These are checked last to prefer matching with content when possible
+  { pattern = "ordered_empty", type = "ordered", delimiter = DELIMITER_DOT, has_checkbox = false },
+  { pattern = "letter_lower_empty", type = "letter_lower", delimiter = DELIMITER_DOT, has_checkbox = false },
+  { pattern = "letter_upper_empty", type = "letter_upper", delimiter = DELIMITER_DOT, has_checkbox = false },
+  { pattern = "ordered_paren_empty", type = "ordered_paren", delimiter = DELIMITER_PAREN, has_checkbox = false },
+  {
+    pattern = "letter_lower_paren_empty",
+    type = "letter_lower_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = false,
+  },
+  {
+    pattern = "letter_upper_paren_empty",
+    type = "letter_upper_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = false,
+  },
+  { pattern = "unordered_empty", type = "unordered", delimiter = "", has_checkbox = false },
 }
 
 ---Build list info object from parsed components

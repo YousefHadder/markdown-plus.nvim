@@ -86,6 +86,53 @@ describe("markdown-plus list management", function()
       local info = list.parse_list_line("Not a list")
       assert.is_nil(info)
     end)
+
+    it("parses empty ordered list items without trailing space", function()
+      local info = list.parse_list_line("3.")
+      assert.is_not_nil(info)
+      assert.are.equal("ordered", info.type)
+      assert.are.equal("3.", info.marker)
+    end)
+
+    it("parses empty unordered list items without trailing space", function()
+      local info = list.parse_list_line("-")
+      assert.is_not_nil(info)
+      assert.are.equal("unordered", info.type)
+    end)
+
+    it("parses empty letter list items without trailing space", function()
+      local info = list.parse_list_line("a.")
+      assert.is_not_nil(info)
+      assert.are.equal("letter_lower", info.type)
+    end)
+
+    it("parses empty parenthesized ordered list items without trailing space", function()
+      local info = list.parse_list_line("1)")
+      assert.is_not_nil(info)
+      assert.are.equal("ordered_paren", info.type)
+    end)
+
+    it("parses empty uppercase letter list items without trailing space", function()
+      local info = list.parse_list_line("A.")
+      assert.is_not_nil(info)
+      assert.are.equal("letter_upper", info.type)
+    end)
+
+    it("parses empty parenthesized letter list items without trailing space", function()
+      local lower = list.parse_list_line("a)")
+      assert.is_not_nil(lower)
+      assert.are.equal("letter_lower_paren", lower.type)
+
+      local upper = list.parse_list_line("A)")
+      assert.is_not_nil(upper)
+      assert.are.equal("letter_upper_paren", upper.type)
+    end)
+
+    it("does not parse decimal numbers as list items", function()
+      assert.is_nil(list.parse_list_line("1.0 is the release"))
+      assert.is_nil(list.parse_list_line("3.14159"))
+      assert.is_nil(list.parse_list_line("99.9% of cases"))
+    end)
   end)
 
   describe("is_empty_list_item", function()
@@ -643,6 +690,29 @@ describe("markdown-plus list management", function()
       assert.are.equal("       details here", result[2])
       assert.are.equal("2. [ ] Task 2", result[3]) -- Should remain as 2
       assert.are.equal("3. [x] Task 3", result[4]) -- Should remain as 3
+    end)
+
+    it("keeps empty list items without trailing space in same group", function()
+      -- This tests the fix for issue #17
+      -- Empty items like "3." (without trailing space) should still be in the same group
+      local lines = {
+        "1. A",
+        "2. b",
+        "3.",
+        "4. c",
+        "5.",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      -- Numbers should stay sequential (not restart at 1 after empty item)
+      assert.is_not_nil(result[1]:match("^1%."))
+      assert.is_not_nil(result[2]:match("^2%."))
+      assert.is_not_nil(result[3]:match("^3%."))
+      assert.is_not_nil(result[4]:match("^4%."))
+      assert.is_not_nil(result[5]:match("^5%."))
     end)
   end)
 
