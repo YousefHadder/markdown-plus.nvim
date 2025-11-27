@@ -119,16 +119,23 @@ function M.insert_footnote()
 
     -- Check if this ID already exists
     local existing_def = parser.find_definition(bufnr, id)
-    if existing_def then
-      utils.notify("Footnote [^" .. id .. "] already exists at line " .. existing_def.line_num, vim.log.levels.WARN)
-      return
-    end
 
     -- Insert reference after the character the cursor is on
     local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1]
     local reference = "[^" .. id .. "]"
     local new_line = line:sub(1, col + 1) .. reference .. line:sub(col + 2)
     vim.api.nvim_buf_set_lines(bufnr, row - 1, row, false, { new_line })
+
+    -- If definition already exists, just insert the reference and notify
+    if existing_def then
+      -- Move cursor after the inserted reference
+      vim.api.nvim_win_set_cursor(0, { row, col + 1 + #reference })
+      utils.notify(
+        "Added reference to existing footnote [^" .. id .. "] (definition at line " .. existing_def.line_num .. ")",
+        vim.log.levels.INFO
+      )
+      return
+    end
 
     -- Ensure footnotes section exists and get insert position
     local def_line, has_existing_defs = ensure_footnotes_section(bufnr)
