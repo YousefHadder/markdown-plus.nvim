@@ -1540,9 +1540,11 @@ logical cell (usually first cell of new/modified row/column).
 | Keymap | Mode | Description |
 |--------|------|-------------|
 | `<CR>` | Insert | Auto-continue lists or break out of lists |
+| `<A-CR>` | Insert | Continue list content on next line (no new bullet) |
 | `<Tab>` | Insert | Indent list item |
 | `<S-Tab>` | Insert | Outdent list item |
 | `<BS>` | Insert | Smart backspace (removes empty list markers) |
+| `<C-t>` | Insert | Toggle checkbox in insert mode |
 
 ### List Management (Normal Mode)
 
@@ -1988,6 +1990,7 @@ vim.keymap.set("n", "<leader>h=", "<Plug>(MarkdownPlusPromoteHeader)")
 vim.keymap.set("n", "<leader>h-", "<Plug>(MarkdownPlusDemoteHeader)")
 vim.keymap.set("n", "<leader>ht", "<Plug>(MarkdownPlusGenerateTOC)")
 vim.keymap.set("n", "<leader>hu", "<Plug>(MarkdownPlusUpdateTOC)")
+vim.keymap.set("n", "<leader>hT", "<Plug>(MarkdownPlusOpenTocWindow)")
 vim.keymap.set("n", "<CR>", "<Plug>(MarkdownPlusFollowLink)")  -- Follow TOC link
 
 -- Header levels (H1-H6)
@@ -2021,15 +2024,21 @@ vim.keymap.set("n", "<leader>mA", "<Plug>(MarkdownPlusToggleImageLink)")
 ```lua
 -- Insert mode
 vim.keymap.set("i", "<C-CR>", "<Plug>(MarkdownPlusListEnter)")
+vim.keymap.set("i", "<A-CR>", "<Plug>(MarkdownPlusListShiftEnter)")
 vim.keymap.set("i", "<C-]>", "<Plug>(MarkdownPlusListIndent)")
 vim.keymap.set("i", "<C-[>", "<Plug>(MarkdownPlusListOutdent)")
 vim.keymap.set("i", "<C-h>", "<Plug>(MarkdownPlusListBackspace)")
+vim.keymap.set("i", "<C-t>", "<Plug>(MarkdownPlusToggleCheckbox)")
 
 -- Normal mode
 vim.keymap.set("n", "<leader>lr", "<Plug>(MarkdownPlusRenumberLists)")
 vim.keymap.set("n", "<leader>ld", "<Plug>(MarkdownPlusDebugLists)")
 vim.keymap.set("n", "o", "<Plug>(MarkdownPlusNewListItemBelow)")
 vim.keymap.set("n", "O", "<Plug>(MarkdownPlusNewListItemAbove)")
+vim.keymap.set("n", "<leader>mx", "<Plug>(MarkdownPlusToggleCheckbox)")
+
+-- Visual mode
+vim.keymap.set("x", "<leader>mx", "<Plug>(MarkdownPlusToggleCheckbox)")
 ```
 
 #### Quotes
@@ -2100,6 +2109,7 @@ vim.keymap.set("n", "<leader>Tyc", "<Plug>(markdown-plus-table-duplicate-column)
 - `<Plug>(MarkdownPlusGenerateTOC)` - Generate TOC (n)
 - `<Plug>(MarkdownPlusUpdateTOC)` - Update TOC (n)
 - `<Plug>(MarkdownPlusFollowLink)` - Follow TOC link (n)
+- `<Plug>(MarkdownPlusOpenTocWindow)` - Open navigable TOC window (n)
 - `<Plug>(MarkdownPlusHeader1)` through `<Plug>(MarkdownPlusHeader6)` - Set header level (n)
 
 #### Links
@@ -2121,6 +2131,7 @@ vim.keymap.set("n", "<leader>Tyc", "<Plug>(markdown-plus-table-duplicate-column)
 #### List Management
 
 - `<Plug>(MarkdownPlusListEnter)` - Auto-continue list (i)
+- `<Plug>(MarkdownPlusListShiftEnter)` - Continue list content on next line (i)
 - `<Plug>(MarkdownPlusListIndent)` - Indent list item (i)
 - `<Plug>(MarkdownPlusListOutdent)` - Outdent list item (i)
 - `<Plug>(MarkdownPlusListBackspace)` - Smart backspace (i)
@@ -2128,6 +2139,7 @@ vim.keymap.set("n", "<leader>Tyc", "<Plug>(markdown-plus-table-duplicate-column)
 - `<Plug>(MarkdownPlusDebugLists)` - Debug list groups (n)
 - `<Plug>(MarkdownPlusNewListItemBelow)` - New item below (n)
 - `<Plug>(MarkdownPlusNewListItemAbove)` - New item above (n)
+- `<Plug>(MarkdownPlusToggleCheckbox)` - Toggle checkbox (n, x, i)
 
 #### Quotes
 

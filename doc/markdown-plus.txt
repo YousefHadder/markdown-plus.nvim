@@ -1282,6 +1282,7 @@ HEADERS & TOC ~
     <Plug>(MarkdownPlusGenerateTOC)        - Generate TOC (n)
     <Plug>(MarkdownPlusUpdateTOC)          - Update TOC (n)
     <Plug>(MarkdownPlusFollowLink)         - Follow TOC link (n)
+    <Plug>(MarkdownPlusOpenTocWindow)      - Open navigable TOC window (n)
     <Plug>(MarkdownPlusHeader1)            - Set header level 1 (n)
     <Plug>(MarkdownPlusHeader2)            - Set header level 2 (n)
     <Plug>(MarkdownPlusHeader3)            - Set header level 3 (n)
@@ -1308,6 +1309,7 @@ IMAGES ~
 LIST MANAGEMENT ~
 
     <Plug>(MarkdownPlusListEnter)          - Auto-continue list (i)
+    <Plug>(MarkdownPlusListShiftEnter)     - Continue list content on next line (i)
     <Plug>(MarkdownPlusListIndent)         - Indent list item (i)
     <Plug>(MarkdownPlusListOutdent)        - Outdent list item (i)
     <Plug>(MarkdownPlusListBackspace)      - Smart backspace (i)
@@ -1315,6 +1317,7 @@ LIST MANAGEMENT ~
     <Plug>(MarkdownPlusDebugLists)         - Debug list groups (n)
     <Plug>(MarkdownPlusNewListItemBelow)   - New item below (n)
     <Plug>(MarkdownPlusNewListItemAbove)   - New item above (n)
+    <Plug>(MarkdownPlusToggleCheckbox)     - Toggle checkbox (n, x, i)
 
 QUOTES ~
 
