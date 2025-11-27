@@ -246,6 +246,38 @@ See [Configuration](#configuration) for all available options.
 
 </details>
 
+<details>
+<summary><b>Footnotes Support</b></summary>
+
+Comprehensive footnote support for managing markdown footnotes:
+
+- **Insert footnotes**: `<leader>mfi` to create new footnote references and definitions with auto-generated IDs
+- **Edit footnotes**: `<leader>mfe` to modify existing footnote definitions
+- **Delete footnotes**: `<leader>mfd` to remove references and definitions with optional confirmation
+- **Navigate**: Jump between references and definitions bidirectionally
+  - `<leader>mfg` to go to footnote definition
+  - `<leader>mfr` to go to footnote reference(s)
+- **Sequential navigation**: `<leader>mfn` (next) and `<leader>mfp` (previous) to jump between footnotes
+- **List footnotes**: `<leader>mfl` to browse all footnotes with status indicators
+- **Code block awareness**: Ignores footnote syntax inside fenced code blocks and inline code
+- **Configurable section header**: Customize the footnotes section header text
+- **Orphan detection**: Visual indicators for footnotes without definitions or references
+
+```markdown
+# Example Document
+
+Some text with a footnote[^1] and another[^example].
+
+## Footnotes
+
+[^1]: This is the first footnote.
+
+[^example]: Named footnotes work too!
+    Multi-line content is supported with indentation.
+```
+
+</details>
+
 ## Requirements
 
 - Neovim 0.11+ (uses modern Lua APIs)
@@ -274,6 +306,11 @@ See [Configuration](#configuration) for all available options.
         callouts = true,         -- GFM callouts/admonitions feature
         code_block = true,       -- Code block conversion feature
         table = true,            -- Table support features
+        footnotes = true,        -- Footnotes management features
+      },
+      footnotes = {        -- Footnotes configuration
+        section_header = "Footnotes",  -- Header for footnotes section
+        confirm_delete = true,         -- Confirm before deleting footnotes
       },
       keymaps = {
         enabled = true,  -- Enable default keymaps (<Plug> available for custom)
@@ -1663,6 +1700,19 @@ logical cell (usually first cell of new/modified row/column).
 
 **Note**: Insert mode navigation falls back to arrow keys when not in a table.
 
+### Footnotes (Normal Mode)
+
+| Keymap | Mode | Description |
+|--------|------|-------------|
+| `<leader>mfi` | Normal | Insert new footnote |
+| `<leader>mfe` | Normal | Edit footnote definition |
+| `<leader>mfd` | Normal | Delete footnote (reference and definition) |
+| `<leader>mfg` | Normal | Go to footnote definition |
+| `<leader>mfr` | Normal | Go to footnote reference(s) |
+| `<leader>mfn` | Normal | Navigate to next footnote |
+| `<leader>mfp` | Normal | Navigate to previous footnote |
+| `<leader>mfl` | Normal | List all footnotes |
+
 **Note**: In normal mode, these commands operate on the word under cursor. In visual mode, they operate on the selected text.
 
 </details>
@@ -1688,6 +1738,7 @@ require("markdown-plus").setup({
     callouts = true,            -- default: true (GFM callouts/admonitions)
     code_block = true,          -- default: true (visual selection -> fenced block)
     table = true,               -- default: true (table creation & editing)
+    footnotes = true,           -- default: true (footnote insertion/navigation/listing)
   },
 
   -- TOC window configuration
@@ -1711,6 +1762,12 @@ require("markdown-plus").setup({
       prefix = "<leader>t",     -- default: "<leader>t"  prefix for table ops
       insert_mode_navigation = true,  -- default: true  Alt+hjkl cell navigation
     },
+  },
+
+  -- Footnotes configuration
+  footnotes = {
+    section_header = "Footnotes",  -- default: "Footnotes"  header for footnotes section
+    confirm_delete = true,          -- default: true  confirm before deleting footnotes
   },
 
   -- Global keymap configuration
@@ -2068,6 +2125,19 @@ vim.keymap.set("n", "<leader>m>c", "<Plug>(MarkdownPlusConvertToCallout)")
 vim.keymap.set("n", "<leader>m>b", "<Plug>(MarkdownPlusConvertToBlockquote)")
 ```
 
+#### Footnotes
+
+```lua
+vim.keymap.set("n", "<leader>fi", "<Plug>(MarkdownPlusFootnoteInsert)")
+vim.keymap.set("n", "<leader>fe", "<Plug>(MarkdownPlusFootnoteEdit)")
+vim.keymap.set("n", "<leader>fd", "<Plug>(MarkdownPlusFootnoteDelete)")
+vim.keymap.set("n", "<leader>fg", "<Plug>(MarkdownPlusFootnoteGotoDefinition)")
+vim.keymap.set("n", "<leader>fr", "<Plug>(MarkdownPlusFootnoteGotoReference)")
+vim.keymap.set("n", "<leader>fn", "<Plug>(MarkdownPlusFootnoteNext)")
+vim.keymap.set("n", "<leader>fp", "<Plug>(MarkdownPlusFootnotePrev)")
+vim.keymap.set("n", "<leader>fl", "<Plug>(MarkdownPlusFootnoteList)")
+```
+
 #### Tables
 
 ```lua
@@ -2151,6 +2221,17 @@ vim.keymap.set("n", "<leader>Tyc", "<Plug>(markdown-plus-table-duplicate-column)
 - `<Plug>(MarkdownPlusToggleCalloutType)` - Toggle callout type (n)
 - `<Plug>(MarkdownPlusConvertToCallout)` - Convert blockquote to callout (n)
 - `<Plug>(MarkdownPlusConvertToBlockquote)` - Convert callout to blockquote (n)
+
+#### Footnotes
+
+- `<Plug>(MarkdownPlusFootnoteInsert)` - Insert new footnote (n)
+- `<Plug>(MarkdownPlusFootnoteEdit)` - Edit footnote definition (n)
+- `<Plug>(MarkdownPlusFootnoteDelete)` - Delete footnote (n)
+- `<Plug>(MarkdownPlusFootnoteGotoDefinition)` - Go to footnote definition (n)
+- `<Plug>(MarkdownPlusFootnoteGotoReference)` - Go to footnote reference(s) (n)
+- `<Plug>(MarkdownPlusFootnoteNext)` - Navigate to next footnote (n)
+- `<Plug>(MarkdownPlusFootnotePrev)` - Navigate to previous footnote (n)
+- `<Plug>(MarkdownPlusFootnoteList)` - List all footnotes (n)
 
 #### Tables
 

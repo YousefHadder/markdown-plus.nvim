@@ -1,4 +1,4 @@
-*markdown-plus.txt*      Enhanced Markdown editing for Neovim      Last change: 2025 January 19
+*markdown-plus.txt*      Enhanced Markdown editing for Neovim      Last change: 2025 November 27
 
 ==============================================================================
 Table of Contents                            *markdown-plus-table-of-contents*
@@ -15,7 +15,9 @@ Table of Contents                            *markdown-plus-table-of-contents*
   - Links                                            |markdown-plus-usage-links|
   - Images                                          |markdown-plus-usage-images|
   - Quotes                                          |markdown-plus-usage-quotes|
+  - Callouts                                      |markdown-plus-usage-callouts|
   - Tables                                          |markdown-plus-usage-tables|
+  - Footnotes                                    |markdown-plus-usage-footnotes|
 4. Configuration                                     |markdown-plus-configuration|
   - Keymaps                                  |markdown-plus-configuration-keymaps|
   - Options                                  |markdown-plus-configuration-options|
@@ -93,6 +95,16 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Insert mode navigation with Alt+hjkl (circular wrapping)
   - Alignment support (left, center, right)
   - Smart cursor positioning after operations
+
+- Footnotes Support:
+  - Insert footnotes with auto-generated IDs
+  - Edit footnote definitions
+  - Delete footnotes (reference and definition)
+  - Navigate between references and definitions
+  - List all footnotes with status indicators
+  - Code block awareness
+  - Multi-line footnote support
+  - Configurable section header
 
 - Context-aware keymaps:
   - List operations only active within lists
@@ -955,6 +967,139 @@ Minimum constraints:
   - Always maintains: header + separator + at least one data row
 
 
+FOOTNOTES                                      *markdown-plus-usage-footnotes*
+
+Footnotes support provides comprehensive footnote management for markdown
+documents, including insertion, navigation, editing, and listing.
+
+
+INSERT FOOTNOTE ~
+
+Insert a new footnote with `<leader>mfi`:
+
+1. Press `<leader>mfi` to start inserting a footnote
+2. Enter an ID when prompted (defaults to next numeric ID)
+3. Reference is inserted at cursor: `[^1]`
+4. Definition is created in the Footnotes section
+5. Cursor moves to definition for content entry
+
+>markdown
+    Some text[^1] with a footnote.
+    
+    ## Footnotes
+    
+    [^1]: |  <- cursor here, ready to type definition
+<
+
+Footnote IDs can be:
+- Numeric: `[^1]`, `[^2]`, `[^42]`
+- Named: `[^example]`, `[^my-note]`, `[^ref_1]`
+
+
+EDIT FOOTNOTE ~
+
+Edit a footnote definition with `<leader>mfe`:
+
+Position cursor on any footnote reference or definition and press
+`<leader>mfe`. Cursor jumps to the definition and enters insert mode.
+
+
+DELETE FOOTNOTE ~
+
+Delete a footnote with `<leader>mfd`:
+
+1. Position cursor on any footnote reference or definition
+2. Press `<leader>mfd`
+3. Confirm deletion (if `confirm_delete` is enabled)
+4. Both reference(s) and definition are removed
+
+If a footnote has multiple references, all references are deleted.
+
+
+NAVIGATION ~
+
+Navigate between footnotes:
+
+Go to definition: `<leader>mfg`
+    From a reference, jump to its definition.
+
+Go to reference: `<leader>mfr`
+    From a definition, jump to its reference(s).
+    If multiple references exist, shows a selection menu.
+
+Next footnote: `<leader>mfn`
+    Jump to the next footnote reference in the document.
+    Wraps around at end of document.
+
+Previous footnote: `<leader>mfp`
+    Jump to the previous footnote reference.
+    Wraps around at beginning of document.
+
+
+LIST FOOTNOTES ~
+
+List all footnotes with `<leader>mfl`:
+
+Opens a picker showing all footnotes with status indicators:
+
+>
+    Footnotes (3):
+      [^1] First footnote definition... (2 refs)
+      [^2] Second footnote content... (1 ref)
+    ⚠ [^3] Orphan footnote (no references) (0 refs)
+    ✗ [^missing] (no definition) (1 ref)
+<
+
+Icons:
+- (space) = Normal footnote with definition and references
+- ⚠ = Orphan: has definition but no references
+- ✗ = Missing: has references but no definition
+
+Press Enter on any item to jump to it.
+
+
+MULTI-LINE FOOTNOTES ~
+
+Footnotes can span multiple lines with 4-space indentation:
+
+>markdown
+    [^long]: This is the first line of a longer footnote.
+        This is the second line, indented with 4 spaces.
+        You can add as many continuation lines as needed.
+<
+
+
+CODE BLOCK AWARENESS ~
+
+Footnote syntax inside code blocks is ignored:
+
+>markdown
+    Real footnote[^1] here.
+    
+    ```markdown
+    This [^fake] is not detected as a footnote.
+    ```
+    
+    Also `inline [^code]` is ignored.
+    
+    Only [^1] is recognized as an actual footnote.
+<
+
+
+CONFIGURATION ~
+
+Customize footnotes behavior:
+
+>lua
+    require('markdown-plus').setup({
+      footnotes = {
+        section_header = 'Notes',  -- Use "## Notes" instead of "## Footnotes"
+        confirm_delete = false,    -- Skip confirmation when deleting
+      },
+    })
+<
+
+
 ==============================================================================
 4. Configuration                                     *markdown-plus-configuration*
 
@@ -1056,6 +1201,16 @@ Default keymaps:
         table_move_right = '<A-l>',        -- Move to cell right (wraps)
         table_move_down = '<A-j>',         -- Move to cell down (wraps)
         table_move_up = '<A-k>',           -- Move to cell up (wraps)
+
+        -- Footnotes operations (Normal mode)
+        footnote_insert = '<leader>mfi',           -- Insert new footnote
+        footnote_edit = '<leader>mfe',             -- Edit footnote definition
+        footnote_delete = '<leader>mfd',           -- Delete footnote
+        footnote_goto_definition = '<leader>mfg',  -- Go to footnote definition
+        footnote_goto_reference = '<leader>mfr',   -- Go to footnote reference(s)
+        footnote_next = '<leader>mfn',             -- Next footnote
+        footnote_prev = '<leader>mfp',             -- Previous footnote
+        footnote_list = '<leader>mfl',             -- List all footnotes
       }
     }
 <
@@ -1077,6 +1232,7 @@ The plugin can be configured through the setup function:
         quotes = true,           -- Blockquote (>) management
         callouts = true,         -- GitHub Flavored Markdown callouts/admonitions
         code_block = true,       -- Convert selected text to code blocks
+        footnotes = true,        -- Footnote insertion, navigation, and listing
       },
       toc = {                    -- TOC window configuration
         initial_depth = 2,
@@ -1084,6 +1240,10 @@ The plugin can be configured through the setup function:
       callouts = {               -- Callouts configuration
         default_type = 'NOTE',   -- Default type: NOTE, TIP, IMPORTANT, WARNING, CAUTION
         custom_types = {},       -- Add custom types: { 'DANGER', 'SUCCESS' }
+      },
+      footnotes = {              -- Footnotes configuration
+        section_header = 'Footnotes',  -- Header text for footnotes section
+        confirm_delete = true,         -- Confirm before deleting footnotes
       },
       table = {                  -- Table sub-configuration
         auto_format = true,
@@ -1364,6 +1524,17 @@ TABLES ~
     <Plug>(markdown-plus-table-to-csv)              - To CSV (n)
     <Plug>(markdown-plus-table-from-csv)            - From CSV (n)
 
+FOOTNOTES ~
+
+    <Plug>(MarkdownPlusFootnoteInsert)              - Insert new footnote (n)
+    <Plug>(MarkdownPlusFootnoteEdit)                - Edit footnote definition (n)
+    <Plug>(MarkdownPlusFootnoteDelete)              - Delete footnote (n)
+    <Plug>(MarkdownPlusFootnoteGotoDefinition)      - Go to definition (n)
+    <Plug>(MarkdownPlusFootnoteGotoReference)       - Go to reference(s) (n)
+    <Plug>(MarkdownPlusFootnoteNext)                - Next footnote (n)
+    <Plug>(MarkdownPlusFootnotePrev)                - Previous footnote (n)
+    <Plug>(MarkdownPlusFootnoteList)                - List all footnotes (n)
+
 Example custom mapping: ~
 >lua
     -- Disable default keymaps
@@ -1639,7 +1810,80 @@ Example usage:
     require('markdown-plus').quote.toggle_quote()
     require('markdown-plus').callouts.insert_callout('NOTE')
     require('markdown-plus').callouts.toggle_callout_type()
+    require('markdown-plus').footnotes.insert()
+    require('markdown-plus').footnotes.goto_definition()
 <
+
+
+FOOTNOTES MODULE                                    *markdown-plus.footnotes*
+
+                                            *markdown-plus.footnotes.insert*
+markdown-plus.footnotes.insert()
+    Inserts a new footnote at cursor position. Prompts for footnote ID
+    (pre-filled with next numeric ID). Creates both reference and definition.
+
+                                              *markdown-plus.footnotes.edit*
+markdown-plus.footnotes.edit()
+    Edits the footnote definition under cursor. Works from either reference
+    or definition. Jumps to definition and enters insert mode.
+
+                                            *markdown-plus.footnotes.delete*
+markdown-plus.footnotes.delete()
+    Deletes the footnote under cursor. Removes both reference(s) and
+    definition. Shows confirmation if `confirm_delete` is enabled.
+
+                                   *markdown-plus.footnotes.goto_definition*
+markdown-plus.footnotes.goto_definition()
+    Jumps from a footnote reference to its definition. Positions cursor
+    at the start of the definition content.
+
+                                    *markdown-plus.footnotes.goto_reference*
+markdown-plus.footnotes.goto_reference()
+    Jumps from a footnote definition to its reference(s). If multiple
+    references exist, shows a selection menu.
+
+                                      *markdown-plus.footnotes.next_footnote*
+markdown-plus.footnotes.next_footnote()
+    Navigates to the next footnote reference in the document.
+    Wraps around at the end of the document.
+
+                                      *markdown-plus.footnotes.prev_footnote*
+markdown-plus.footnotes.prev_footnote()
+    Navigates to the previous footnote reference in the document.
+    Wraps around at the beginning of the document.
+
+                                              *markdown-plus.footnotes.list*
+markdown-plus.footnotes.list()
+    Opens the footnotes list picker. Shows all footnotes with status
+    indicators (normal, orphan, missing definition).
+
+                                  *markdown-plus.footnotes.get_all_footnotes*
+markdown-plus.footnotes.get_all_footnotes()
+    Returns all footnotes in the current buffer.
+
+    Returns: ~
+        {table[]}  Array of footnote info tables with fields:
+                   - id: string (footnote ID)
+                   - definition: table|nil (definition info)
+                   - references: table[] (array of reference info)
+
+                                        *markdown-plus.footnotes.get_next_id*
+markdown-plus.footnotes.get_next_id()
+    Returns the next available numeric ID.
+
+    Returns: ~
+        {string}  Next numeric ID (e.g., "1", "2", etc.)
+
+                              *markdown-plus.footnotes.get_footnote_at_cursor*
+markdown-plus.footnotes.get_footnote_at_cursor()
+    Finds footnote reference or definition at cursor.
+
+    Returns: ~
+        {table|nil}  Footnote info with fields:
+                     - type: "reference" or "definition"
+                     - id: string (footnote ID)
+                     - line_num: number (1-indexed)
+                     Returns nil if cursor is not on a footnote.
 
 
 ==============================================================================
