@@ -14,6 +14,7 @@ M.config = {
     callouts = true,
     code_block = true,
     table = true,
+    footnotes = true,
   },
   keymaps = {
     enabled = true,
@@ -40,6 +41,10 @@ M.config = {
   code_block = {
     enabled = true,
   },
+  footnotes = {
+    section_header = "Footnotes",
+    confirm_delete = true,
+  },
 }
 
 -- Module references
@@ -51,6 +56,7 @@ M.headers = nil
 M.quotes = nil
 M.callouts = nil
 M.table = nil
+M.footnotes = nil
 
 ---Get user configuration from vim.g.markdown_plus
 ---Supports both table and function forms
@@ -163,6 +169,11 @@ function M.setup(opts)
     end
   end
 
+  if M.config.features.footnotes then
+    M.footnotes = require("markdown-plus.footnotes")
+    M.footnotes.setup(M.config)
+  end
+
   -- Set up autocommands for markdown files
   M.setup_autocmds()
 
@@ -200,6 +211,9 @@ function M.enable_features_for_buffer()
   if M.table then
     -- Set up buffer-local table keymaps
     require("markdown-plus.table.keymaps").setup_buffer_keymaps(M.config.table or M.table.config)
+  end
+  if M.footnotes then
+    M.footnotes.enable()
   end
 end
 

@@ -11,6 +11,7 @@
 ---@field toc? markdown-plus.TocConfig TOC window configuration
 ---@field table? markdown-plus.TableConfig Table configuration
 ---@field callouts? markdown-plus.CalloutsConfig Callouts configuration
+---@field footnotes? markdown-plus.FootnotesConfig Footnotes configuration
 
 ---Feature configuration
 ---@class markdown-plus.FeatureConfig
@@ -23,6 +24,7 @@
 ---@field callouts? boolean Enable callout management (default: true)
 ---@field code_block? boolean Enable code block management (default: true)
 ---@field table? boolean Enable table management (default: true)
+---@field footnotes? boolean Enable footnotes management (default: true)
 
 ---Table configuration
 ---@class markdown-plus.TableConfig
@@ -42,6 +44,11 @@
 ---@class markdown-plus.CalloutsConfig
 ---@field default_type? string Default callout type (default: "NOTE")
 ---@field custom_types? string[] Custom callout types to add to standard GFM types (default: {})
+
+---Footnotes configuration
+---@class markdown-plus.FootnotesConfig
+---@field section_header? string Header text for footnotes section (default: "Footnotes")
+---@field confirm_delete? boolean Confirm before deleting footnotes (default: true)
 
 ---Code block configuration
 ---@class markdown-plus.CodeBlockConfig
@@ -65,6 +72,7 @@
 ---@field table markdown-plus.InternalTableConfig
 ---@field callouts markdown-plus.InternalCalloutsConfig
 ---@field code_block markdown-plus.InternalCodeBlockConfig
+---@field footnotes markdown-plus.InternalFootnotesConfig
 
 ---Internal feature configuration
 ---@class markdown-plus.InternalFeatureConfig
@@ -77,6 +85,7 @@
 ---@field callouts boolean
 ---@field code_block boolean
 ---@field table boolean
+---@field footnotes boolean
 
 ---Internal table configuration
 ---@class markdown-plus.InternalTableConfig
@@ -109,11 +118,41 @@
 ---@field default_type string
 ---@field custom_types string[]
 
+---Internal footnotes configuration
+---@class markdown-plus.InternalFootnotesConfig
+---@field section_header string
+---@field confirm_delete boolean
+
 ---@class markdown-plus.ListInfo
 ---@field type string List type: "unordered", "ordered", "ordered_paren", "letter_lower", "letter_lower_paren", "letter_upper", "letter_upper_paren"
 ---@field marker string The list marker without delimiter (e.g., "1", "a", "-")
 ---@field full_marker string The complete marker with delimiter (e.g., "1.", "a)", "-")
 ---@field indent string Leading whitespace before the marker
 ---@field checkbox string|nil Checkbox state if present: "[ ]", "[x]", "[X]", or nil
+
+---Footnote reference found in text (e.g., [^1])
+---@class FootnoteReference
+---@field id string The footnote identifier (e.g., "1", "example")
+---@field line number 1-indexed line number where reference was found
+---@field col_start number 1-indexed column start position
+---@field col_end number 1-indexed column end position
+
+---Footnote definition (e.g., [^1]: Definition text)
+---@class FootnoteDefinition
+---@field id string The footnote identifier
+---@field line number 1-indexed line number where definition starts
+---@field end_line number 1-indexed line number where definition ends (for multi-line)
+---@field content string The definition text content
+---@field col_start number 1-indexed column start position
+
+---Combined footnote information for listing
+---@class FootnoteInfo
+---@field id string The footnote identifier
+---@field definition FootnoteDefinition|nil The definition if it exists
+---@field references FootnoteReference[] All references to this footnote
+---@field has_definition boolean Whether a definition exists
+---@field has_references boolean Whether any references exist
+---@field is_orphan boolean Definition exists but no references
+---@field is_missing boolean References exist but no definition
 
 return {}

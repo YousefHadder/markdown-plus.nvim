@@ -3,6 +3,9 @@ local M = {}
 -- Valid table alignment values
 local VALID_ALIGNMENTS = { left = true, center = true, right = true }
 
+-- Valid footnotes window layout values
+local VALID_WINDOW_LAYOUTS = { float = true, right = true, left = true, below = true }
+
 ---Validate user configuration
 ---@param opts markdown-plus.Config User configuration
 ---@return boolean is_valid True if config is valid
@@ -31,6 +34,7 @@ function M.validate(opts)
     table = { opts.table, "table", true },
     callouts = { opts.callouts, "table", true },
     code_block = { opts.code_block, "table", true },
+    footnotes = { opts.footnotes, "table", true },
   })
   if not ok then
     return false, err
@@ -38,7 +42,7 @@ function M.validate(opts)
 
   -- Validate filetypes array
   if opts.filetypes then
-    if not vim.islist(opts.filetypes) then
+    if not vim.tbl_islist(opts.filetypes) then
       return false, "config.filetypes: must be an array (list)"
     end
     for i, ft in ipairs(opts.filetypes) do
@@ -60,6 +64,7 @@ function M.validate(opts)
       callouts = { opts.features.callouts, "boolean", true },
       code_block = { opts.features.code_block, "boolean", true },
       table = { opts.features.table, "boolean", true },
+      footnotes = { opts.features.footnotes, "boolean", true },
     })
     if not ok then
       return false, err
@@ -159,6 +164,7 @@ function M.validate(opts)
     table = true,
     callouts = true,
     code_block = true,
+    footnotes = true,
   }
   for key in pairs(opts) do
     if not known_fields[key] then
@@ -183,6 +189,7 @@ function M.validate(opts)
       callouts = true,
       code_block = true,
       table = true,
+      footnotes = true,
     }
     for key in pairs(opts.features) do
       if not known_feature_fields[key] then
@@ -289,7 +296,7 @@ function M.validate(opts)
 
     -- Validate custom_types array
     if opts.callouts.custom_types then
-      if not vim.islist(opts.callouts.custom_types) then
+      if not vim.tbl_islist(opts.callouts.custom_types) then
         return false, "config.callouts.custom_types: must be an array (list)"
       end
       for i, custom_type in ipairs(opts.callouts.custom_types) do
@@ -318,6 +325,81 @@ function M.validate(opts)
             "config.callouts: unknown field '%s'. Valid fields are: %s",
             key,
             table.concat(vim.tbl_keys(known_callouts_fields), ", ")
+          )
+      end
+    end
+  end
+
+  -- Validate footnotes config
+  if opts.footnotes then
+    ok, err = validate_path("config.footnotes", {
+      section_header = { opts.footnotes.section_header, "string", true },
+      confirm_delete = { opts.footnotes.confirm_delete, "boolean", true },
+      window_layout = { opts.footnotes.window_layout, "string", true },
+      keymaps = { opts.footnotes.keymaps, "table", true },
+    })
+    if not ok then
+      return false, err
+    end
+
+    -- Validate window_layout values
+    if opts.footnotes.window_layout then
+      if not VALID_WINDOW_LAYOUTS[opts.footnotes.window_layout] then
+        return false, "config.footnotes.window_layout: must be 'float', 'right', 'left', or 'below'"
+      end
+    end
+
+    -- Validate footnotes keymaps
+    if opts.footnotes.keymaps then
+      ok, err = validate_path("config.footnotes.keymaps", {
+        insert = { opts.footnotes.keymaps.insert, "string", true },
+        edit = { opts.footnotes.keymaps.edit, "string", true },
+        delete = { opts.footnotes.keymaps.delete, "string", true },
+        goto_definition = { opts.footnotes.keymaps.goto_definition, "string", true },
+        goto_reference = { opts.footnotes.keymaps.goto_reference, "string", true },
+        next_footnote = { opts.footnotes.keymaps.next_footnote, "string", true },
+        prev_footnote = { opts.footnotes.keymaps.prev_footnote, "string", true },
+        list = { opts.footnotes.keymaps.list, "string", true },
+        toggle_list = { opts.footnotes.keymaps.toggle_list, "string", true },
+      })
+      if not ok then
+        return false, err
+      end
+
+      -- Check for unknown footnotes.keymaps fields
+      local known_footnotes_keymap_fields = {
+        insert = true,
+        edit = true,
+        delete = true,
+        goto_definition = true,
+        goto_reference = true,
+        next_footnote = true,
+        prev_footnote = true,
+        list = true,
+        toggle_list = true,
+      }
+      for key in pairs(opts.footnotes.keymaps) do
+        if not known_footnotes_keymap_fields[key] then
+          return false,
+            string.format(
+              "config.footnotes.keymaps: unknown field '%s'. Valid fields are: %s",
+              key,
+              table.concat(vim.tbl_keys(known_footnotes_keymap_fields), ", ")
+            )
+        end
+      end
+    end
+
+    -- Check for unknown footnotes fields
+    local known_footnotes_fields =
+      { section_header = true, confirm_delete = true, window_layout = true, keymaps = true }
+    for key in pairs(opts.footnotes) do
+      if not known_footnotes_fields[key] then
+        return false,
+          string.format(
+            "config.footnotes: unknown field '%s'. Valid fields are: %s",
+            key,
+            table.concat(vim.tbl_keys(known_footnotes_fields), ", ")
           )
       end
     end
