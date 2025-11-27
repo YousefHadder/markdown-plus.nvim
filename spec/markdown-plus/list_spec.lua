@@ -251,6 +251,72 @@ describe("markdown-plus list management", function()
       assert.are.equal(2, #groups[2].items)
     end)
 
+    it("separates ordered groups when encountering unordered list items", function()
+      local lines = {
+        "1. First ordered",
+        "- Unordered item",
+        "2. Second ordered",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Should have 2 ordered groups separated by unordered item
+      -- (unordered items are not tracked but should break ordered groups)
+      assert.are.equal(2, #groups)
+      assert.are.equal(1, #groups[1].items)
+      assert.are.equal(1, groups[1].items[1].line_num)
+      assert.are.equal(1, #groups[2].items)
+      assert.are.equal(3, groups[2].items[1].line_num)
+    end)
+
+    it("separates groups when different list marker types are used", function()
+      local lines = {
+        "1. Dot ordered",
+        "2. Dot ordered",
+        "1) Paren ordered",
+        "2) Paren ordered",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Should have 2 groups (dot and paren are different types)
+      assert.are.equal(2, #groups)
+      assert.are.equal("ordered", groups[1].list_type)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal("ordered_paren", groups[2].list_type)
+      assert.are.equal(2, #groups[2].items)
+    end)
+
+    it("separates groups when multiple unordered items interrupt", function()
+      local lines = {
+        "1. A",
+        "- B",
+        "- C",
+        "2. D",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Should have 2 ordered groups
+      assert.are.equal(2, #groups)
+      assert.are.equal(1, #groups[1].items) -- 1. A
+      assert.are.equal(1, #groups[2].items) -- 2. D
+    end)
+
+    it("does not break parent group when nested unordered item is encountered", function()
+      local lines = {
+        "1. Hello",
+        "  - Hi",
+        "1. Hola",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Should have 1 ordered group with 2 items (nested unordered doesn't break parent)
+      assert.are.equal(1, #groups)
+      assert.are.equal("ordered", groups[1].list_type)
+      assert.are.equal(0, groups[1].indent)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal(1, groups[1].items[1].line_num) -- 1. Hello
+      assert.are.equal(3, groups[1].items[2].line_num) -- 1. Hola
+    end)
+
     it("separates groups when encountering blank lines", function()
       local lines = {
         "1. A",
@@ -469,6 +535,40 @@ describe("markdown-plus list management", function()
       assert.are.equal("b. Second", result[2])
       assert.are.equal("", result[3])
       assert.are.equal("a. Third", result[4]) -- Should restart at a
+    end)
+
+    it("separates and renumbers ordered lists interrupted by unordered items", function()
+      local lines = {
+        "1. First",
+        "- Bullet item",
+        "3. Third",
+        "4. Fourth",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. First", result[1])
+      assert.are.equal("- Bullet item", result[2]) -- Unordered unchanged
+      assert.are.equal("1. Third", result[3]) -- Should restart at 1
+      assert.are.equal("2. Fourth", result[4]) -- Should be 2
+    end)
+
+    it("renumbers correctly when nested unordered list is present", function()
+      local lines = {
+        "1. Hello",
+        "  - Hi",
+        "1. Hola",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. Hello", result[1])
+      assert.are.equal("  - Hi", result[2]) -- Nested unordered unchanged
+      assert.are.equal("2. Hola", result[3]) -- Should be 2 (same group as Hello)
     end)
 
     it("does not renumber when continuation line is added (Alt-Enter)", function()

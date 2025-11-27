@@ -83,9 +83,22 @@ function M.find_list_groups(lines)
         original_line = line,
       })
     else
-      -- Not an ordered/letter list item
-      if M.is_list_breaking_line(line, i, lines) then
-        -- Clear all active groups
+      -- Not an ordered/letter list item (could be unordered list or non-list content)
+      if list_info then
+        -- It's a valid list item but not orderable (e.g., unordered: -, *, +)
+        -- Per CommonMark spec: different list marker types are separate lists
+        -- An unordered item at indent N breaks orderable groups at indent >= N
+        -- But does NOT break parent groups at shallower indents
+        local unordered_indent = #list_info.indent
+        for key, _ in pairs(current_groups_by_indent) do
+          local group_indent = tonumber(key:match("^(%d+)_"))
+          if group_indent and group_indent >= unordered_indent then
+            current_groups_by_indent[key] = nil
+          end
+        end
+      elseif M.is_list_breaking_line(line, i, lines) then
+        -- Non-list content (blank line, paragraph, header, etc.)
+        -- This breaks ALL groups at all indent levels
         current_groups_by_indent = {}
       end
     end
