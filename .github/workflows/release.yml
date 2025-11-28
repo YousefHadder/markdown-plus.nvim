@@ -27,7 +27,7 @@ jobs:
           LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
         with:
           name: markdown-plus.nvim
-          version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.release.tag_name }}
+          version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
           labels: |
             neovim
             markdown
