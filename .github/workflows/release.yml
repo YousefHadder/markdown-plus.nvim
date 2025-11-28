@@ -1,0 +1,58 @@
+name: Release to LuaRocks
+
+on:
+  push:
+    tags: # Will upload to luarocks.org when a tag is pushed
+      - "*"
+  pull_request: # Will test a local install without uploading to luarocks.org
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g., v1.7.1)"
+        required: true
+        type: string
+
+jobs:
+  luarocks-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: LuaRocks Tag Release
+        uses: nvim-neorocks/luarocks-tag-release@v7
+        env:
+          LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
+        with:
+          name: markdown-plus.nvim
+          version: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.event.release.tag_name }}
+          labels: |
+            neovim
+            markdown
+            editor
+            productivity
+          summary: "Modern Markdown editing for Neovim"
+          detailed_description: |
+            A comprehensive Neovim plugin that provides modern markdown editing
+            capabilities, implementing features found in popular editors like Typora,
+            Mark Text, and Obsidian.
+
+            Features:
+            - Smart list management with auto-continuation and renumbering
+            - Text formatting (bold, italic, strikethrough, inline code)
+            - Header navigation and promotion/demotion
+            - Table of contents generation with GitHub-compatible slugs
+            - Link management and reference-style conversion
+            - Full <Plug> mapping support for customization
+            - vim.g configuration support for Vimscript compatibility
+            - Works with any filetype, not just markdown
+          dependencies: |
+            lua >= 5.1
+          test_dependencies: |
+            nlua
+          copy_directories: |
+            doc
+            plugin
+          license: MIT
