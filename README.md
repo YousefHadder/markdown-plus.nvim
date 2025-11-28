@@ -2048,7 +2048,7 @@ vim.keymap.set("x", "<C-x>", "<Plug>(MarkdownPlusClearFormatting)")
 ```lua
 vim.keymap.set("n", "gn", "<Plug>(MarkdownPlusNextHeader)")
 vim.keymap.set("n", "gp", "<Plug>(MarkdownPlusPrevHeader)")
-vim.keymap.set("n", "<leader>h=", "<Plug>(MarkdownPlusPromoteHeader)")
+vim.keymap.set("n", "<leader>h+", "<Plug>(MarkdownPlusPromoteHeader)")
 vim.keymap.set("n", "<leader>h-", "<Plug>(MarkdownPlusDemoteHeader)")
 vim.keymap.set("n", "<leader>ht", "<Plug>(MarkdownPlusGenerateTOC)")
 vim.keymap.set("n", "<leader>hu", "<Plug>(MarkdownPlusUpdateTOC)")
@@ -2336,7 +2336,9 @@ If you have keymap conflicts with other plugins (like vim-markdown), you have tw
 1. **Disable markdown-plus default keymaps** and create custom ones:
    ```lua
    require("markdown-plus").setup({
-     default_keymaps = false,
+     keymaps = {
+       enabled = false,
+     },
    })
 
    -- Then create custom keymaps

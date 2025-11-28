@@ -1229,6 +1229,7 @@ The plugin can be configured through the setup function:
         text_formatting = true,  -- Bold, italic, strikethrough, code
         headers_toc = true,      -- Header manipulation and TOC generation
         links = true,            -- Link management and references
+        images = true,           -- Image link insertion and editing
         quotes = true,           -- Blockquote (>) management
         callouts = true,         -- GitHub Flavored Markdown callouts/admonitions
         code_block = true,       -- Convert selected text to code blocks
