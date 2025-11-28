@@ -5,6 +5,15 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.9.0...v1.9.1) (2025-11-28)
+
+
+### Bug Fixes
+
+* **footnotes:** add reference only when inserting existing footnote ID ([#137](https://github.com/YousefHadder/markdown-plus.nvim/issues/137)) ([8ba242b](https://github.com/YousefHadder/markdown-plus.nvim/commit/8ba242b941ec6233d351ac3ec1f529f7df9f67b8))
+* **list:** parse empty list items without trailing space ([#140](https://github.com/YousefHadder/markdown-plus.nvim/issues/140)) ([e151f19](https://github.com/YousefHadder/markdown-plus.nvim/commit/e151f19a203b427e7a443a7a38247e676221a2e8))
+* **list:** separate lists by marker type per CommonMark spec ([#139](https://github.com/YousefHadder/markdown-plus.nvim/issues/139)) ([d3e139b](https://github.com/YousefHadder/markdown-plus.nvim/commit/d3e139b8ebe76aa8f02d5afc850ce9a0df274cd0))
+
 ## [1.9.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.8.0...v1.9.0) (2025-11-27)
 
 
