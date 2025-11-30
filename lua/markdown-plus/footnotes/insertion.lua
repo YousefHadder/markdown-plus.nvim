@@ -154,6 +154,7 @@ function M.insert_footnote()
     vim.api.nvim_buf_set_lines(bufnr, def_line - 1, def_line - 1, false, { definition })
 
     -- Move cursor to definition for content entry
+    vim.cmd("normal! m'") -- Save current position to jump list
     vim.api.nvim_win_set_cursor(0, { def_line, #definition })
     vim.cmd("startinsert!")
 

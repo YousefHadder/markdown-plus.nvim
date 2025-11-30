@@ -40,6 +40,7 @@ function M.goto_definition()
     content_start = #line + 1
   end
 
+  vim.cmd("normal! m'") -- Save current position to jump list
   vim.api.nvim_win_set_cursor(0, { def.line_num, content_start - 1 })
   utils.notify("Jumped to definition of [^" .. fn_info.id .. "]", vim.log.levels.INFO)
 end
@@ -66,6 +67,7 @@ function M.goto_reference()
   -- If only one reference, jump directly
   if #refs == 1 then
     local ref = refs[1]
+    vim.cmd("normal! m'") -- Save current position to jump list
     vim.api.nvim_win_set_cursor(0, { ref.line_num, ref.start_col - 1 })
     utils.notify("Jumped to reference of [^" .. fn_info.id .. "]", vim.log.levels.INFO)
     return
@@ -94,6 +96,7 @@ function M.goto_reference()
     end,
   }, function(choice)
     if choice then
+      vim.cmd("normal! m'") -- Save current position to jump list
       vim.api.nvim_win_set_cursor(0, { choice.ref.line_num, choice.ref.start_col - 1 })
     end
   end)
