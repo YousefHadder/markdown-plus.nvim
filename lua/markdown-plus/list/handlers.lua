@@ -65,8 +65,8 @@ function M.handle_enter()
 
     if not list_info then
       -- Not in a list at all, simulate default Enter behavior
-      local line_before = current_line:sub(1, col)
-      local line_after = current_line:sub(col + 1)
+      -- Use UTF-8 safe split to handle multibyte characters correctly
+      local line_before, line_after = utils.split_at_cursor(current_line, col)
 
       utils.set_line(row, line_before)
       utils.insert_line(row + 1, line_after)
@@ -102,8 +102,8 @@ function M.handle_enter()
 
   if should_split then
     -- Split content at cursor position
-    local content_before = current_line:sub(1, col)
-    local content_after = current_line:sub(col + 1)
+    -- Use UTF-8 safe split to handle multibyte characters correctly
+    local content_before, content_after = utils.split_at_cursor(current_line, col)
 
     -- Update current line with content before cursor
     utils.set_line(row, content_before)
@@ -142,8 +142,8 @@ function M.continue_list_content()
 
   if not list_info then
     -- Not in a list, simulate default Enter behavior
-    local line_before = current_line:sub(1, col)
-    local line_after = current_line:sub(col + 1)
+    -- Use UTF-8 safe split to handle multibyte characters correctly
+    local line_before, line_after = utils.split_at_cursor(current_line, col)
 
     utils.set_line(row, line_before)
     utils.insert_line(row + 1, line_after)
@@ -155,8 +155,8 @@ function M.continue_list_content()
   local marker_end = shared.get_content_start_col(list_info)
 
   -- Split line at cursor
-  local line_before = current_line:sub(1, col)
-  local line_after = current_line:sub(col + 1)
+  -- Use UTF-8 safe split to handle multibyte characters correctly
+  local line_before, line_after = utils.split_at_cursor(current_line, col)
 
   -- Update current line
   utils.set_line(row, line_before)
@@ -179,9 +179,11 @@ function M.handle_tab()
     local cursor = utils.get_cursor()
     local row, col = cursor[1], cursor[2]
     local indent = string.rep(" ", vim.bo.shiftwidth or 2)
-    local new_line = current_line:sub(1, col) .. indent .. current_line:sub(col + 1)
+    -- Use UTF-8 safe split to handle multibyte characters correctly
+    local before, after = utils.split_after_cursor(current_line, col)
+    local new_line = before .. indent .. after
     utils.set_line(row, new_line)
-    utils.set_cursor(row, col + #indent)
+    utils.set_cursor(row, #before + #indent)
     return
   end
 

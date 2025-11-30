@@ -280,7 +280,7 @@ end
 function M.get_word_boundaries()
   local cursor = utils.get_cursor()
   local row = cursor[1]
-  local col = cursor[2]
+  local col = cursor[2] -- 0-indexed byte offset
   local line = utils.get_current_line()
 
   -- Define what characters are considered word boundaries (stop points)
@@ -305,38 +305,67 @@ function M.get_word_boundaries()
     return false
   end
 
-  -- Find word start
-  local word_start = col
-  while word_start > 0 do
-    local char = line:sub(word_start, word_start)
-    if is_word_boundary(char) then
-      word_start = word_start + 1
-      break
-    end
-    word_start = word_start - 1
-  end
-  if word_start == 0 then
-    word_start = 1
+  -- Convert byte offset to character index for iteration
+  local char_idx = vim.fn.charidx(line, col)
+  if char_idx < 0 then
+    char_idx = 0
   end
 
-  -- Find word end
-  local word_end = col + 1
-  while word_end <= #line do
-    local char = line:sub(word_end, word_end)
+  -- Get total character count
+  local total_chars = vim.fn.strcharlen(line)
+
+  -- Find word start (iterate backwards by character)
+  local word_start_char = char_idx
+  while word_start_char > 0 do
+    local byte_pos = vim.fn.byteidx(line, word_start_char)
+    local next_byte_pos = vim.fn.byteidx(line, word_start_char + 1)
+    if next_byte_pos == -1 then
+      next_byte_pos = #line + 1
+    end
+    local char = vim.fn.strcharpart(line, word_start_char, 1)
     if is_word_boundary(char) then
-      word_end = word_end - 1
+      word_start_char = word_start_char + 1
       break
     end
-    word_end = word_end + 1
+    word_start_char = word_start_char - 1
   end
-  if word_end > #line then
-    word_end = #line
+  if word_start_char < 0 then
+    word_start_char = 0
+  end
+
+  -- Find word end (iterate forwards by character)
+  local word_end_char = char_idx + 1
+  while word_end_char < total_chars do
+    local char = vim.fn.strcharpart(line, word_end_char, 1)
+    if is_word_boundary(char) then
+      word_end_char = word_end_char - 1
+      break
+    end
+    word_end_char = word_end_char + 1
+  end
+  if word_end_char >= total_chars then
+    word_end_char = total_chars - 1
+  end
+  if word_end_char < 0 then
+    word_end_char = 0
+  end
+
+  -- Convert character indices back to byte positions (1-indexed for get_text_in_range)
+  local start_byte = vim.fn.byteidx(line, word_start_char)
+  if start_byte == -1 then
+    start_byte = 0
+  end
+  local end_byte = vim.fn.byteidx(line, word_end_char + 1)
+  if end_byte == -1 then
+    end_byte = #line
+  else
+    end_byte = end_byte - 1
   end
 
   return {
     row = row,
-    start_col = word_start,
-    end_col = word_end,
+    start_col = start_byte + 1, -- Convert to 1-indexed
+    end_col = end_byte + 1,     -- Convert to 1-indexed
   }
 end
 

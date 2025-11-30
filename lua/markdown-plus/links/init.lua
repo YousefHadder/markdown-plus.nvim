@@ -175,11 +175,13 @@ function M.insert_link()
   local line = utils.get_current_line()
   local col = cursor[2]
 
-  local new_line = line:sub(1, col) .. link .. line:sub(col + 1)
+  -- Use UTF-8 safe split to handle multibyte characters correctly
+  local before, after = utils.split_after_cursor(line, col)
+  local new_line = before .. link .. after
   utils.set_line(cursor[1], new_line)
 
   -- Move cursor after the link
-  utils.set_cursor(cursor[1], col + #link)
+  utils.set_cursor(cursor[1], #before + #link)
 
   utils.notify("Link inserted")
 end

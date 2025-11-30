@@ -123,7 +123,10 @@ function M.insert_footnote()
     -- Insert reference after the character the cursor is on
     local line = vim.api.nvim_buf_get_lines(bufnr, row - 1, row, false)[1]
     local reference = "[^" .. id .. "]"
-    local new_line = line:sub(1, col + 1) .. reference .. line:sub(col + 2)
+
+    -- Use UTF-8 safe split to handle multibyte characters correctly
+    local before, after = utils.split_after_cursor(line, col)
+    local new_line = before .. reference .. after
     vim.api.nvim_buf_set_lines(bufnr, row - 1, row, false, { new_line })
 
     -- If definition already exists, just insert the reference and notify

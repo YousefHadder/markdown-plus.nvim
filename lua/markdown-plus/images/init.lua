@@ -189,11 +189,13 @@ function M.insert_image()
   local line = utils.get_current_line()
   local col = cursor[2]
 
-  local new_line = line:sub(1, col) .. image .. line:sub(col + 1)
+  -- Use UTF-8 safe split to handle multibyte characters correctly
+  local before, after = utils.split_after_cursor(line, col)
+  local new_line = before .. image .. after
   utils.set_line(cursor[1], new_line)
 
   -- Move cursor after the image
-  utils.set_cursor(cursor[1], col + #image)
+  utils.set_cursor(cursor[1], #before + #image)
 
   utils.notify("Image inserted")
 end

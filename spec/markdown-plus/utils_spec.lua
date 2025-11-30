@@ -208,4 +208,148 @@ describe("markdown-plus utils", function()
       vim.api.nvim_buf_delete(buf, { force = true })
     end)
   end)
+
+  describe("split_at_cursor", function()
+    it("splits ASCII text correctly (character at cursor goes to after)", function()
+      local line = "hello world"
+      -- Cursor on 'o' of 'hello' (byte 4, 0-indexed)
+      local before, after = utils.split_at_cursor(line, 4)
+      assert.are.equal("hell", before)
+      assert.are.equal("o world", after)
+    end)
+
+    it("splits at start of line", function()
+      local line = "hello"
+      local before, after = utils.split_at_cursor(line, 0)
+      assert.are.equal("", before)
+      assert.are.equal("hello", after)
+    end)
+
+    it("splits at end of line", function()
+      local line = "hello"
+      -- Cursor at last character 'o' (byte 4, 0-indexed)
+      local before, after = utils.split_at_cursor(line, 4)
+      assert.are.equal("hell", before)
+      assert.are.equal("o", after)
+    end)
+
+    it("handles empty line", function()
+      local line = ""
+      local before, after = utils.split_at_cursor(line, 0)
+      assert.are.equal("", before)
+      assert.are.equal("", after)
+    end)
+
+    it("splits Chinese text correctly at character boundaries", function()
+      local line = "你好世界" -- Each Chinese char is 3 bytes
+      -- Cursor on '好' (byte 3, 0-indexed = first byte of second char)
+      local before, after = utils.split_at_cursor(line, 3)
+      assert.are.equal("你", before)
+      assert.are.equal("好世界", after)
+    end)
+
+    it("splits mixed ASCII and Chinese text correctly", function()
+      local line = "hello你好"
+      -- Cursor on '你' (byte 5, 0-indexed = first byte of first Chinese char)
+      local before, after = utils.split_at_cursor(line, 5)
+      assert.are.equal("hello", before)
+      assert.are.equal("你好", after)
+    end)
+
+    it("handles cursor at last multi-byte character", function()
+      local line = "你好"
+      -- Cursor on '好' (byte 3, 0-indexed)
+      local before, after = utils.split_at_cursor(line, 3)
+      assert.are.equal("你", before)
+      assert.are.equal("好", after)
+    end)
+
+    it("handles cursor position past end of line", function()
+      local line = "hello"
+      -- Cursor past end
+      local before, after = utils.split_at_cursor(line, 100)
+      assert.are.equal("hello", before)
+      assert.are.equal("", after)
+    end)
+
+    it("splits correctly with emoji (4-byte UTF-8)", function()
+      local line = "hello😀world"
+      -- Cursor on emoji (byte 5, 0-indexed)
+      local before, after = utils.split_at_cursor(line, 5)
+      assert.are.equal("hello", before)
+      assert.are.equal("😀world", after)
+    end)
+  end)
+
+  describe("split_after_cursor", function()
+    it("splits ASCII text correctly (character at cursor goes to before)", function()
+      local line = "hello world"
+      -- Cursor on 'o' of 'hello' (byte 4, 0-indexed)
+      local before, after = utils.split_after_cursor(line, 4)
+      assert.are.equal("hello", before)
+      assert.are.equal(" world", after)
+    end)
+
+    it("splits at start of line", function()
+      local line = "hello"
+      local before, after = utils.split_after_cursor(line, 0)
+      assert.are.equal("h", before)
+      assert.are.equal("ello", after)
+    end)
+
+    it("splits at end of line", function()
+      local line = "hello"
+      -- Cursor at last character 'o' (byte 4, 0-indexed)
+      local before, after = utils.split_after_cursor(line, 4)
+      assert.are.equal("hello", before)
+      assert.are.equal("", after)
+    end)
+
+    it("handles empty line", function()
+      local line = ""
+      local before, after = utils.split_after_cursor(line, 0)
+      assert.are.equal("", before)
+      assert.are.equal("", after)
+    end)
+
+    it("splits Chinese text correctly at character boundaries", function()
+      local line = "你好世界" -- Each Chinese char is 3 bytes
+      -- Cursor on '好' (byte 3, 0-indexed = first byte of second char)
+      local before, after = utils.split_after_cursor(line, 3)
+      assert.are.equal("你好", before)
+      assert.are.equal("世界", after)
+    end)
+
+    it("splits mixed ASCII and Chinese text correctly", function()
+      local line = "hello你好"
+      -- Cursor on '你' (byte 5, 0-indexed = first byte of first Chinese char)
+      local before, after = utils.split_after_cursor(line, 5)
+      assert.are.equal("hello你", before)
+      assert.are.equal("好", after)
+    end)
+
+    it("handles cursor at last multi-byte character", function()
+      local line = "你好"
+      -- Cursor on '好' (byte 3, 0-indexed)
+      local before, after = utils.split_after_cursor(line, 3)
+      assert.are.equal("你好", before)
+      assert.are.equal("", after)
+    end)
+
+    it("handles cursor position past end of line", function()
+      local line = "hello"
+      -- Cursor past end
+      local before, after = utils.split_after_cursor(line, 100)
+      assert.are.equal("hello", before)
+      assert.are.equal("", after)
+    end)
+
+    it("splits correctly with emoji (4-byte UTF-8)", function()
+      local line = "hello😀world"
+      -- Cursor on emoji (byte 5, 0-indexed)
+      local before, after = utils.split_after_cursor(line, 5)
+      assert.are.equal("hello😀", before)
+      assert.are.equal("world", after)
+    end)
+  end)
 end)
