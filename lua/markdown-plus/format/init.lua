@@ -317,11 +317,6 @@ function M.get_word_boundaries()
   -- Find word start (iterate backwards by character)
   local word_start_char = char_idx
   while word_start_char > 0 do
-    local byte_pos = vim.fn.byteidx(line, word_start_char)
-    local next_byte_pos = vim.fn.byteidx(line, word_start_char + 1)
-    if next_byte_pos == -1 then
-      next_byte_pos = #line + 1
-    end
     local char = vim.fn.strcharpart(line, word_start_char, 1)
     if is_word_boundary(char) then
       word_start_char = word_start_char + 1
@@ -365,7 +360,7 @@ function M.get_word_boundaries()
   return {
     row = row,
     start_col = start_byte + 1, -- Convert to 1-indexed
-    end_col = end_byte + 1,     -- Convert to 1-indexed
+    end_col = end_byte + 1, -- Convert to 1-indexed
   }
 end
 
