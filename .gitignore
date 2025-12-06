@@ -42,5 +42,6 @@ test_*.lua
 !CODE_OF_CONDUCT.md
 !CONTRIBUTING.md
 !.github/copilot-instructions.md
+!.github/CLAUDE_CONTEXT.md
 !doc/markdown-plus.txt
 demo
