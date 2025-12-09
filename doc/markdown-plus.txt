@@ -1525,6 +1525,12 @@ TABLES ~
     <Plug>(markdown-plus-table-to-csv)              - To CSV (n)
     <Plug>(markdown-plus-table-from-csv)            - From CSV (n)
 
+    Insert mode navigation:
+    <Plug>(markdown-plus-table-nav-left)            - Move to cell left (i)
+    <Plug>(markdown-plus-table-nav-right)           - Move to cell right (i)
+    <Plug>(markdown-plus-table-nav-up)              - Move to cell above (i)
+    <Plug>(markdown-plus-table-nav-down)            - Move to cell below (i)
+
 FOOTNOTES ~
 
     <Plug>(MarkdownPlusFootnoteInsert)              - Insert new footnote (n)
