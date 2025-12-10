@@ -98,6 +98,8 @@ M.patterns = {
   italic = { start = "%*", end_pat = "%*", wrap = "*" },
   strikethrough = { start = "~~", end_pat = "~~", wrap = "~~" },
   code = { start = "`", end_pat = "`", wrap = "`" },
+  highlight = { start = "==", end_pat = "==", wrap = "==" },
+  underline = { start = "%+%+", end_pat = "%+%+", wrap = "++" },
 }
 
 ---Setup text formatting module
@@ -183,6 +185,42 @@ function M.setup_keymaps()
       modes = { "n", "x" },
       default_key = { "<leader>mc", "<leader>mc" },
       desc = "Toggle inline code formatting",
+      expr = { true, false },
+    },
+    {
+      plug = keymap_helper.plug_name("Highlight"),
+      fn = {
+        function()
+          return M._toggle_format_with_repeat(
+            "highlight",
+            string.format("<Plug>(%s)", keymap_helper.plug_name("Highlight"))
+          )
+        end,
+        function()
+          M.toggle_format("highlight")
+        end,
+      },
+      modes = { "n", "x" },
+      default_key = { "<leader>mh", "<leader>mh" },
+      desc = "Toggle highlight formatting",
+      expr = { true, false },
+    },
+    {
+      plug = keymap_helper.plug_name("Underline"),
+      fn = {
+        function()
+          return M._toggle_format_with_repeat(
+            "underline",
+            string.format("<Plug>(%s)", keymap_helper.plug_name("Underline"))
+          )
+        end,
+        function()
+          M.toggle_format("underline")
+        end,
+      },
+      modes = { "n", "x" },
+      default_key = { "<leader>mu", "<leader>mu" },
+      desc = "Toggle underline formatting",
       expr = { true, false },
     },
     {
@@ -288,7 +326,8 @@ function M.get_word_boundaries()
   -- - hyphens (-) - for words like "test-with-hyphens"
   -- - dots (.) - for words like "test.with.dots"
   -- - underscores (_) - for words like "test_with_underscores"
-  -- - formatting markers (*, `, ~) - we need to include them in selection
+  -- - formatting markers (*, `, ~, =, +) - we need to include them in selection
+  local allowed_punctuation = "-._*`~=+"
   local function is_word_boundary(char)
     -- Empty or space is always a boundary
     if char == "" or char:match("%s") then
@@ -297,7 +336,7 @@ function M.get_word_boundaries()
     -- Punctuation except our allowed characters
     if char:match("%p") then
       -- Allow these characters as part of words
-      if char == "-" or char == "." or char == "_" or char == "*" or char == "`" or char == "~" then
+      if allowed_punctuation:find(char, 1, true) then
         return false
       end
       return true
@@ -404,6 +443,12 @@ function M.clear_formatting()
   -- Remove strikethrough
   new_text = new_text:gsub("~~(.-)~~", "%1") -- ~~text~~
 
+  -- Remove highlight
+  new_text = new_text:gsub("==(.-)==", "%1") -- ==text==
+
+  -- Remove underline
+  new_text = new_text:gsub("%+%+(.-)%+%+", "%1") -- ++text++
+
   -- Remove italic (after bold to avoid breaking **)
   new_text = new_text:gsub("%*(.-)%*", "%1") -- *text*
   new_text = new_text:gsub("_(.-)_", "%1") -- _text_
@@ -470,6 +515,12 @@ function M.clear_formatting_word()
 
   -- Remove strikethrough
   new_text = new_text:gsub("~~(.-)~~", "%1")
+
+  -- Remove highlight
+  new_text = new_text:gsub("==(.-)==", "%1")
+
+  -- Remove underline
+  new_text = new_text:gsub("%+%+(.-)%+%+", "%1")
 
   -- Remove italic (after bold)
   new_text = new_text:gsub("%*(.-)%*", "%1")
