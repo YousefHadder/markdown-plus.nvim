@@ -477,23 +477,25 @@ Toggle underline with `<leader>mu`:
 Note: Underline syntax (++text++) is an extended Markdown syntax. It may not
 render in standard GitHub Markdown.
 
-### Compatibility Notes
+COMPATIBILITY NOTES ~
 
-#### Highlight (`==text==`) and Underline (`++text++`)
+HIGHLIGHT AND UNDERLINE ~
 
-These formatting styles are **extended Markdown syntax** and are NOT part of 
+These formatting styles are extended Markdown syntax and are NOT part of 
 GitHub Flavored Markdown (GFM). They will:
 
-| Platform | Highlight | Underline |
-|----------|-----------|-----------|
-| Obsidian | ✅ Renders | ❌ Plain text |
-| Typora | ✅ Renders | ✅ Renders |
-| Mark Text | ✅ Renders | ✅ Renders |
-| GitHub | ❌ Shows `==text==` | ❌ Shows `++text++` |
+| Platform  | Highlight           | Underline           |
+|-----------|---------------------|---------------------|
+| Obsidian  | Renders             | Plain text          |
+| Typora    | Renders             | Renders             |
+| Mark Text | Renders             | Renders             |
+| GitHub    | Shows ==text==      | Shows ++text++      |
 
-**For GitHub compatibility**, use:
-- Bold (`**text**`) or italic (`*text*`) for emphasis
-- `<ins>text</ins>` for underline (GitHub renders this)
+FOR GITHUB COMPATIBILITY ~
+
+Use:
+- Bold (**text**) or italic (*text*) for emphasis
+- <ins>text</ins> for underline (GitHub renders this)
 
 CODE BLOCK ~
 
