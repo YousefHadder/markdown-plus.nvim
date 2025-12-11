@@ -128,10 +128,17 @@ local function is_treesitter_available()
   return ok
 end
 
+---@class markdown-plus.format.NodeInfo
+---@field node userdata The treesitter node object
+---@field start_row number Start row (1-indexed)
+---@field start_col number Start column (1-indexed)
+---@field end_row number End row (1-indexed)
+---@field end_col number End column (exclusive, 1-indexed)
+
 ---Get the formatting node at cursor position using treesitter
 ---Returns the node and its range if cursor is inside a formatted region
 ---@param format_type string The format type to look for (bold, italic, etc.)
----@return table|nil node_info Table with {node, start_row, start_col, end_row, end_col} or nil
+---@return markdown-plus.format.NodeInfo|nil node_info Node info or nil if not found
 function M.get_formatting_node_at_cursor(format_type)
   local node_type = M.ts_node_types[format_type]
   if not node_type then
@@ -175,7 +182,7 @@ function M.get_formatting_node_at_cursor(format_type)
       start_row = start_row + 1, -- Convert to 1-indexed
       start_col = start_col + 1, -- Convert to 1-indexed
       end_row = end_row + 1, -- Convert to 1-indexed
-      end_col = end_col, -- end_col is exclusive, so it's already correct for 1-indexed
+      end_col = end_col, -- Exclusive in 0-indexed, same value works as exclusive in 1-indexed
     }
   end
 
@@ -224,7 +231,7 @@ function M.get_any_format_at_cursor(exclude_type)
 end
 
 ---Remove formatting from a treesitter node range
----@param node_info table Node info from get_formatting_node_at_cursor
+---@param node_info markdown-plus.format.NodeInfo Node info from get_formatting_node_at_cursor
 ---@param format_type string The format type to remove
 ---@return boolean success True if formatting was removed
 function M.remove_formatting_from_node(node_info, format_type)
@@ -547,7 +554,7 @@ function M.toggle_format(format_type)
   local new_text = M.add_formatting(text, format_type)
   utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
 
-  -- Exit visual mode and clear the selection
+  -- Exit visual mode
   vim.cmd("normal! " .. ESC)
 end
 
