@@ -133,7 +133,7 @@ end
 ---@field start_row number Start row (1-indexed)
 ---@field start_col number Start column (1-indexed)
 ---@field end_row number End row (1-indexed)
----@field end_col number End column (exclusive, 1-indexed)
+---@field end_col number End column (inclusive, 1-indexed)
 
 ---Get the formatting node at cursor position using treesitter
 ---Returns the node and its range if cursor is inside a formatted region
@@ -182,7 +182,7 @@ function M.get_formatting_node_at_cursor(format_type)
       start_row = start_row + 1, -- Convert to 1-indexed
       start_col = start_col + 1, -- Convert to 1-indexed
       end_row = end_row + 1, -- Convert to 1-indexed
-      end_col = end_col, -- Exclusive in 0-indexed, same value works as exclusive in 1-indexed
+      end_col = end_col, -- 0-indexed exclusive becomes 1-indexed inclusive (no increment needed)
     }
   end
 

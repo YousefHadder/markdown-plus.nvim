@@ -818,10 +818,8 @@ describe("markdown-plus format", function()
       format.toggle_format_word("bold")
 
       local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
-      -- If treesitter is available, entire bold range should be removed
-      -- Otherwise, it falls back to word-based behavior
-      -- Either way, "bold" or the range should be modified
-      assert.is_not_nil(line)
+      -- Treesitter removes entire bold range, result should be unformatted
+      assert.equals("Some bold text here", line)
     end)
 
     it("adds formatting when cursor is on unformatted word", function()
