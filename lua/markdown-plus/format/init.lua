@@ -3,6 +3,9 @@ local utils = require("markdown-plus.utils")
 local keymap_helper = require("markdown-plus.keymap_helper")
 local M = {}
 
+-- ESC character constant for consistency
+local ESC = "\027"
+
 ---@type markdown-plus.InternalConfig
 M.config = {}
 
@@ -101,6 +104,164 @@ M.patterns = {
   highlight = { start = "==", end_pat = "==", wrap = "==" },
   underline = { start = "%+%+", end_pat = "%+%+", wrap = "++" },
 }
+
+---Treesitter node types for format detection (markdown_inline parser)
+---@type table<string, string>
+M.ts_node_types = {
+  bold = "strong_emphasis",
+  italic = "emphasis",
+  strikethrough = "strikethrough",
+  code = "code_span",
+  -- highlight and underline are not supported by standard markdown_inline parser
+}
+
+---Check if treesitter markdown parser is available for the current buffer
+---@return boolean True if treesitter is available and can be used
+local function is_treesitter_available()
+  -- Check if vim.treesitter.get_node exists (Neovim 0.9+)
+  if not vim.treesitter or not vim.treesitter.get_node then
+    return false
+  end
+
+  -- Try to get the markdown parser for current buffer (markdown_inline is injected)
+  local ok = pcall(vim.treesitter.get_parser, 0, "markdown")
+  return ok
+end
+
+---Get the formatting node at cursor position using treesitter
+---Returns the node and its range if cursor is inside a formatted region
+---@param format_type string The format type to look for (bold, italic, etc.)
+---@return table|nil node_info Table with {node, start_row, start_col, end_row, end_col} or nil
+function M.get_formatting_node_at_cursor(format_type)
+  local node_type = M.ts_node_types[format_type]
+  if not node_type then
+    -- Format type not supported by treesitter (e.g., highlight, underline)
+    return nil
+  end
+
+  if not is_treesitter_available() then
+    return nil
+  end
+
+  -- Ensure the parser is started and parsed (including injections)
+  local ok_parser, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
+  if not ok_parser or not parser then
+    return nil
+  end
+  -- Parse with injections to enable markdown_inline
+  parser:parse(true)
+
+  -- Get the treesitter node at cursor, including injected languages (markdown_inline)
+  -- ignore_injections = false allows us to get nodes from the injected markdown_inline parser
+  local ok, node = pcall(vim.treesitter.get_node, { ignore_injections = false })
+  if not ok or not node then
+    return nil
+  end
+
+  -- Walk up the tree to find the outermost format node of the target type
+  -- This handles cases like nested strikethrough nodes (~~outer ~inner~ outer~~)
+  local found_node = nil
+  while node do
+    if node:type() == node_type then
+      found_node = node
+    end
+    node = node:parent()
+  end
+
+  if found_node then
+    local start_row, start_col, end_row, end_col = found_node:range()
+    return {
+      node = found_node,
+      start_row = start_row + 1, -- Convert to 1-indexed
+      start_col = start_col + 1, -- Convert to 1-indexed
+      end_row = end_row + 1, -- Convert to 1-indexed
+      end_col = end_col, -- end_col is exclusive, so it's already correct for 1-indexed
+    }
+  end
+
+  return nil
+end
+
+---Check if cursor is inside any formatted range (optimized single-pass)
+---@param exclude_type string|nil Format type to exclude from check (optional)
+---@return string|nil format_type The format type found, or nil if not in any format
+function M.get_any_format_at_cursor(exclude_type)
+  if not is_treesitter_available() then
+    return nil
+  end
+
+  -- Get parser and parse once
+  local ok_parser, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
+  if not ok_parser or not parser then
+    return nil
+  end
+  parser:parse(true)
+
+  -- Get node at cursor once
+  local ok, node = pcall(vim.treesitter.get_node, { ignore_injections = false })
+  if not ok or not node then
+    return nil
+  end
+
+  -- Build reverse lookup: node_type -> format_type
+  local node_to_format = {}
+  for fmt, node_type in pairs(M.ts_node_types) do
+    if fmt ~= exclude_type then
+      node_to_format[node_type] = fmt
+    end
+  end
+
+  -- Walk tree once, checking all format types
+  while node do
+    local found_format = node_to_format[node:type()]
+    if found_format then
+      return found_format
+    end
+    node = node:parent()
+  end
+
+  return nil
+end
+
+---Remove formatting from a treesitter node range
+---@param node_info table Node info from get_formatting_node_at_cursor
+---@param format_type string The format type to remove
+---@return boolean success True if formatting was removed
+function M.remove_formatting_from_node(node_info, format_type)
+  local pattern = M.patterns[format_type]
+  if not pattern then
+    return false
+  end
+
+  -- Get the text content of the node
+  local text = utils.get_text_in_range(node_info.start_row, node_info.start_col, node_info.end_row, node_info.end_col)
+
+  -- Remove the formatting
+  local new_text = M.remove_formatting(text, format_type)
+
+  -- Calculate cursor adjustment: cursor should stay on the same logical character
+  -- The formatting markers are removed from the start, so we need to shift cursor left
+  local cursor = utils.get_cursor()
+  local marker_length = #pattern.wrap -- Length of formatting marker (e.g., 2 for "**")
+  local cursor_in_range = cursor[1] == node_info.start_row
+    and cursor[2] >= (node_info.start_col - 1)
+    and cursor[2] < (node_info.end_col - 1)
+
+  -- Replace the text
+  utils.set_text_in_range(node_info.start_row, node_info.start_col, node_info.end_row, node_info.end_col, new_text)
+
+  -- Adjust cursor position if it was inside the formatted range
+  if cursor_in_range then
+    local new_col = cursor[2] - marker_length
+    -- Ensure cursor doesn't go before the start of the (now unformatted) text
+    if new_col < (node_info.start_col - 1) then
+      new_col = node_info.start_col - 1
+    end
+    utils.set_cursor(cursor[1], new_col)
+  end
+
+  return true
+end
 
 ---Setup text formatting module
 ---@param config markdown-plus.InternalConfig Plugin configuration
@@ -257,6 +418,10 @@ function M.get_lines_in_range(start_row, end_row)
 end
 
 -- Check if text has formatting
+---Check if text has specific formatting markers
+---@param text string The text to check
+---@param format_type string The format type to check for
+---@return boolean True if text has the specified formatting
 function M.has_formatting(text, format_type)
   local pattern = M.patterns[format_type]
   if not pattern then
@@ -269,7 +434,10 @@ function M.has_formatting(text, format_type)
   return text:match(start_pattern) ~= nil and text:match(end_pattern) ~= nil
 end
 
--- Add formatting to text
+---Add formatting markers to text
+---@param text string The text to format
+---@param format_type string The format type to add
+---@return string The formatted text
 function M.add_formatting(text, format_type)
   local pattern = M.patterns[format_type]
   if not pattern then
@@ -279,7 +447,10 @@ function M.add_formatting(text, format_type)
   return pattern.wrap .. text .. pattern.wrap
 end
 
--- Remove formatting from text
+---Remove formatting markers from text
+---@param text string The text to unformat
+---@param format_type string The format type to remove
+---@return string The unformatted text
 function M.remove_formatting(text, format_type)
   local pattern = M.patterns[format_type]
   if not pattern then
@@ -295,26 +466,93 @@ function M.remove_formatting(text, format_type)
   return text
 end
 
--- Toggle formatting on visual selection
+---Strip all formatting markers from text
+---Processes in order from longest to shortest markers to avoid breaking patterns
+---@param text string The text to strip all formatting from
+---@return string The text with all formatting removed
+function M.strip_all_formatting(text)
+  local result = text
+
+  -- Remove bold (must come before italic since ** contains *)
+  result = result:gsub("%*%*(.-)%*%*", "%1") -- **text**
+  result = result:gsub("__(.-)__", "%1") -- __text__
+
+  -- Remove strikethrough
+  result = result:gsub("~~(.-)~~", "%1") -- ~~text~~
+
+  -- Remove highlight
+  result = result:gsub("==(.-)==", "%1") -- ==text==
+
+  -- Remove underline
+  result = result:gsub("%+%+(.-)%+%+", "%1") -- ++text++
+
+  -- Remove italic (after bold to avoid breaking **)
+  result = result:gsub("%*(.-)%*", "%1") -- *text*
+  result = result:gsub("_(.-)_", "%1") -- _text_
+
+  -- Remove code
+  result = result:gsub("`(.-)`", "%1") -- `text`
+
+  return result
+end
+
+---Toggle formatting on visual selection
+---If the selection is entirely within a formatted range of the same type,
+---removes the formatting from the entire containing range (smart toggle).
+---Otherwise, toggles formatting on the selected text.
+---@param format_type string The format type to toggle
+---@return nil
 function M.toggle_format(format_type)
   -- Get the current visual selection (works even on first selection due to vim.fn.getpos('v'))
   local selection = utils.get_visual_selection()
   local text = utils.get_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col)
 
-  local new_text
+  -- First, check if the selection already has formatting markers
   if M.has_formatting(text, format_type) then
-    new_text = M.remove_formatting(text, format_type)
-  else
-    new_text = M.add_formatting(text, format_type)
+    local new_text = M.remove_formatting(text, format_type)
+    utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
+    vim.cmd("normal! " .. ESC)
+    return
   end
 
+  -- Check if the selection is inside a larger formatted range using treesitter
+  -- This handles the case where user selects "bold text" inside "**bold text**"
+  local node_type = M.ts_node_types[format_type]
+  if node_type then
+    -- Save cursor position, move to selection start, check for containing format node
+    local saved_cursor = utils.get_cursor()
+    utils.set_cursor(selection.start_row, selection.start_col - 1) -- 0-indexed col
+
+    local node_info = M.get_formatting_node_at_cursor(format_type)
+    if node_info then
+      -- Check if the formatted range fully contains the selection
+      local contains_selection = node_info.start_row <= selection.start_row
+        and node_info.end_row >= selection.end_row
+        and (node_info.start_row < selection.start_row or node_info.start_col <= selection.start_col)
+        and (node_info.end_row > selection.end_row or node_info.end_col >= selection.end_col)
+
+      if contains_selection then
+        -- Remove formatting from the entire containing range
+        M.remove_formatting_from_node(node_info, format_type)
+        vim.cmd("normal! " .. ESC)
+        return
+      end
+    end
+
+    -- Restore cursor position
+    utils.set_cursor(saved_cursor[1], saved_cursor[2])
+  end
+
+  -- Default behavior: add formatting to the selection
+  local new_text = M.add_formatting(text, format_type)
   utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
 
   -- Exit visual mode and clear the selection
-  vim.cmd("normal! \033")
+  vim.cmd("normal! " .. ESC)
 end
 
--- Get current word boundaries
+---Get current word boundaries
+---@return table boundaries Table with row, start_col, end_col (1-indexed)
 function M.get_word_boundaries()
   local cursor = utils.get_cursor()
   local row = cursor[1]
@@ -403,8 +641,28 @@ function M.get_word_boundaries()
   }
 end
 
--- Toggle formatting on current word
+---Toggle formatting on current word
+---Uses treesitter to detect if cursor is inside an existing formatted range.
+---If inside a formatted range of the SAME type, removes formatting from the entire range.
+---Otherwise, adds the requested formatting to the current word.
+---@param format_type string The format type to toggle
+---@return nil
 function M.toggle_format_word(format_type)
+  -- First, try treesitter-based detection for the entire formatted range
+  local node_info = M.get_formatting_node_at_cursor(format_type)
+  if node_info then
+    -- Cursor is inside a formatted range of the same type, remove it
+    M.remove_formatting_from_node(node_info, format_type)
+    return
+  end
+
+  -- Not in a formatted range of the requested type.
+  -- Check if we're inside ANY other formatted range (e.g., adding italic to bold text)
+  -- If so, we should ADD the new formatting, not try to detect/remove based on word boundaries
+  -- Uses optimized single-pass check instead of calling get_formatting_node_at_cursor for each type
+  local in_other_format = M.get_any_format_at_cursor(format_type) ~= nil
+
+  -- Fallback to word-based toggling
   local boundaries = M.get_word_boundaries()
   local text = utils.get_text_in_range(boundaries.row, boundaries.start_col, boundaries.row, boundaries.end_col)
 
@@ -412,57 +670,57 @@ function M.toggle_format_word(format_type)
     return
   end
 
+  -- Get current cursor position before making changes
+  local cursor = utils.get_cursor()
+  local pattern = M.patterns[format_type]
+  local marker_length = pattern and #pattern.wrap or 0
+
   local new_text
-  if M.has_formatting(text, format_type) then
+  local is_adding = false
+  -- If we're inside another format type, always ADD the new formatting
+  -- This prevents false positives where **bold** is detected as having italic
+  if in_other_format then
+    new_text = M.add_formatting(text, format_type)
+    is_adding = true
+  elseif M.has_formatting(text, format_type) then
     new_text = M.remove_formatting(text, format_type)
   else
     new_text = M.add_formatting(text, format_type)
+    is_adding = true
   end
 
   utils.set_text_in_range(boundaries.row, boundaries.start_col, boundaries.row, boundaries.end_col, new_text)
 
-  -- Adjust cursor position
-  local cursor = utils.get_cursor()
-  utils.set_cursor(cursor[1], cursor[2])
+  -- Adjust cursor position to stay on the same logical character
+  if is_adding then
+    -- When adding formatting, cursor needs to shift right by marker length
+    utils.set_cursor(cursor[1], cursor[2] + marker_length)
+  else
+    -- When removing formatting, cursor needs to shift left by marker length
+    local new_col = cursor[2] - marker_length
+    if new_col < (boundaries.start_col - 1) then
+      new_col = boundaries.start_col - 1
+    end
+    utils.set_cursor(cursor[1], new_col)
+  end
 end
 
--- Remove all formatting from visual selection
+---Remove all formatting from visual selection
+---@return nil
 function M.clear_formatting()
-  -- Get the current visual selection (works even on first selection due to vim.fn.getpos('v'))
   local selection = utils.get_visual_selection()
   local text = utils.get_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col)
 
-  -- Remove all formatting - must process in order from longest to shortest
-  -- to avoid issues like ** becoming * after first pass
-  local new_text = text
-
-  -- Remove bold (must come before italic since ** contains *)
-  new_text = new_text:gsub("%*%*(.-)%*%*", "%1") -- **text**
-  new_text = new_text:gsub("__(.-)__", "%1") -- __text__
-
-  -- Remove strikethrough
-  new_text = new_text:gsub("~~(.-)~~", "%1") -- ~~text~~
-
-  -- Remove highlight
-  new_text = new_text:gsub("==(.-)==", "%1") -- ==text==
-
-  -- Remove underline
-  new_text = new_text:gsub("%+%+(.-)%+%+", "%1") -- ++text++
-
-  -- Remove italic (after bold to avoid breaking **)
-  new_text = new_text:gsub("%*(.-)%*", "%1") -- *text*
-  new_text = new_text:gsub("_(.-)_", "%1") -- _text_
-
-  -- Remove code
-  new_text = new_text:gsub("`(.-)`", "%1") -- `text`
+  local new_text = M.strip_all_formatting(text)
 
   utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
 
-  -- Exit visual mode and clear the selection
-  vim.cmd("normal! \033")
+  -- Exit visual mode
+  vim.cmd("normal! " .. ESC)
 end
 
--- Convert visual selection to a code block
+---Convert visual selection to a code block
+---@return nil
 function M.convert_to_code_block()
   -- Check if text formatting feature is enabled
   if not M.config.features or not M.config.features.text_formatting then
@@ -493,11 +751,12 @@ function M.convert_to_code_block()
   vim.api.nvim_buf_set_lines(0, start_row - 1, start_row - 1, false, { code_block_start })
   vim.api.nvim_buf_set_lines(0, end_row + 1, end_row + 1, false, { code_block_end })
 
-  -- Exit visual mode and clear the selection
-  vim.cmd("normal! \033")
+  -- Exit visual mode
+  vim.cmd("normal! " .. ESC)
 end
 
--- Remove all formatting from current word
+---Remove all formatting from current word
+---@return nil
 function M.clear_formatting_word()
   local boundaries = M.get_word_boundaries()
   local text = utils.get_text_in_range(boundaries.row, boundaries.start_col, boundaries.row, boundaries.end_col)
@@ -506,28 +765,7 @@ function M.clear_formatting_word()
     return
   end
 
-  -- Remove all formatting - must process in order from longest to shortest
-  local new_text = text
-
-  -- Remove bold (must come before italic)
-  new_text = new_text:gsub("%*%*(.-)%*%*", "%1")
-  new_text = new_text:gsub("__(.-)__", "%1")
-
-  -- Remove strikethrough
-  new_text = new_text:gsub("~~(.-)~~", "%1")
-
-  -- Remove highlight
-  new_text = new_text:gsub("==(.-)==", "%1")
-
-  -- Remove underline
-  new_text = new_text:gsub("%+%+(.-)%+%+", "%1")
-
-  -- Remove italic (after bold)
-  new_text = new_text:gsub("%*(.-)%*", "%1")
-  new_text = new_text:gsub("_(.-)_", "%1")
-
-  -- Remove code
-  new_text = new_text:gsub("`(.-)`", "%1")
+  local new_text = M.strip_all_formatting(text)
 
   utils.set_text_in_range(boundaries.row, boundaries.start_col, boundaries.row, boundaries.end_col, new_text)
 end
