@@ -45,6 +45,20 @@ describe("markdown-plus format", function()
       assert.is_false(format.has_formatting("text", "code"))
       assert.is_false(format.has_formatting("`text", "code"))
     end)
+
+    it("detects highlight formatting", function()
+      assert.is_true(format.has_formatting("==text==", "highlight"))
+      assert.is_false(format.has_formatting("text", "highlight"))
+      assert.is_false(format.has_formatting("==text", "highlight"))
+      assert.is_false(format.has_formatting("text==", "highlight"))
+    end)
+
+    it("detects underline formatting", function()
+      assert.is_true(format.has_formatting("++text++", "underline"))
+      assert.is_false(format.has_formatting("text", "underline"))
+      assert.is_false(format.has_formatting("++text", "underline"))
+      assert.is_false(format.has_formatting("text++", "underline"))
+    end)
   end)
 
   describe("add_formatting", function()
@@ -66,6 +80,16 @@ describe("markdown-plus format", function()
     it("adds inline code formatting", function()
       local result = format.add_formatting("text", "code")
       assert.equals("`text`", result)
+    end)
+
+    it("adds highlight formatting", function()
+      local result = format.add_formatting("text", "highlight")
+      assert.equals("==text==", result)
+    end)
+
+    it("adds underline formatting", function()
+      local result = format.add_formatting("text", "underline")
+      assert.equals("++text++", result)
     end)
   end)
 
@@ -90,9 +114,96 @@ describe("markdown-plus format", function()
       assert.equals("text", result)
     end)
 
+    it("removes highlight formatting", function()
+      local result = format.remove_formatting("==text==", "highlight")
+      assert.equals("text", result)
+    end)
+
+    it("removes underline formatting", function()
+      local result = format.remove_formatting("++text++", "underline")
+      assert.equals("text", result)
+    end)
+
     it("returns unchanged text if no formatting present", function()
       local result = format.remove_formatting("text", "bold")
       assert.equals("text", result)
+    end)
+  end)
+
+  describe("strip_all_formatting", function()
+    it("removes bold formatting", function()
+      local result = format.strip_all_formatting("**bold**")
+      assert.equals("bold", result)
+    end)
+
+    it("removes italic formatting", function()
+      local result = format.strip_all_formatting("*italic*")
+      assert.equals("italic", result)
+    end)
+
+    it("removes strikethrough formatting", function()
+      local result = format.strip_all_formatting("~~strike~~")
+      assert.equals("strike", result)
+    end)
+
+    it("removes code formatting", function()
+      local result = format.strip_all_formatting("`code`")
+      assert.equals("code", result)
+    end)
+
+    it("removes highlight formatting", function()
+      local result = format.strip_all_formatting("==highlight==")
+      assert.equals("highlight", result)
+    end)
+
+    it("removes underline formatting", function()
+      local result = format.strip_all_formatting("++underline++")
+      assert.equals("underline", result)
+    end)
+
+    it("removes multiple formatting types", function()
+      local result = format.strip_all_formatting("**bold** and *italic* and `code`")
+      assert.equals("bold and italic and code", result)
+    end)
+
+    it("removes nested formatting", function()
+      local result = format.strip_all_formatting("***bold and italic***")
+      assert.equals("bold and italic", result)
+    end)
+
+    it("returns unchanged text if no formatting", function()
+      local result = format.strip_all_formatting("plain text")
+      assert.equals("plain text", result)
+    end)
+  end)
+
+  describe("get_any_format_at_cursor", function()
+    it("returns nil for unformatted text", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 3 })
+
+      local result = format.get_any_format_at_cursor()
+      assert.is_nil(result)
+    end)
+
+    it("detects bold formatting", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold** here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 7 })
+
+      local result = format.get_any_format_at_cursor()
+      -- If treesitter is available, should return "bold"
+      if result then
+        assert.equals("bold", result)
+      end
+    end)
+
+    it("excludes specified format type", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold** here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 7 })
+
+      local result = format.get_any_format_at_cursor("bold")
+      -- Should return nil because we excluded bold
+      assert.is_nil(result)
     end)
   end)
 
@@ -234,6 +345,16 @@ describe("markdown-plus format", function()
     it("has code pattern", function()
       assert.is_not_nil(format.patterns.code)
       assert.equals("`", format.patterns.code.wrap)
+    end)
+
+    it("has highlight pattern", function()
+      assert.is_not_nil(format.patterns.highlight)
+      assert.equals("==", format.patterns.highlight.wrap)
+    end)
+
+    it("has underline pattern", function()
+      assert.is_not_nil(format.patterns.underline)
+      assert.equals("++", format.patterns.underline.wrap)
     end)
   end)
   describe("convert_to_code_block", function()
@@ -522,6 +643,358 @@ describe("markdown-plus format", function()
       local line = utils.get_current_line()
       -- Should have bold formatting
       assert.matches("%*%*", line)
+    end)
+  end)
+
+  describe("treesitter node type mappings", function()
+    it("has bold node type mapping", function()
+      assert.equals("strong_emphasis", format.ts_node_types.bold)
+    end)
+
+    it("has italic node type mapping", function()
+      assert.equals("emphasis", format.ts_node_types.italic)
+    end)
+
+    it("has strikethrough node type mapping", function()
+      assert.equals("strikethrough", format.ts_node_types.strikethrough)
+    end)
+
+    it("has code node type mapping", function()
+      assert.equals("code_span", format.ts_node_types.code)
+    end)
+
+    it("does not have highlight node type (not supported by treesitter)", function()
+      assert.is_nil(format.ts_node_types.highlight)
+    end)
+
+    it("does not have underline node type (not supported by treesitter)", function()
+      assert.is_nil(format.ts_node_types.underline)
+    end)
+  end)
+
+  describe("get_formatting_node_at_cursor", function()
+    it("returns nil for unsupported format types", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "==highlight==" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 })
+
+      local result = format.get_formatting_node_at_cursor("highlight")
+      assert.is_nil(result)
+    end)
+
+    it("returns nil for unformatted text", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 3 })
+
+      local result = format.get_formatting_node_at_cursor("bold")
+      assert.is_nil(result)
+    end)
+
+    -- Treesitter detection tests (requires markdown_inline parser)
+    -- These tests verify the integration with treesitter when available
+
+    it("detects bold formatting at cursor", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "**bold text**" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 }) -- Cursor on "bold"
+
+      local result = format.get_formatting_node_at_cursor("bold")
+      -- If treesitter is available, should return node info
+      if result then
+        assert.equals(1, result.start_row)
+        assert.equals(1, result.start_col)
+        assert.equals(1, result.end_row)
+        assert.equals(13, result.end_col)
+      end
+      -- If treesitter not available, result is nil which is fine
+    end)
+
+    it("detects italic formatting at cursor", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "*italic text*" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 }) -- Cursor on "italic"
+
+      local result = format.get_formatting_node_at_cursor("italic")
+      if result then
+        assert.equals(1, result.start_row)
+        assert.equals(1, result.start_col)
+        assert.equals(1, result.end_row)
+        assert.equals(13, result.end_col)
+      end
+    end)
+
+    it("detects code formatting at cursor", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "`code text`" })
+      vim.api.nvim_win_set_cursor(0, { 1, 3 }) -- Cursor on "code"
+
+      local result = format.get_formatting_node_at_cursor("code")
+      if result then
+        assert.equals(1, result.start_row)
+        assert.equals(1, result.start_col)
+        assert.equals(1, result.end_row)
+        assert.equals(11, result.end_col)
+      end
+    end)
+
+    it("detects strikethrough formatting at cursor", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "~~strike text~~" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 }) -- Cursor on "strike"
+
+      local result = format.get_formatting_node_at_cursor("strikethrough")
+      if result then
+        assert.equals(1, result.start_row)
+        assert.equals(1, result.start_col)
+        assert.equals(1, result.end_row)
+        assert.equals(15, result.end_col)
+      end
+    end)
+  end)
+
+  describe("remove_formatting_from_node", function()
+    it("removes bold formatting from node range", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "**bold text**" })
+      local node_info = {
+        start_row = 1,
+        start_col = 1,
+        end_row = 1,
+        end_col = 13,
+      }
+
+      local success = format.remove_formatting_from_node(node_info, "bold")
+      assert.is_true(success)
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("bold text", line)
+    end)
+
+    it("removes italic formatting from node range", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "*italic text*" })
+      local node_info = {
+        start_row = 1,
+        start_col = 1,
+        end_row = 1,
+        end_col = 13,
+      }
+
+      local success = format.remove_formatting_from_node(node_info, "italic")
+      assert.is_true(success)
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("italic text", line)
+    end)
+
+    it("removes code formatting from node range", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "`code text`" })
+      local node_info = {
+        start_row = 1,
+        start_col = 1,
+        end_row = 1,
+        end_col = 11,
+      }
+
+      local success = format.remove_formatting_from_node(node_info, "code")
+      assert.is_true(success)
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("code text", line)
+    end)
+
+    it("returns false for invalid format type", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "some text" })
+      local node_info = {
+        start_row = 1,
+        start_col = 1,
+        end_row = 1,
+        end_col = 9,
+      }
+
+      local success = format.remove_formatting_from_node(node_info, "invalid_format")
+      assert.is_false(success)
+    end)
+  end)
+
+  describe("toggle_format_word with treesitter", function()
+    it("removes formatting when cursor is inside formatted range (via treesitter)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold text** here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 }) -- Cursor on "bold"
+
+      format.toggle_format_word("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Treesitter removes entire bold range, result should be unformatted
+      assert.equals("Some bold text here", line)
+    end)
+
+    it("adds formatting when cursor is on unformatted word", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 }) -- Cursor on "text"
+
+      format.toggle_format_word("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should have bold formatting on "text"
+      assert.matches("%*%*text%*%*", line)
+    end)
+
+    it("falls back to word-based logic for unsupported formats (highlight)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 }) -- Cursor on "text"
+
+      format.toggle_format_word("highlight")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should have highlight formatting on "text"
+      assert.matches("==text==", line)
+    end)
+
+    it("falls back to word-based logic for unsupported formats (underline)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 }) -- Cursor on "text"
+
+      format.toggle_format_word("underline")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should have underline formatting on "text"
+      assert.matches("%+%+text%+%+", line)
+    end)
+
+    it("preserves cursor position on same character after removing formatting", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold text** here" })
+      -- Position cursor on 'l' in "bold" (col 9, 0-indexed)
+      vim.api.nvim_win_set_cursor(0, { 1, 9 })
+
+      local cursor_before = vim.api.nvim_win_get_cursor(0)
+      local line_before = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local char_before = line_before:sub(cursor_before[2] + 1, cursor_before[2] + 1)
+
+      format.toggle_format_word("bold")
+
+      local cursor_after = vim.api.nvim_win_get_cursor(0)
+      local line_after = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local char_after = line_after:sub(cursor_after[2] + 1, cursor_after[2] + 1)
+
+      -- Cursor should stay on the same character
+      assert.equals(char_before, char_after)
+      assert.equals("l", char_after)
+    end)
+
+    it("preserves cursor position on same character after adding formatting", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some text here" })
+      -- Position cursor on 'x' in "text" (col 7, 0-indexed)
+      vim.api.nvim_win_set_cursor(0, { 1, 7 })
+
+      local cursor_before = vim.api.nvim_win_get_cursor(0)
+      local line_before = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local char_before = line_before:sub(cursor_before[2] + 1, cursor_before[2] + 1)
+
+      format.toggle_format_word("bold")
+
+      local cursor_after = vim.api.nvim_win_get_cursor(0)
+      local line_after = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      local char_after = line_after:sub(cursor_after[2] + 1, cursor_after[2] + 1)
+
+      -- Cursor should stay on the same character
+      assert.equals(char_before, char_after)
+      assert.equals("x", char_after)
+      -- Line should have bold formatting
+      assert.equals("Some **text** here", line_after)
+    end)
+
+    it("adds italic to bold word (nested formatting)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold** here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 7 }) -- Cursor on "bold"
+
+      format.toggle_format_word("italic")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should add italic around the bold word: ***bold***
+      assert.equals("Some ***bold*** here", line)
+    end)
+
+    it("adds bold to italic word (nested formatting)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some *italic* here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 }) -- Cursor on "italic"
+
+      format.toggle_format_word("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should add bold around the italic word: ***italic***
+      assert.equals("Some ***italic*** here", line)
+    end)
+
+    it("adds code to bold word (nested formatting)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold** here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 7 }) -- Cursor on "bold"
+
+      format.toggle_format_word("code")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should add code around the bold word: `**bold**`
+      assert.equals("Some `**bold**` here", line)
+    end)
+  end)
+
+  describe("toggle_format (visual mode) with treesitter", function()
+    it("removes formatting when selection is inside formatted range", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold text** here" })
+
+      -- Simulate visual selection of "bold text" only (inside the **)
+      vim.fn.setpos("'<", { 0, 1, 8, 0 })
+      vim.fn.setpos("'>", { 0, 1, 16, 0 })
+
+      format.toggle_format("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("Some bold text here", line)
+    end)
+
+    it("removes formatting when selection includes markers", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some **bold text** here" })
+
+      -- Simulate visual selection including ** markers
+      vim.fn.setpos("'<", { 0, 1, 6, 0 })
+      vim.fn.setpos("'>", { 0, 1, 18, 0 })
+
+      format.toggle_format("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("Some bold text here", line)
+    end)
+
+    it("adds formatting to unformatted selection", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some plain text here" })
+
+      -- Simulate visual selection of "plain"
+      vim.fn.setpos("'<", { 0, 1, 6, 0 })
+      vim.fn.setpos("'>", { 0, 1, 10, 0 })
+
+      format.toggle_format("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("Some **plain** text here", line)
+    end)
+
+    it("removes italic when selection is inside italic range", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some *italic text* here" })
+
+      -- Simulate visual selection of "italic" only
+      vim.fn.setpos("'<", { 0, 1, 7, 0 })
+      vim.fn.setpos("'>", { 0, 1, 12, 0 })
+
+      format.toggle_format("italic")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("Some italic text here", line)
+    end)
+
+    it("removes code when selection is inside code span", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Some `inline code` here" })
+
+      -- Simulate visual selection of "inline" only
+      vim.fn.setpos("'<", { 0, 1, 7, 0 })
+      vim.fn.setpos("'>", { 0, 1, 12, 0 })
+
+      format.toggle_format("code")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("Some inline code here", line)
     end)
   end)
 end)

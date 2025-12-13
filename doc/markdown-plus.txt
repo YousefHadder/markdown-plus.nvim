@@ -61,9 +61,10 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Navigate to headers from TOC
 
 - Text formatting:
-  - Toggle bold, italic, strikethrough, and inline code
+  - Toggle bold, italic, strikethrough, inline code, highlight, and underline
   - Convert selected rows to code block
-  - Smart formatting that respects word boundaries
+  - Smart formatting that respects word boundaries (Treesitter-aware)
+  - Support for nested formatting (e.g., bold inside italic)
   - Clear all formatting from selected text
   - Works in both normal and visual mode
   - Dot-repeat support in normal mode (press `.` to reapply to next word)
@@ -423,6 +424,27 @@ Dot-repeat example (normal mode only):
 Note: Visual mode formatting does not support dot-repeat.
 
 
+SMART FORMATTING (TREESITTER) ~
+
+When Treesitter is available (and the markdown parser is installed), formatting
+becomes even smarter:
+
+1. Smart Toggling:
+   If your cursor is anywhere inside a formatted region (e.g., inside **bold**),
+   toggling that format will remove it from the entire region, not just the
+   current word.
+
+2. Nested Formatting:
+   You can apply multiple format types to the same text. For example, applying
+   italic to **bold** text will result in ***bold and italic***. The plugin
+   intelligently detects if you are trying to nest formats or toggle the
+   existing one.
+
+3. Selection Handling:
+   In visual mode, if your selection is fully contained within a formatted
+   region, toggling that format will remove it from the container.
+
+
 ITALIC ~
 
 Toggle italic with `<leader>mi`:
@@ -451,6 +473,52 @@ Toggle inline code with `<leader>mc`:
     This is code           ->    This is `code`
     This is `code`         ->    This is code
 <
+
+HIGHLIGHT ~
+
+Toggle highlight (Obsidian-style) with `<leader>mh`:
+
+>markdown
+    This is text           ->    This is ==text==
+    This is ==text==       ->    This is text
+<
+
+Note: Highlight syntax (==text==) is supported by Obsidian and some other
+Markdown extensions. It may not render in standard GitHub Markdown.
+
+
+UNDERLINE ~
+
+Toggle underline with `<leader>mu`:
+
+>markdown
+    This is text           ->    This is ++text++
+    This is ++text++       ->    This is text
+<
+
+Note: Underline syntax (++text++) is an extended Markdown syntax. It may not
+render in standard GitHub Markdown.
+
+COMPATIBILITY NOTES ~
+
+HIGHLIGHT AND UNDERLINE ~
+
+These formatting styles are extended Markdown syntax and are NOT part of 
+GitHub Flavored Markdown (GFM). They will:
+
+| Platform  | Highlight           | Underline           |
+|-----------|---------------------|---------------------|
+| Obsidian  | Renders             | Plain text          |
+| Typora    | Renders             | Renders             |
+| Mark Text | Renders             | Renders             |
+| GitHub    | Shows ==text==      | Shows ++text++      |
+
+FOR GITHUB COMPATIBILITY ~
+
+Use:
+- Bold (**text**) or italic (*text*) for emphasis
+- <ins>text</ins> for underline (GitHub renders this)
+
 CODE BLOCK ~
 
 Convert selected rows to a code block with `<leader>mw`:
@@ -1152,6 +1220,8 @@ Default keymaps:
         toggle_italic = '<leader>mi',
         toggle_strikethrough = '<leader>ms',
         toggle_code = '<leader>mc',
+        toggle_highlight = '<leader>mh',
+        toggle_underline = '<leader>mu',
         convert_to_code_block = '<leader>mw', -- Convert selection to code block
         clear_formatting = '<leader>mC',
 
@@ -1431,6 +1501,8 @@ TEXT FORMATTING ~
     <Plug>(MarkdownPlusItalic)             - Toggle italic (n, x)
     <Plug>(MarkdownPlusStrikethrough)      - Toggle strikethrough (n, x)
     <Plug>(MarkdownPlusCode)               - Toggle inline code (n, x)
+    <Plug>(MarkdownPlusHighlight)          - Toggle highlight ==text== (n, x)
+    <Plug>(MarkdownPlusUnderline)          - Toggle underline ++text++ (n, x)
     <Plug>(MarkdownPlusCodeBlock)          - Convert to code block (x)
     <Plug>(MarkdownPlusClearFormatting)    - Clear all formatting (n, x)
 
@@ -1524,6 +1596,12 @@ TABLES ~
     <Plug>(markdown-plus-table-sort-descending)     - Sort descending (n)
     <Plug>(markdown-plus-table-to-csv)              - To CSV (n)
     <Plug>(markdown-plus-table-from-csv)            - From CSV (n)
+
+    Insert mode navigation:
+    <Plug>(markdown-plus-table-nav-left)            - Move to cell left (i)
+    <Plug>(markdown-plus-table-nav-right)           - Move to cell right (i)
+    <Plug>(markdown-plus-table-nav-up)              - Move to cell above (i)
+    <Plug>(markdown-plus-table-nav-down)            - Move to cell below (i)
 
 FOOTNOTES ~
 
@@ -1676,13 +1754,24 @@ FORMAT MODULE                                          *markdown-plus.format*
 markdown-plus.format.toggle_format(format_type)
     Toggles formatting on visual selection or current word.
     Parameters: ~
-        {format_type}  (string) One of: 'bold', 'italic', 'strikethrough', 'code'
+        {format_type}  (string) One of: 'bold', 'italic', 'strikethrough',
+                       'code', 'highlight', 'underline'
 
                                         *markdown-plus.format.toggle_format_word*
 markdown-plus.format.toggle_format_word(format_type)
-    Toggles formatting on the word under cursor.
+    Toggles formatting on the word under cursor. Uses Treesitter (if available)
+    for smart detection of formatted regions and nested formatting.
     Parameters: ~
-        {format_type}  (string) One of: 'bold', 'italic', 'strikethrough', 'code'
+        {format_type}  (string) One of: 'bold', 'italic', 'strikethrough',
+                       'code', 'highlight', 'underline'
+
+                                        *markdown-plus.format.strip_all_formatting*
+markdown-plus.format.strip_all_formatting(text)
+    Removes all supported formatting markers from the provided text.
+    Parameters: ~
+        {text}  (string) The text to process
+    Returns: ~
+        {string}  The text with all formatting removed
 
                                         *markdown-plus.format.convert_to_code_block*
 markdown-plus.format.convert_to_code_block()
@@ -1933,6 +2022,8 @@ Ensure you're using the correct keymap. By default:
 - `<leader>mi` for italic
 - `<leader>ms` for strikethrough
 - `<leader>mc` for inline code
+- `<leader>mh` for highlight (==text==)
+- `<leader>mu` for underline (++text++)
 - `<leader>mC` for clearing formatting
 - `<leader>mq` for toggling blockquote
 

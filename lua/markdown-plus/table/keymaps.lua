@@ -206,6 +206,60 @@ local function register_plug_mappings()
       end,
       "Convert CSV to table",
     },
+
+    -- Insert mode navigation (with fallback behavior)
+    {
+      "i",
+      "<Plug>(markdown-plus-table-nav-left)",
+      function()
+        local navigation = require("markdown-plus.table.navigation")
+        local success = navigation.move_left()
+        if not success then
+          local key = vim.api.nvim_replace_termcodes("<Left>", true, false, true)
+          vim.api.nvim_feedkeys(key, "n", false)
+        end
+      end,
+      "Navigate to cell left or move cursor left",
+    },
+    {
+      "i",
+      "<Plug>(markdown-plus-table-nav-right)",
+      function()
+        local navigation = require("markdown-plus.table.navigation")
+        local success = navigation.move_right()
+        if not success then
+          local key = vim.api.nvim_replace_termcodes("<Right>", true, false, true)
+          vim.api.nvim_feedkeys(key, "n", false)
+        end
+      end,
+      "Navigate to cell right or move cursor right",
+    },
+    {
+      "i",
+      "<Plug>(markdown-plus-table-nav-up)",
+      function()
+        local navigation = require("markdown-plus.table.navigation")
+        local success = navigation.move_up()
+        if not success then
+          local key = vim.api.nvim_replace_termcodes("<Up>", true, false, true)
+          vim.api.nvim_feedkeys(key, "n", false)
+        end
+      end,
+      "Navigate to cell above or move cursor up",
+    },
+    {
+      "i",
+      "<Plug>(markdown-plus-table-nav-down)",
+      function()
+        local navigation = require("markdown-plus.table.navigation")
+        local success = navigation.move_down()
+        if not success then
+          local key = vim.api.nvim_replace_termcodes("<Down>", true, false, true)
+          vim.api.nvim_feedkeys(key, "n", false)
+        end
+      end,
+      "Navigate to cell below or move cursor down",
+    },
   }
 
   -- Register all <Plug> mappings
@@ -286,36 +340,24 @@ local function setup_buffer_keymaps(config)
     insert_nav_enabled = true -- Default to enabled
   end
 
-  if insert_nav_enabled then
-    local navigation = require("markdown-plus.table.navigation")
-
-    -- Helper to create insert mode navigation with fallback
-    local function make_nav_mapping(nav_func, fallback_key)
-      return function()
-        local success = nav_func()
-        if not success then
-          -- Not in table or at boundary, use default behavior
-          local key = vim.api.nvim_replace_termcodes(fallback_key, true, false, true)
-          vim.api.nvim_feedkeys(key, "n", false)
-        end
-      end
-    end
-
-    -- Insert mode navigation mappings
-    local insert_mappings = {
-      { "<A-h>", navigation.move_left, "<Left>" },
-      { "<A-l>", navigation.move_right, "<Right>" },
-      { "<A-j>", navigation.move_down, "<Down>" },
-      { "<A-k>", navigation.move_up, "<Up>" },
+  if insert_nav_enabled and config.keymaps.enabled then
+    -- Insert mode navigation mappings using <Plug> mappings
+    local insert_nav_mappings = {
+      { "i", "<A-h>", "<Plug>(markdown-plus-table-nav-left)", "Navigate table cell left" },
+      { "i", "<A-l>", "<Plug>(markdown-plus-table-nav-right)", "Navigate table cell right" },
+      { "i", "<A-j>", "<Plug>(markdown-plus-table-nav-down)", "Navigate table cell down" },
+      { "i", "<A-k>", "<Plug>(markdown-plus-table-nav-up)", "Navigate table cell up" },
     }
 
-    for _, mapping in ipairs(insert_mappings) do
-      local lhs, nav_func, fallback = mapping[1], mapping[2], mapping[3]
-      vim.keymap.set("i", lhs, make_nav_mapping(nav_func, fallback), {
-        buffer = true,
-        silent = true,
-        desc = "Navigate table cell or fallback to " .. fallback,
-      })
+    for _, mapping in ipairs(insert_nav_mappings) do
+      local mode, lhs, rhs, desc = mapping[1], mapping[2], mapping[3], mapping[4]
+      if vim.fn.hasmapto(rhs, mode) == 0 then
+        vim.keymap.set(mode, lhs, rhs, {
+          buffer = true,
+          silent = true,
+          desc = desc,
+        })
+      end
     end
   end
 end
