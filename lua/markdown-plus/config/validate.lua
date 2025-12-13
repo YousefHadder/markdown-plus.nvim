@@ -8,38 +8,64 @@ local VALID_ALIGNMENTS = { left = true, center = true, right = true }
 ---@return boolean is_valid True if config is valid
 ---@return string|nil error_message Error message if config is invalid
 function M.validate(opts)
-  ---Helper to validate with path context
-  ---@param path string Path context for error messages
-  ---@param tbl table Validation table
+  ---Helper to validate a single field with path context
+  ---@param path string Path context for error messages (e.g., "config.features")
+  ---@param field_name string Field name for error messages
+  ---@param value any The value to validate
+  ---@param type_or_validator string|function Type string or validator function
+  ---@param optional boolean Whether the field is optional
   ---@return boolean is_valid
   ---@return string|nil error_message
-  local function validate_path(path, tbl)
-    local ok, err = pcall(vim.validate, tbl)
+  local function validate_field(path, field_name, value, type_or_validator, optional)
+    local ok, err = pcall(vim.validate, field_name, value, type_or_validator, optional)
     if not ok then
-      return false, path .. ": " .. tostring(err)
+      return false, path .. "." .. field_name .. ": " .. tostring(err):match(": (.+)$") or tostring(err)
     end
     return true
   end
 
   -- Validate top-level config
-  local ok, err = validate_path("config", {
-    enabled = { opts.enabled, "boolean", true },
-    features = { opts.features, "table", true },
-    keymaps = { opts.keymaps, "table", true },
-    filetypes = { opts.filetypes, "table", true },
-    toc = { opts.toc, "table", true },
-    table = { opts.table, "table", true },
-    callouts = { opts.callouts, "table", true },
-    code_block = { opts.code_block, "table", true },
-    footnotes = { opts.footnotes, "table", true },
-  })
+  local ok, err
+  ok, err = validate_field("config", "enabled", opts.enabled, "boolean", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "features", opts.features, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "keymaps", opts.keymaps, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "filetypes", opts.filetypes, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "toc", opts.toc, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "table", opts.table, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "callouts", opts.callouts, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "code_block", opts.code_block, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "footnotes", opts.footnotes, "table", true)
   if not ok then
     return false, err
   end
 
   -- Validate filetypes array
   if opts.filetypes then
-    if not vim.tbl_islist(opts.filetypes) then
+    if not vim.islist(opts.filetypes) then
       return false, "config.filetypes: must be an array (list)"
     end
     for i, ft in ipairs(opts.filetypes) do
@@ -51,18 +77,43 @@ function M.validate(opts)
 
   -- Validate features
   if opts.features then
-    ok, err = validate_path("config.features", {
-      list_management = { opts.features.list_management, "boolean", true },
-      text_formatting = { opts.features.text_formatting, "boolean", true },
-      headers_toc = { opts.features.headers_toc, "boolean", true },
-      links = { opts.features.links, "boolean", true },
-      images = { opts.features.images, "boolean", true },
-      quotes = { opts.features.quotes, "boolean", true },
-      callouts = { opts.features.callouts, "boolean", true },
-      code_block = { opts.features.code_block, "boolean", true },
-      table = { opts.features.table, "boolean", true },
-      footnotes = { opts.features.footnotes, "boolean", true },
-    })
+    ok, err = validate_field("config", "features.list_management", opts.features.list_management, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.text_formatting", opts.features.text_formatting, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.headers_toc", opts.features.headers_toc, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.links", opts.features.links, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.images", opts.features.images, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.quotes", opts.features.quotes, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.callouts", opts.features.callouts, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.code_block", opts.features.code_block, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.table", opts.features.table, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "features.footnotes", opts.features.footnotes, "boolean", true)
     if not ok then
       return false, err
     end
@@ -70,9 +121,7 @@ function M.validate(opts)
 
   -- Validate keymaps
   if opts.keymaps then
-    ok, err = validate_path("config.keymaps", {
-      enabled = { opts.keymaps.enabled, "boolean", true },
-    })
+    ok, err = validate_field("config", "keymaps.enabled", opts.keymaps.enabled, "boolean", true)
     if not ok then
       return false, err
     end
@@ -80,9 +129,7 @@ function M.validate(opts)
 
   -- Validate toc config
   if opts.toc then
-    ok, err = validate_path("config.toc", {
-      initial_depth = { opts.toc.initial_depth, "number", true },
-    })
+    ok, err = validate_field("config", "toc.initial_depth", opts.toc.initial_depth, "number", true)
     if not ok then
       return false, err
     end
@@ -97,13 +144,23 @@ function M.validate(opts)
 
   -- Validate table config
   if opts.table then
-    ok, err = validate_path("config.table", {
-      enabled = { opts.table.enabled, "boolean", true },
-      auto_format = { opts.table.auto_format, "boolean", true },
-      default_alignment = { opts.table.default_alignment, "string", true },
-      confirm_destructive = { opts.table.confirm_destructive, "boolean", true },
-      keymaps = { opts.table.keymaps, "table", true },
-    })
+    ok, err = validate_field("config", "table.enabled", opts.table.enabled, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "table.auto_format", opts.table.auto_format, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "table.default_alignment", opts.table.default_alignment, "string", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "table.confirm_destructive", opts.table.confirm_destructive, "boolean", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "table.keymaps", opts.table.keymaps, "table", true)
     if not ok then
       return false, err
     end
@@ -117,11 +174,21 @@ function M.validate(opts)
 
     -- Validate table keymaps
     if opts.table.keymaps then
-      ok, err = validate_path("config.table.keymaps", {
-        enabled = { opts.table.keymaps.enabled, "boolean", true },
-        prefix = { opts.table.keymaps.prefix, "string", true },
-        insert_mode_navigation = { opts.table.keymaps.insert_mode_navigation, "boolean", true },
-      })
+      ok, err = validate_field("config", "table.keymaps.enabled", opts.table.keymaps.enabled, "boolean", true)
+      if not ok then
+        return false, err
+      end
+      ok, err = validate_field("config", "table.keymaps.prefix", opts.table.keymaps.prefix, "string", true)
+      if not ok then
+        return false, err
+      end
+      ok, err = validate_field(
+        "config",
+        "table.keymaps.insert_mode_navigation",
+        opts.table.keymaps.insert_mode_navigation,
+        "boolean",
+        true
+      )
       if not ok then
         return false, err
       end
@@ -130,9 +197,7 @@ function M.validate(opts)
 
   -- Validate code_block config
   if opts.code_block then
-    ok, err = validate_path("config.code_block", {
-      enabled = { opts.code_block.enabled, "boolean", true },
-    })
+    ok, err = validate_field("config", "code_block.enabled", opts.code_block.enabled, "boolean", true)
     if not ok then
       return false, err
     end
@@ -263,10 +328,11 @@ function M.validate(opts)
 
   -- Validate callouts config
   if opts.callouts then
-    ok, err = validate_path("config.callouts", {
-      default_type = { opts.callouts.default_type, "string", true },
-      custom_types = { opts.callouts.custom_types, "table", true },
-    })
+    ok, err = validate_field("config", "callouts.default_type", opts.callouts.default_type, "string", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "callouts.custom_types", opts.callouts.custom_types, "table", true)
     if not ok then
       return false, err
     end
@@ -293,7 +359,7 @@ function M.validate(opts)
 
     -- Validate custom_types array
     if opts.callouts.custom_types then
-      if not vim.tbl_islist(opts.callouts.custom_types) then
+      if not vim.islist(opts.callouts.custom_types) then
         return false, "config.callouts.custom_types: must be an array (list)"
       end
       for i, custom_type in ipairs(opts.callouts.custom_types) do
@@ -329,10 +395,11 @@ function M.validate(opts)
 
   -- Validate footnotes config
   if opts.footnotes then
-    ok, err = validate_path("config.footnotes", {
-      section_header = { opts.footnotes.section_header, "string", true },
-      confirm_delete = { opts.footnotes.confirm_delete, "boolean", true },
-    })
+    ok, err = validate_field("config", "footnotes.section_header", opts.footnotes.section_header, "string", true)
+    if not ok then
+      return false, err
+    end
+    ok, err = validate_field("config", "footnotes.confirm_delete", opts.footnotes.confirm_delete, "boolean", true)
     if not ok then
       return false, err
     end

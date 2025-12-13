@@ -8,7 +8,7 @@ describe("markdown-plus list management", function()
 
   before_each(function()
     buf = vim.api.nvim_create_buf(false, true)
-    vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+    vim.bo[buf].filetype = "markdown"
     vim.api.nvim_set_current_buf(buf)
   end)
 

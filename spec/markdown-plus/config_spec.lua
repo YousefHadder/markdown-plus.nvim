@@ -257,7 +257,7 @@ describe("markdown-plus configuration", function()
 
     before_each(function()
       buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+      vim.bo[buf].filetype = "markdown"
       vim.api.nvim_set_current_buf(buf)
       keymap_helper = require("markdown-plus.keymap_helper")
     end)
@@ -364,7 +364,7 @@ describe("markdown-plus configuration", function()
     it("enables features immediately when setup() is called in markdown buffer", function()
       -- Create and open a markdown buffer first
       buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_option(buf, "filetype", "markdown")
+      vim.bo[buf].filetype = "markdown"
       vim.api.nvim_set_current_buf(buf)
 
       -- Setup should enable features immediately
@@ -383,7 +383,7 @@ describe("markdown-plus configuration", function()
     it("does not enable features when setup() is called without markdown buffer", function()
       -- Create a non-markdown buffer
       buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_option(buf, "filetype", "lua")
+      vim.bo[buf].filetype = "lua"
       vim.api.nvim_set_current_buf(buf)
 
       -- Setup should NOT enable features immediately
@@ -400,7 +400,7 @@ describe("markdown-plus configuration", function()
     it("enables features on FileType autocmd when buffer is opened later", function()
       -- Setup in a non-markdown buffer
       buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_option(buf, "filetype", "lua")
+      vim.bo[buf].filetype = "lua"
       vim.api.nvim_set_current_buf(buf)
 
       markdown_plus.setup({
@@ -411,7 +411,7 @@ describe("markdown-plus configuration", function()
 
       -- Now switch to a markdown buffer
       local md_buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_option(md_buf, "filetype", "markdown")
+      vim.bo[md_buf].filetype = "markdown"
       vim.api.nvim_set_current_buf(md_buf)
 
       -- Trigger FileType autocmd
@@ -428,7 +428,7 @@ describe("markdown-plus configuration", function()
     it("handles custom filetypes correctly", function()
       -- Create a custom filetype buffer
       buf = vim.api.nvim_create_buf(false, true)
-      vim.api.nvim_buf_set_option(buf, "filetype", "mdx")
+      vim.bo[buf].filetype = "mdx"
       vim.api.nvim_set_current_buf(buf)
 
       markdown_plus.setup({
