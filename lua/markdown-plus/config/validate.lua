@@ -19,7 +19,8 @@ function M.validate(opts)
   local function validate_field(path, field_name, value, type_or_validator, optional)
     local ok, err = pcall(vim.validate, field_name, value, type_or_validator, optional)
     if not ok then
-      return false, path .. "." .. field_name .. ": " .. tostring(err):match(": (.+)$") or tostring(err)
+      local err_str = tostring(err)
+      return false, path .. "." .. field_name .. ": " .. (err_str:match(": (.+)$") or err_str)
     end
     return true
   end
