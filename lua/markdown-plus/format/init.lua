@@ -515,38 +515,57 @@ function M.contains_formatting(text, format_type)
     return false
   end
 
-  -- For italic, we need special handling to not match bold (**)
-  -- We look for single * not preceded or followed by another *
-  -- Special case: *** is italic + bold, so first * is italic
+  -- ITALIC DETECTION ALGORITHM
+  -- ===========================
+  -- Detecting italic is complex because * is used for both italic (*text*) and bold (**text**).
+  -- We cannot use a simple pattern like "%*(.-)%*" because it would match the inner ** of bold.
+  --
+  -- The algorithm scans the text character by character looking for asterisks, then classifies
+  -- each asterisk based on its surrounding characters:
+  --
+  -- Asterisk classification rules:
+  -- - Single * (not preceded or followed by *): italic marker
+  -- - ** (two consecutive *): bold marker
+  -- - *** (three consecutive *): italic + bold combined (first/last * is italic, middle ** is bold)
+  --
+  -- Opening italic asterisk criteria:
+  -- 1. NOT preceded by * (otherwise it's part of ** or end of bold)
+  -- 2. AND either:
+  --    a. NOT followed by * (simple italic: *text*), OR
+  --    b. Followed by ** (triple: ***text*** where first * is italic)
+  --
+  -- Closing italic asterisk criteria (mirror of opening):
+  -- 1. NOT followed by * (otherwise it's part of ** or start of bold)
+  -- 2. AND either:
+  --    a. NOT preceded by * (simple italic), OR
+  --    b. Preceded by ** (triple: ***text*** where last * is italic)
   if format_type == "italic" then
     local i = 1
     while i <= #text do
+      -- Find next asterisk in the text
       local start_pos = text:find("%*", i)
       if not start_pos then
         break
       end
 
-      -- Check surrounding characters
+      -- Examine characters surrounding this asterisk to classify it
       local char_before = start_pos > 1 and text:sub(start_pos - 1, start_pos - 1) or ""
       local char_after = text:sub(start_pos + 1, start_pos + 1) or ""
       local char_after2 = text:sub(start_pos + 2, start_pos + 2) or ""
 
-      -- Determine if this * is part of bold (**)
-      -- A * is italic if:
-      -- 1. It's not preceded by * (not end of **), AND
-      -- 2. Either not followed by *, OR followed by ** (making it ***  = italic + bold)
+      -- Classify the asterisk based on neighbors
       local is_preceded_by_star = char_before == "*"
       local is_followed_by_star = char_after == "*"
-      local is_triple = is_followed_by_star and char_after2 == "*"
+      local is_triple = is_followed_by_star and char_after2 == "*" -- Check for ***
 
-      -- This is an italic * if: not preceded by *, and either not followed by * OR it's ***
+      -- Apply opening italic criteria (see algorithm description above)
       local is_italic_star = not is_preceded_by_star and (not is_followed_by_star or is_triple)
 
       if is_italic_star then
-        -- Look for closing italic *
+        -- Found potential opening italic marker, now search for matching closing marker
         local search_start = start_pos + 1
         if is_triple then
-          search_start = start_pos + 3 -- Skip past the ***
+          search_start = start_pos + 3 -- For ***, skip all three to find content
         end
 
         local j = search_start
@@ -556,7 +575,7 @@ function M.contains_formatting(text, format_type)
             break
           end
 
-          -- Check if closing * is italic (single, or last of ***)
+          -- Examine characters surrounding potential closing asterisk
           local end_char_before = text:sub(end_pos - 1, end_pos - 1) or ""
           local end_char_after = text:sub(end_pos + 1, end_pos + 1) or ""
           local end_char_before2 = end_pos > 2 and text:sub(end_pos - 2, end_pos - 2) or ""
@@ -565,23 +584,23 @@ function M.contains_formatting(text, format_type)
           local end_followed_by_star = end_char_after == "*"
           local end_is_triple = end_preceded_by_star and end_char_before2 == "*"
 
-          -- Closing * is italic if: not followed by *, and either not preceded by * OR it's ***
+          -- Apply closing italic criteria (see algorithm description above)
           local is_closing_italic = not end_followed_by_star and (not end_preceded_by_star or end_is_triple)
 
           if is_closing_italic then
-            return true
+            return true -- Found valid italic pair
           end
           j = end_pos + 1
         end
       end
 
-      -- Move to next position
+      -- Advance scan position, skipping over bold/triple markers to avoid re-examining
       if is_followed_by_star and not is_triple then
-        i = start_pos + 2 -- Skip **
+        i = start_pos + 2 -- Skip ** (bold marker)
       elseif is_triple then
-        i = start_pos + 3 -- Skip ***
+        i = start_pos + 3 -- Skip *** (italic+bold marker)
       else
-        i = start_pos + 1
+        i = start_pos + 1 -- Single *, move to next character
       end
     end
     return false
@@ -609,14 +628,25 @@ function M.strip_format_type(text, format_type)
     return text
   end
 
-  -- For italic, we need special handling to not strip bold (**)
+  -- ITALIC STRIPPING STRATEGY
+  -- =========================
+  -- We need to remove single * pairs without affecting ** (bold markers).
+  -- A simple gsub("%*(.-)%*", "%1") would incorrectly match bold markers.
+  --
+  -- Strategy: Use placeholder substitution
+  -- 1. Replace all ** with a unique placeholder
+  -- 2. Strip remaining * pairs (which are now guaranteed to be italic)
+  -- 3. Restore ** from placeholder
+  --
+  -- Placeholder choice: We use control characters \001\002 (SOH + STX)
+  -- This is safe because markdown text content should never contain these
+  -- ASCII control characters - they're non-printable and have no meaning in markdown.
+  -- If somehow present, they would render as invisible/garbage anyway.
   if format_type == "italic" then
-    -- We need to carefully replace single * pairs without touching **
-    -- Strategy: temporarily replace ** with a placeholder, strip *, restore **
-    local placeholder = "\001\002" -- Use control characters as placeholder
-    local result = text:gsub("%*%*", placeholder)
-    result = result:gsub("%*(.-)%*", "%1")
-    result = result:gsub(placeholder, "**")
+    local placeholder = "\001\002"
+    local result = text:gsub("%*%*", placeholder) -- Step 1: protect bold markers
+    result = result:gsub("%*(.-)%*", "%1") -- Step 2: strip italic markers
+    result = result:gsub(placeholder, "**") -- Step 3: restore bold markers
     return result
   end
 
