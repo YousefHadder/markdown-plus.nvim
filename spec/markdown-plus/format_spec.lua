@@ -177,6 +177,97 @@ describe("markdown-plus format", function()
     end)
   end)
 
+  describe("contains_formatting", function()
+    it("detects bold formatting within text", function()
+      assert.is_true(format.contains_formatting("hello **world**", "bold"))
+      assert.is_true(format.contains_formatting("**start** of text", "bold"))
+      assert.is_true(format.contains_formatting("end of **text**", "bold"))
+      assert.is_true(format.contains_formatting("**one** and **two**", "bold"))
+    end)
+
+    it("returns false when no bold formatting present", function()
+      assert.is_false(format.contains_formatting("hello world", "bold"))
+      assert.is_false(format.contains_formatting("hello *italic*", "bold"))
+    end)
+
+    it("detects italic formatting within text", function()
+      assert.is_true(format.contains_formatting("hello *world*", "italic"))
+      assert.is_true(format.contains_formatting("*start* of text", "italic"))
+    end)
+
+    it("returns false when no italic formatting present", function()
+      assert.is_false(format.contains_formatting("hello world", "italic"))
+      assert.is_false(format.contains_formatting("hello **bold**", "italic"))
+    end)
+
+    it("detects strikethrough formatting within text", function()
+      assert.is_true(format.contains_formatting("hello ~~world~~", "strikethrough"))
+    end)
+
+    it("detects code formatting within text", function()
+      assert.is_true(format.contains_formatting("hello `code`", "code"))
+    end)
+
+    it("detects highlight formatting within text", function()
+      assert.is_true(format.contains_formatting("hello ==highlight==", "highlight"))
+    end)
+
+    it("detects underline formatting within text", function()
+      assert.is_true(format.contains_formatting("hello ++underline++", "underline"))
+    end)
+
+    it("returns false for invalid format type", function()
+      assert.is_false(format.contains_formatting("hello world", "invalid"))
+    end)
+  end)
+
+  describe("strip_format_type", function()
+    it("strips bold formatting from text", function()
+      assert.equals("hello world", format.strip_format_type("hello **world**", "bold"))
+      assert.equals("start of text", format.strip_format_type("**start** of text", "bold"))
+      assert.equals("one and two", format.strip_format_type("**one** and **two**", "bold"))
+    end)
+
+    it("strips italic formatting from text", function()
+      assert.equals("hello world", format.strip_format_type("hello *world*", "italic"))
+      assert.equals("start of text", format.strip_format_type("*start* of text", "italic"))
+    end)
+
+    it("strips strikethrough formatting from text", function()
+      assert.equals("hello world", format.strip_format_type("hello ~~world~~", "strikethrough"))
+    end)
+
+    it("strips code formatting from text", function()
+      assert.equals("hello code", format.strip_format_type("hello `code`", "code"))
+    end)
+
+    it("strips highlight formatting from text", function()
+      assert.equals("hello highlight", format.strip_format_type("hello ==highlight==", "highlight"))
+    end)
+
+    it("strips underline formatting from text", function()
+      assert.equals("hello underline", format.strip_format_type("hello ++underline++", "underline"))
+    end)
+
+    it("preserves other formatting types when stripping bold", function()
+      assert.equals("hello *italic*", format.strip_format_type("hello *italic*", "bold"))
+      assert.equals("*italic* and world", format.strip_format_type("*italic* and **world**", "bold"))
+    end)
+
+    it("preserves other formatting types when stripping italic", function()
+      assert.equals("hello **bold**", format.strip_format_type("hello **bold**", "italic"))
+      assert.equals("**bold** and world", format.strip_format_type("**bold** and *world*", "italic"))
+    end)
+
+    it("returns unchanged text if no formatting present", function()
+      assert.equals("hello world", format.strip_format_type("hello world", "bold"))
+    end)
+
+    it("returns unchanged text for invalid format type", function()
+      assert.equals("hello world", format.strip_format_type("hello world", "invalid"))
+    end)
+  end)
+
   describe("get_any_format_at_cursor", function()
     it("returns nil for unformatted text", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
@@ -995,6 +1086,103 @@ describe("markdown-plus format", function()
 
       local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
       assert.equals("Some inline code here", line)
+    end)
+
+    -- Tests for issue #165: Clear same type formatting when selection contains it
+    it("strips inner bold and wraps selection when toggling bold on text containing bold", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello **world**" })
+
+      -- Simulate visual selection of entire "hello **world**"
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 15, 0 })
+
+      format.toggle_format("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should strip inner bold and wrap: "hello **world**" -> "**hello world**"
+      assert.equals("**hello world**", line)
+    end)
+
+    it("strips multiple inner bold regions when toggling bold", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "**one** and **two**" })
+
+      -- Select entire text
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 19, 0 })
+
+      format.toggle_format("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should strip all inner bold and wrap: "**one** and **two**" -> "**one and two**"
+      assert.equals("**one and two**", line)
+    end)
+
+    it("preserves italic when toggling bold on text containing both", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello *world*" })
+
+      -- Select entire text
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 13, 0 })
+
+      format.toggle_format("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should preserve italic and add bold: "hello *world*" -> "**hello *world***"
+      assert.equals("**hello *world***", line)
+    end)
+
+    it("strips inner italic and wraps when toggling italic on text containing italic", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello *world*" })
+
+      -- Select entire text
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 13, 0 })
+
+      format.toggle_format("italic")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should strip inner italic and wrap: "hello *world*" -> "*hello world*"
+      assert.equals("*hello world*", line)
+    end)
+
+    it("preserves bold when toggling italic on text containing bold", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello **world**" })
+
+      -- Select entire text
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 15, 0 })
+
+      format.toggle_format("italic")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should preserve bold and add italic: "hello **world**" -> "*hello **world***"
+      assert.equals("*hello **world***", line)
+    end)
+
+    it("strips inner strikethrough when toggling strikethrough", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello ~~world~~" })
+
+      -- Select entire text
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 15, 0 })
+
+      format.toggle_format("strikethrough")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("~~hello world~~", line)
+    end)
+
+    it("strips inner code when toggling code", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello `world`" })
+
+      -- Select entire text
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 13, 0 })
+
+      format.toggle_format("code")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("`hello world`", line)
     end)
   end)
 end)

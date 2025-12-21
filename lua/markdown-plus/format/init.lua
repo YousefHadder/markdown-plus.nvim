@@ -503,9 +503,114 @@ function M.strip_all_formatting(text)
   return result
 end
 
+---Check if text contains any instances of the specified formatting (not just wrapping)
+---Unlike has_formatting() which checks if text is wrapped with markers,
+---this checks if the formatting exists anywhere within the text.
+---@param text string The text to check
+---@param format_type string The format type to check for
+---@return boolean True if text contains the formatting anywhere
+function M.contains_formatting(text, format_type)
+  local pattern = M.patterns[format_type]
+  if not pattern then
+    return false
+  end
+
+  -- For italic, we need special handling to not match bold (**)
+  -- We look for single * not preceded or followed by another *
+  if format_type == "italic" then
+    -- Match *text* where the * is not part of **
+    -- Pattern: single * followed by non-*, then content, then single * not preceded by *
+    -- Use a more careful approach: find all * pairs and check they're not **
+    local i = 1
+    while i <= #text do
+      -- Find a * character
+      local start_pos = text:find("%*", i)
+      if not start_pos then
+        break
+      end
+
+      -- Check if it's a single * (not part of **)
+      local is_double_before = start_pos > 1 and text:sub(start_pos - 1, start_pos - 1) == "*"
+      local is_double_after = text:sub(start_pos + 1, start_pos + 1) == "*"
+
+      if not is_double_before and not is_double_after then
+        -- This is a single *, look for closing single *
+        local j = start_pos + 1
+        while j <= #text do
+          local end_pos = text:find("%*", j)
+          if not end_pos then
+            break
+          end
+
+          -- Check if the closing * is also single
+          local end_is_double_before = text:sub(end_pos - 1, end_pos - 1) == "*"
+          local end_is_double_after = text:sub(end_pos + 1, end_pos + 1) == "*"
+
+          if not end_is_double_before and not end_is_double_after then
+            -- Found a valid italic pair
+            return true
+          end
+          j = end_pos + 1
+        end
+      end
+
+      -- Move past this * (or ** if it was double)
+      if is_double_after then
+        i = start_pos + 2
+      else
+        i = start_pos + 1
+      end
+    end
+    return false
+  end
+
+  -- For bold, we need to ensure we match ** not single *
+  if format_type == "bold" then
+    return text:match("%*%*.-%*%*") ~= nil
+  end
+
+  -- For other formats, use the standard pattern
+  local search_pattern = pattern.start .. ".-" .. pattern.end_pat
+  return text:match(search_pattern) ~= nil
+end
+
+---Strip a specific format type from text (removes all instances)
+---Unlike strip_all_formatting() which removes all formats, this only removes
+---the specified format type, preserving other formatting.
+---@param text string The text to process
+---@param format_type string The format type to strip
+---@return string The text with the specific formatting removed
+function M.strip_format_type(text, format_type)
+  local pattern = M.patterns[format_type]
+  if not pattern then
+    return text
+  end
+
+  -- For italic, we need special handling to not strip bold (**)
+  if format_type == "italic" then
+    -- We need to carefully replace single * pairs without touching **
+    -- Strategy: temporarily replace ** with a placeholder, strip *, restore **
+    local placeholder = "\001\002" -- Use control characters as placeholder
+    local result = text:gsub("%*%*", placeholder)
+    result = result:gsub("%*(.-)%*", "%1")
+    result = result:gsub(placeholder, "**")
+    return result
+  end
+
+  -- For bold, make sure we're matching ** not single *
+  if format_type == "bold" then
+    return text:gsub("%*%*(.-)%*%*", "%1")
+  end
+
+  -- For other formats, use the standard pattern
+  local gsub_pattern = pattern.start .. "(.-)" .. pattern.end_pat
+  return text:gsub(gsub_pattern, "%1")
+end
+
 ---Toggle formatting on visual selection
 ---If the selection is entirely within a formatted range of the same type,
 ---removes the formatting from the entire containing range (smart toggle).
+---If the selection contains existing same-type formatting, strips it and wraps the whole selection.
 ---Otherwise, toggles formatting on the selected text.
 ---@param format_type string The format type to toggle
 ---@return nil
@@ -514,12 +619,20 @@ function M.toggle_format(format_type)
   local selection = utils.get_visual_selection()
   local text = utils.get_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col)
 
-  -- First, check if the selection already has formatting markers
+  -- First, check if the selection already has formatting markers wrapping it
   if M.has_formatting(text, format_type) then
-    local new_text = M.remove_formatting(text, format_type)
-    utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
-    vim.cmd("normal! " .. ESC)
-    return
+    -- Check if this is a simple case (single formatted region) or complex (multiple regions)
+    -- If remove_formatting gives the same result as strip_format_type, it's a single region
+    local removed = M.remove_formatting(text, format_type)
+    local stripped = M.strip_format_type(text, format_type)
+
+    if removed == stripped then
+      -- Simple case: just remove the outer formatting
+      utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, removed)
+      vim.cmd("normal! " .. ESC)
+      return
+    end
+    -- Otherwise, fall through to the strip-and-wrap logic below
   end
 
   -- Check if the selection is inside a larger formatted range using treesitter
@@ -551,7 +664,14 @@ function M.toggle_format(format_type)
   end
 
   -- Default behavior: add formatting to the selection
-  local new_text = M.add_formatting(text, format_type)
+  -- But first, check if the selection contains any same-type formatting within it
+  -- If so, strip that formatting first before wrapping (like Obsidian/Typora behavior)
+  local text_to_format = text
+  if M.contains_formatting(text, format_type) then
+    text_to_format = M.strip_format_type(text, format_type)
+  end
+
+  local new_text = M.add_formatting(text_to_format, format_type)
   utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
 
   -- Exit visual mode
