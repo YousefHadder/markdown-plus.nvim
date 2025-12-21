@@ -231,14 +231,17 @@ describe("markdown-plus format", function()
     it("strips italic formatting from text", function()
       assert.equals("hello world", format.strip_format_type("hello *world*", "italic"))
       assert.equals("start of text", format.strip_format_type("*start* of text", "italic"))
+      assert.equals("one and two", format.strip_format_type("*one* and *two*", "italic"))
     end)
 
     it("strips strikethrough formatting from text", function()
       assert.equals("hello world", format.strip_format_type("hello ~~world~~", "strikethrough"))
+      assert.equals("one and two", format.strip_format_type("~~one~~ and ~~two~~", "strikethrough"))
     end)
 
     it("strips code formatting from text", function()
       assert.equals("hello code", format.strip_format_type("hello `code`", "code"))
+      assert.equals("one and two", format.strip_format_type("`one` and `two`", "code"))
     end)
 
     it("strips highlight formatting from text", function()
@@ -1115,6 +1118,21 @@ describe("markdown-plus format", function()
       local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
       -- Should strip all inner bold and wrap: "**one** and **two**" -> "**one and two**"
       assert.equals("**one and two**", line)
+    end)
+
+    it("consolidates malformed overlapping bold regions", function()
+      -- This tests the edge case where text appears to be wrapped but has inner formatting
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "**hello **world****" })
+
+      -- Select entire text
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 19, 0 })
+
+      format.toggle_format("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      -- Should consolidate: "**hello **world****" -> "**hello world**"
+      assert.equals("**hello world**", line)
     end)
 
     it("preserves italic when toggling bold on text containing both", function()

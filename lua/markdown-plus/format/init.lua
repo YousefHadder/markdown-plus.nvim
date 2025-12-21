@@ -632,7 +632,11 @@ function M.toggle_format(format_type)
       vim.cmd("normal! " .. ESC)
       return
     end
-    -- Otherwise, fall through to the strip-and-wrap logic below
+    -- Complex case (multiple/nested regions): skip treesitter check, go directly to strip-and-wrap
+    local new_text = M.add_formatting(stripped, format_type)
+    utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
+    vim.cmd("normal! " .. ESC)
+    return
   end
 
   -- Check if the selection is inside a larger formatted range using treesitter
