@@ -200,6 +200,16 @@ describe("markdown-plus format", function()
       assert.is_false(format.contains_formatting("hello **bold**", "italic"))
     end)
 
+    it("detects italic within triple asterisk (bold+italic)", function()
+      assert.is_true(format.contains_formatting("***bold and italic***", "italic"))
+      assert.is_true(format.contains_formatting("hello ***world** again*", "italic"))
+    end)
+
+    it("detects bold within triple asterisk (bold+italic)", function()
+      assert.is_true(format.contains_formatting("***bold and italic***", "bold"))
+      assert.is_true(format.contains_formatting("hello ***world** again*", "bold"))
+    end)
+
     it("detects strikethrough formatting within text", function()
       assert.is_true(format.contains_formatting("hello ~~world~~", "strikethrough"))
     end)
@@ -260,6 +270,16 @@ describe("markdown-plus format", function()
     it("preserves other formatting types when stripping italic", function()
       assert.equals("hello **bold**", format.strip_format_type("hello **bold**", "italic"))
       assert.equals("**bold** and world", format.strip_format_type("**bold** and *world*", "italic"))
+    end)
+
+    it("handles triple asterisk (bold+italic) when stripping italic", function()
+      assert.equals("**bold and italic**", format.strip_format_type("***bold and italic***", "italic"))
+      assert.equals("hello **world** again", format.strip_format_type("hello ***world** again*", "italic"))
+    end)
+
+    it("handles triple asterisk (bold+italic) when stripping bold", function()
+      assert.equals("*bold and italic*", format.strip_format_type("***bold and italic***", "bold"))
+      assert.equals("hello *world again*", format.strip_format_type("hello ***world** again*", "bold"))
     end)
 
     it("returns unchanged text if no formatting present", function()

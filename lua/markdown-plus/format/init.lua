@@ -517,46 +517,69 @@ function M.contains_formatting(text, format_type)
 
   -- For italic, we need special handling to not match bold (**)
   -- We look for single * not preceded or followed by another *
+  -- Special case: *** is italic + bold, so first * is italic
   if format_type == "italic" then
-    -- Match *text* where the * is not part of **
-    -- Pattern: single * followed by non-*, then content, then single * not preceded by *
-    -- Use a more careful approach: find all * pairs and check they're not **
     local i = 1
     while i <= #text do
-      -- Find a * character
       local start_pos = text:find("%*", i)
       if not start_pos then
         break
       end
 
-      -- Check if it's a single * (not part of **)
-      local is_double_before = start_pos > 1 and text:sub(start_pos - 1, start_pos - 1) == "*"
-      local is_double_after = text:sub(start_pos + 1, start_pos + 1) == "*"
+      -- Check surrounding characters
+      local char_before = start_pos > 1 and text:sub(start_pos - 1, start_pos - 1) or ""
+      local char_after = text:sub(start_pos + 1, start_pos + 1) or ""
+      local char_after2 = text:sub(start_pos + 2, start_pos + 2) or ""
 
-      if not is_double_before and not is_double_after then
-        -- This is a single *, look for closing single *
-        local j = start_pos + 1
+      -- Determine if this * is part of bold (**)
+      -- A * is italic if:
+      -- 1. It's not preceded by * (not end of **), AND
+      -- 2. Either not followed by *, OR followed by ** (making it ***  = italic + bold)
+      local is_preceded_by_star = char_before == "*"
+      local is_followed_by_star = char_after == "*"
+      local is_triple = is_followed_by_star and char_after2 == "*"
+
+      -- This is an italic * if: not preceded by *, and either not followed by * OR it's ***
+      local is_italic_star = not is_preceded_by_star and (not is_followed_by_star or is_triple)
+
+      if is_italic_star then
+        -- Look for closing italic *
+        local search_start = start_pos + 1
+        if is_triple then
+          search_start = start_pos + 3 -- Skip past the ***
+        end
+
+        local j = search_start
         while j <= #text do
           local end_pos = text:find("%*", j)
           if not end_pos then
             break
           end
 
-          -- Check if the closing * is also single
-          local end_is_double_before = text:sub(end_pos - 1, end_pos - 1) == "*"
-          local end_is_double_after = text:sub(end_pos + 1, end_pos + 1) == "*"
+          -- Check if closing * is italic (single, or last of ***)
+          local end_char_before = text:sub(end_pos - 1, end_pos - 1) or ""
+          local end_char_after = text:sub(end_pos + 1, end_pos + 1) or ""
+          local end_char_before2 = end_pos > 2 and text:sub(end_pos - 2, end_pos - 2) or ""
 
-          if not end_is_double_before and not end_is_double_after then
-            -- Found a valid italic pair
+          local end_preceded_by_star = end_char_before == "*"
+          local end_followed_by_star = end_char_after == "*"
+          local end_is_triple = end_preceded_by_star and end_char_before2 == "*"
+
+          -- Closing * is italic if: not followed by *, and either not preceded by * OR it's ***
+          local is_closing_italic = not end_followed_by_star and (not end_preceded_by_star or end_is_triple)
+
+          if is_closing_italic then
             return true
           end
           j = end_pos + 1
         end
       end
 
-      -- Move past this * (or ** if it was double)
-      if is_double_after then
-        i = start_pos + 2
+      -- Move to next position
+      if is_followed_by_star and not is_triple then
+        i = start_pos + 2 -- Skip **
+      elseif is_triple then
+        i = start_pos + 3 -- Skip ***
       else
         i = start_pos + 1
       end
