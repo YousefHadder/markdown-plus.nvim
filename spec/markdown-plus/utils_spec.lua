@@ -352,4 +352,373 @@ describe("markdown-plus utils", function()
       assert.are.equal("world", after)
     end)
   end)
+
+  describe("find_pattern_at_cursor", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("finds pattern when cursor is on match", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello [link](url) world" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 }) -- cursor on 'link'
+
+      local result = utils.find_pattern_at_cursor("%[.-%]%(.-%)")
+
+      assert.is_not_nil(result)
+      assert.are.equal(7, result.start_pos)
+      assert.are.equal(17, result.end_pos) -- "[link](url)" is 11 chars, starts at 7, ends at 17
+      assert.are.equal("[link](url)", result.text)
+      assert.are.equal(1, result.line_num)
+    end)
+
+    it("returns nil when cursor is not on any match", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello [link](url) world" })
+      vim.api.nvim_win_set_cursor(0, { 1, 2 }) -- cursor on 'llo'
+
+      local result = utils.find_pattern_at_cursor("%[.-%]%(.-%)")
+
+      assert.is_nil(result)
+    end)
+
+    it("finds correct match when multiple matches exist", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "[first](url1) and [second](url2)" })
+      vim.api.nvim_win_set_cursor(0, { 1, 22 }) -- cursor on 'second'
+
+      local result = utils.find_pattern_at_cursor("%[.-%]%(.-%)")
+
+      assert.is_not_nil(result)
+      assert.are.equal("[second](url2)", result.text)
+    end)
+
+    it("uses extractor function when provided", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "text [link](http://example.com) more" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+      local extractor = function(match)
+        local text, url = match:match("^%[(.-)%]%((.-)%)$")
+        if text and url then
+          return { type = "inline", text = text, url = url }
+        end
+        return nil
+      end
+
+      local result = utils.find_pattern_at_cursor("%[.-%]%(.-%)", extractor)
+
+      assert.is_not_nil(result)
+      assert.are.equal("inline", result.type)
+      assert.are.equal("link", result.text)
+      assert.are.equal("http://example.com", result.url)
+      assert.are.equal(6, result.start_pos) -- auto-added
+      assert.are.equal(31, result.end_pos) -- auto-added
+    end)
+
+    it("returns nil when extractor returns nil", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "text [link](url) more" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+      local extractor = function()
+        return nil -- always reject
+      end
+
+      local result = utils.find_pattern_at_cursor("%[.-%]%(.-%)", extractor)
+
+      assert.is_nil(result)
+    end)
+  end)
+
+  describe("find_patterns_at_cursor", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("finds first matching pattern", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "text [link](url) more" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+      local patterns = {
+        { pattern = "%[.-%]%[.-%]" }, -- reference link pattern (won't match)
+        { pattern = "%[.-%]%(.-%)" }, -- inline link pattern (will match)
+      }
+
+      local result = utils.find_patterns_at_cursor(patterns)
+
+      assert.is_not_nil(result)
+      assert.are.equal("[link](url)", result.text)
+    end)
+
+    it("returns nil when no patterns match", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "plain text without links" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 })
+
+      local patterns = {
+        { pattern = "%[.-%]%[.-%]" },
+        { pattern = "%[.-%]%(.-%)" },
+      }
+
+      local result = utils.find_patterns_at_cursor(patterns)
+
+      assert.is_nil(result)
+    end)
+
+    it("uses extractors for each pattern", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "text [link][ref] more" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+      local patterns = {
+        {
+          pattern = "%[.-%]%(.-%)",
+          extractor = function(match)
+            local text, url = match:match("^%[(.-)%]%((.-)%)$")
+            if text then
+              return { type = "inline", text = text, url = url }
+            end
+          end,
+        },
+        {
+          pattern = "%[.-%]%[.-%]",
+          extractor = function(match)
+            local text, ref = match:match("^%[(.-)%]%[(.-)%]$")
+            if text then
+              return { type = "reference", text = text, ref = ref }
+            end
+          end,
+        },
+      }
+
+      local result = utils.find_patterns_at_cursor(patterns)
+
+      assert.is_not_nil(result)
+      assert.are.equal("reference", result.type)
+      assert.are.equal("link", result.text)
+      assert.are.equal("ref", result.ref)
+    end)
+  end)
+
+  describe("replace_in_line", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("replaces range in line with new content", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
+
+      utils.replace_in_line(1, 7, 11, "universe")
+
+      assert.are.equal("hello universe", utils.get_line(1))
+    end)
+
+    it("replaces at start of line", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
+
+      utils.replace_in_line(1, 1, 5, "hi")
+
+      assert.are.equal("hi world", utils.get_line(1))
+    end)
+
+    it("replaces at end of line", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
+
+      utils.replace_in_line(1, 7, 11, "!")
+
+      assert.are.equal("hello !", utils.get_line(1))
+    end)
+
+    it("replaces entire line", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
+
+      utils.replace_in_line(1, 1, 11, "new content")
+
+      assert.are.equal("new content", utils.get_line(1))
+    end)
+
+    it("handles replacement with empty string", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
+
+      utils.replace_in_line(1, 6, 11, "")
+
+      assert.are.equal("hello", utils.get_line(1))
+    end)
+
+    it("works on different line numbers", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "line one", "line two", "line three" })
+
+      utils.replace_in_line(2, 6, 8, "2")
+
+      assert.are.equal("line one", utils.get_line(1))
+      assert.are.equal("line 2", utils.get_line(2))
+      assert.are.equal("line three", utils.get_line(3))
+    end)
+  end)
+
+  describe("insert_at_cursor", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("inserts content at cursor position", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
+      vim.api.nvim_win_set_cursor(0, { 1, 4 }) -- after 'hello' (on 'o')
+
+      utils.insert_at_cursor(" beautiful")
+
+      assert.are.equal("hello beautiful world", utils.get_line(1))
+    end)
+
+    it("moves cursor to end of inserted content", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
+      vim.api.nvim_win_set_cursor(0, { 1, 4 })
+
+      utils.insert_at_cursor("!!!")
+
+      local cursor = vim.api.nvim_win_get_cursor(0)
+      assert.are.equal(1, cursor[1])
+      assert.are.equal(8, cursor[2]) -- after "hello!!!"
+    end)
+
+    it("inserts at start of line", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "world" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      utils.insert_at_cursor("hello ")
+
+      assert.are.equal("whello orld", utils.get_line(1))
+    end)
+
+    it("inserts at end of line", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello" })
+      vim.api.nvim_win_set_cursor(0, { 1, 4 }) -- on last char
+
+      utils.insert_at_cursor(" world")
+
+      assert.are.equal("hello world", utils.get_line(1))
+    end)
+
+    it("handles multi-byte characters correctly", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "你好" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 }) -- on first char
+
+      utils.insert_at_cursor("世界")
+
+      assert.are.equal("你世界好", utils.get_line(1))
+    end)
+  end)
+
+  describe("get_single_line_selection", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("returns selection info for single line selection", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world test" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 })
+      vim.cmd("normal! viw") -- select 'world'
+      vim.cmd("normal! \\<Esc>") -- exit visual mode to set marks
+
+      -- Set marks manually for testing
+      vim.fn.setpos("'<", { 0, 1, 7, 0 })
+      vim.fn.setpos("'>", { 0, 1, 11, 0 })
+
+      local result = utils.get_single_line_selection("links")
+
+      assert.is_not_nil(result)
+      assert.are.equal(1, result.start_row)
+      assert.are.equal(7, result.start_col)
+      assert.are.equal(11, result.end_col)
+      assert.are.equal("world", result.text)
+    end)
+
+    it("returns nil for multi-line selection", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "line one", "line two" })
+
+      -- Set marks for multi-line selection
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 2, 8, 0 })
+
+      local result = utils.get_single_line_selection("links")
+
+      assert.is_nil(result)
+    end)
+
+    it("returns nil for empty selection", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "   " })
+
+      -- Set marks for whitespace-only selection
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 1, 3, 0 })
+
+      local result = utils.get_single_line_selection("images")
+
+      assert.is_nil(result)
+    end)
+
+    it("trims whitespace from selection", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello   world   test" })
+
+      -- Set marks to include whitespace
+      vim.fn.setpos("'<", { 0, 1, 6, 0 })
+      vim.fn.setpos("'>", { 0, 1, 14, 0 })
+
+      local result = utils.get_single_line_selection("links")
+
+      assert.is_not_nil(result)
+      assert.are.equal("world", result.text)
+    end)
+
+    it("includes line content in result", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "the quick brown fox" })
+
+      vim.fn.setpos("'<", { 0, 1, 5, 0 })
+      vim.fn.setpos("'>", { 0, 1, 9, 0 })
+
+      local result = utils.get_single_line_selection("links")
+
+      assert.is_not_nil(result)
+      assert.are.equal("the quick brown fox", result.line)
+    end)
+  end)
 end)

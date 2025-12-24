@@ -386,4 +386,152 @@ function M.notify(msg, level)
   vim.notify("markdown-plus: " .. msg, level or vim.log.levels.INFO)
 end
 
+-- =============================================================================
+-- Element utilities (shared by links, images, and similar modules)
+-- =============================================================================
+
+---@class markdown-plus.ElementMatch
+---@field start_pos number 1-indexed start position in line
+---@field end_pos number 1-indexed end position in line
+---@field text string The matched text
+---@field line_num number 1-indexed line number
+
+---Find all matches of a pattern in the current line and return the one under cursor
+---@param pattern string Lua pattern to search for
+---@param extractor? fun(match: string, start_pos: number, end_pos: number): table|nil Optional function to extract data from match
+---@return table|nil result The extracted data from extractor, or basic match info, or nil if no match at cursor
+function M.find_pattern_at_cursor(pattern, extractor)
+  local cursor = M.get_cursor()
+  local line = M.get_current_line()
+  local col = cursor[2] -- 0-indexed column
+
+  local init = 1
+  while true do
+    local match_start, match_end = line:find(pattern, init)
+    if not match_start then
+      break
+    end
+
+    -- Check if cursor is within this match (convert to 0-indexed for comparison)
+    local start_idx = match_start - 1
+    local end_idx = match_end - 1
+
+    if col >= start_idx and col <= end_idx then
+      local matched_text = line:sub(match_start, match_end)
+
+      -- If extractor provided, use it to extract data
+      if extractor then
+        local result = extractor(matched_text, match_start, match_end)
+        if result then
+          -- Add common fields if not present
+          result.start_pos = result.start_pos or match_start
+          result.end_pos = result.end_pos or match_end
+          result.line_num = result.line_num or cursor[1]
+          return result
+        end
+      else
+        -- Return basic match info
+        return {
+          start_pos = match_start,
+          end_pos = match_end,
+          text = matched_text,
+          line_num = cursor[1],
+        }
+      end
+    end
+
+    init = match_end + 1
+  end
+
+  return nil
+end
+
+---Find multiple patterns at cursor, returning the first match
+---Useful when an element can have multiple formats (e.g., inline link vs reference link)
+---@param patterns table[] Array of {pattern: string, extractor: function|nil} tables
+---@return table|nil result The match result or nil
+function M.find_patterns_at_cursor(patterns)
+  for _, p in ipairs(patterns) do
+    local result = M.find_pattern_at_cursor(p.pattern, p.extractor)
+    if result then
+      return result
+    end
+  end
+  return nil
+end
+
+---Get single-line visual selection info
+---Exits visual mode, gets selection marks, and returns selection data
+---@param element_name string Name of element for error messages (e.g., "links", "images")
+---@return table|nil selection {start_row, start_col, end_col, text, line} or nil if invalid
+function M.get_single_line_selection(element_name)
+  -- Exit visual mode first to update marks
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "x", false)
+
+  -- Get visual selection marks
+  local start_pos = vim.fn.getpos("'<")
+  local end_pos = vim.fn.getpos("'>")
+
+  local start_row = start_pos[2]
+  local start_col = start_pos[3]
+  local end_row = end_pos[2]
+  local end_col = end_pos[3]
+
+  -- Only support single line
+  if start_row ~= end_row then
+    M.notify("Multi-line " .. element_name .. " not supported", vim.log.levels.WARN)
+    return nil
+  end
+
+  local line = M.get_line(start_row)
+
+  -- Extract selected text (vim columns are 1-indexed)
+  local text = line:sub(start_col, end_col)
+
+  -- Trim any whitespace
+  text = text:match("^%s*(.-)%s*$")
+
+  if text == "" then
+    M.notify("No text selected", vim.log.levels.WARN)
+    return nil
+  end
+
+  return {
+    start_row = start_row,
+    start_col = start_col,
+    end_col = end_col,
+    text = text,
+    line = line,
+  }
+end
+
+---Replace a range in a line with new content
+---@param line_num number 1-indexed line number
+---@param start_pos number 1-indexed start position
+---@param end_pos number 1-indexed end position
+---@param new_content string New content to insert
+---@return nil
+function M.replace_in_line(line_num, start_pos, end_pos, new_content)
+  local line = M.get_line(line_num)
+  local new_line = line:sub(1, start_pos - 1) .. new_content .. line:sub(end_pos + 1)
+  M.set_line(line_num, new_line)
+end
+
+---Insert content at cursor position and move cursor after inserted content
+---@param content string Content to insert
+---@return nil
+function M.insert_at_cursor(content)
+  local cursor = M.get_cursor()
+  local line = M.get_current_line()
+  local col = cursor[2]
+
+  -- Use UTF-8 safe split to handle multibyte characters correctly
+  local before, after = M.split_after_cursor(line, col)
+  local new_line = before .. content .. after
+  M.set_line(cursor[1], new_line)
+
+  -- Move cursor after the inserted content
+  M.set_cursor(cursor[1], #before + #content)
+end
+
 return M

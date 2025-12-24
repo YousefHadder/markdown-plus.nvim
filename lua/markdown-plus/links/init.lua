@@ -9,11 +9,33 @@ M.config = {}
 ---Link patterns for detection
 ---@type table<string, string>
 M.patterns = {
-  inline_link = "%[(.-)%]%((.-)%)", -- [text](url)
+  inline_link = "%[(.-)]%((.-)%)", -- [text](url)
   reference_link = "%[(.-)%]%[(.-)%]", -- [text][ref]
   reference_def = "^%[(.-)%]:%s*(.+)$", -- [ref]: url
   url = "https?://[%w-_%.%?%.:/%#%[%]@!%$&'%(%)%*%+,;=]+", -- URL pattern
 }
+
+---Extractor for inline links
+---@param match string The matched link string
+---@return table|nil Extracted link data or nil
+local function extract_inline_link(match)
+  local text, url = match:match("^%[(.-)%]%((.-)%)$")
+  if text and url then
+    return { type = "inline", text = text, url = url }
+  end
+  return nil
+end
+
+---Extractor for reference links
+---@param match string The matched link string
+---@return table|nil Extracted link data or nil
+local function extract_reference_link(match)
+  local text, ref = match:match("^%[(.-)%]%[(.-)%]$")
+  if text and ref then
+    return { type = "reference", text = text, ref = ref }
+  end
+  return nil
+end
 
 ---Setup links module
 ---@param config markdown-plus.InternalConfig Plugin configuration
@@ -82,161 +104,70 @@ function M.setup_keymaps()
   })
 end
 
--- Parse link under cursor
+---Parse link under cursor
+---@return table|nil link Link info or nil if not found
 function M.get_link_at_cursor()
-  local cursor = utils.get_cursor()
-  local line = utils.get_current_line()
-  local col = cursor[2] -- 0-indexed column
-
-  -- Find all inline links [text](url) with their positions
-  local init = 1
-  while true do
-    local link_start, link_end = line:find("%[.-%]%(.-%)", init)
-    if not link_start then
-      break
-    end
-
-    -- Check if cursor is within this link
-    local start_idx = link_start - 1
-    local end_idx = link_end - 1
-
-    if col >= start_idx and col <= end_idx then
-      -- Extract text and url from the matched link
-      local link_str = line:sub(link_start, link_end)
-      local text, url = link_str:match("^%[(.-)%]%((.-)%)$")
-
-      if text and url then
-        return {
-          type = "inline",
-          text = text,
-          url = url,
-          start_pos = link_start,
-          end_pos = link_end,
-          line_num = cursor[1],
-        }
-      end
-    end
-
-    init = link_end + 1
-  end
-
-  -- Find all reference links [text][ref] with their positions
-  init = 1
-  while true do
-    local link_start, link_end = line:find("%[.-%]%[.-%]", init)
-    if not link_start then
-      break
-    end
-
-    -- Check if cursor is within this link
-    local start_idx = link_start - 1
-    local end_idx = link_end - 1
-
-    if col >= start_idx and col <= end_idx then
-      -- Extract text and ref from the matched link
-      local link_str = line:sub(link_start, link_end)
-      local text, ref = link_str:match("^%[(.-)%]%[(.-)%]$")
-
-      if text and ref then
-        return {
-          type = "reference",
-          text = text,
-          ref = ref,
-          start_pos = link_start,
-          end_pos = link_end,
-          line_num = cursor[1],
-        }
-      end
-    end
-
-    init = link_end + 1
-  end
-
-  return nil
+  return utils.find_patterns_at_cursor({
+    { pattern = M.patterns.inline_link, extractor = extract_inline_link },
+    { pattern = M.patterns.reference_link, extractor = extract_reference_link },
+  })
 end
 
--- Insert a new link
+---Build a markdown link string
+---@param text string Link text
+---@param url string Link URL
+---@return string link The formatted link
+local function build_link(text, url)
+  return "[" .. text .. "](" .. url .. ")"
+end
+
+---Build a reference link string
+---@param text string Link text
+---@param ref string Reference ID
+---@return string link The formatted reference link
+local function build_reference_link(text, ref)
+  return "[" .. text .. "][" .. ref .. "]"
+end
+
+---Insert a new link
+---@return nil
 function M.insert_link()
-  -- Prompt for link text
   local text = utils.input("Link text: ")
   if not text then
     return
   end
 
-  -- Prompt for URL
   local url = utils.input("URL: ")
   if not url then
     return
   end
 
-  -- Insert link at cursor position
-  local link = "[" .. text .. "](" .. url .. ")"
-  local cursor = utils.get_cursor()
-  local line = utils.get_current_line()
-  local col = cursor[2]
-
-  -- Use UTF-8 safe split to handle multibyte characters correctly
-  local before, after = utils.split_after_cursor(line, col)
-  local new_line = before .. link .. after
-  utils.set_line(cursor[1], new_line)
-
-  -- Move cursor after the link
-  utils.set_cursor(cursor[1], #before + #link)
-
+  local link = build_link(text, url)
+  utils.insert_at_cursor(link)
   utils.notify("Link inserted")
 end
 
--- Convert selection to link
+---Convert selection to link
+---@return nil
 function M.selection_to_link()
-  -- Exit visual mode first to update marks
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "x", false)
-
-  -- Get visual selection marks
-  local start_pos = vim.fn.getpos("'<")
-  local end_pos = vim.fn.getpos("'>")
-
-  local start_row = start_pos[2]
-  local start_col = start_pos[3]
-  local end_row = end_pos[2]
-  local end_col = end_pos[3]
-
-  -- Only support single line for now
-  if start_row ~= end_row then
-    utils.notify("Multi-line links not supported", vim.log.levels.WARN)
+  local selection = utils.get_single_line_selection("links")
+  if not selection then
     return
   end
 
-  local line = utils.get_line(start_row)
-
-  -- Extract selected text (vim columns are 1-indexed)
-  local text = line:sub(start_col, end_col)
-
-  -- Trim any whitespace
-  text = text:match("^%s*(.-)%s*$")
-
-  if text == "" then
-    utils.notify("No text selected", vim.log.levels.WARN)
-    return
-  end
-
-  -- Prompt for URL
   local url = utils.input("URL: ")
   if not url then
     return
   end
 
-  -- Replace selection with link
-  local link = "[" .. text .. "](" .. url .. ")"
-  local new_line = line:sub(1, start_col - 1) .. link .. line:sub(end_col + 1)
-  utils.set_line(start_row, new_line)
-
-  -- Move cursor to after the link
-  utils.set_cursor(start_row, start_col - 1 + #link)
-
+  local link = build_link(selection.text, url)
+  utils.replace_in_line(selection.start_row, selection.start_col, selection.end_col, link)
+  utils.set_cursor(selection.start_row, selection.start_col - 1 + #link)
   utils.notify("Link created")
 end
 
--- Edit link under cursor
+---Edit link under cursor
+---@return nil
 function M.edit_link()
   local link = M.get_link_at_cursor()
 
@@ -246,7 +177,6 @@ function M.edit_link()
   end
 
   if link.type == "inline" then
-    -- Edit inline link
     local new_text = utils.input("Link text: ", link.text)
     if not new_text then
       return
@@ -257,15 +187,10 @@ function M.edit_link()
       return
     end
 
-    -- Replace link
-    local line = utils.get_line(link.line_num)
-    local new_link = "[" .. new_text .. "](" .. new_url .. ")"
-    local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
-    utils.set_line(link.line_num, new_line)
-
+    local new_link = build_link(new_text, new_url)
+    utils.replace_in_line(link.line_num, link.start_pos, link.end_pos, new_link)
     utils.notify("Link updated")
   elseif link.type == "reference" then
-    -- Edit reference link
     local new_text = utils.input("Link text: ", link.text)
     if not new_text then
       return
@@ -276,17 +201,15 @@ function M.edit_link()
       return
     end
 
-    -- Replace link
-    local line = utils.get_line(link.line_num)
-    local new_link = "[" .. new_text .. "][" .. new_ref .. "]"
-    local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
-    utils.set_line(link.line_num, new_line)
-
+    local new_link = build_reference_link(new_text, new_ref)
+    utils.replace_in_line(link.line_num, link.start_pos, link.end_pos, new_link)
     utils.notify("Reference link updated")
   end
 end
 
--- Find reference URL definition
+---Find reference URL definition
+---@param ref string Reference ID to find
+---@return string|nil url The URL for the reference or nil
 function M.find_reference_url(ref)
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 
@@ -306,37 +229,23 @@ end
 ---@return string|nil ref_id Unique reference ID
 ---@return string|nil error_msg Error message if generation failed
 local function generate_unique_ref_id(text, target_url)
-  -- Generate base reference ID from text
-  local base_ref = text
-    :lower()
-    :gsub("%s+", "-") -- Replace spaces with hyphens
-    :gsub("[^%w%-]", "") -- Remove non-alphanumeric (except hyphens)
-    :gsub("%-+", "-") -- Collapse multiple hyphens
-    :gsub("^%-", "") -- Remove leading hyphen
-    :gsub("%-$", "") -- Remove trailing hyphen
+  local base_ref = text:lower():gsub("%s+", "-"):gsub("[^%w%-]", ""):gsub("%-+", "-"):gsub("^%-", ""):gsub("%-$", "")
 
-  -- Validate that base_ref is not empty
   if base_ref == "" then
     return nil, "Link text does not contain any alphanumeric characters"
   end
 
-  -- Check if base reference already exists
   local existing_url = M.find_reference_url(base_ref)
-
-  -- If reference doesn't exist or points to same URL, use it
   if not existing_url or existing_url == target_url then
     return base_ref, nil
   end
 
-  -- Reference exists with different URL - generate unique ID by appending counter
   local counter = 1
   local unique_ref = base_ref .. "-" .. counter
 
   while M.find_reference_url(unique_ref) do
     counter = counter + 1
     unique_ref = base_ref .. "-" .. counter
-
-    -- Safety limit to prevent infinite loop
     if counter > 100 then
       return nil, "Could not generate unique reference ID (too many conflicts)"
     end
@@ -345,7 +254,8 @@ local function generate_unique_ref_id(text, target_url)
   return unique_ref
 end
 
--- Convert inline link to reference-style
+---Convert inline link to reference-style
+---@return nil
 function M.convert_to_reference()
   local link = M.get_link_at_cursor()
 
@@ -359,35 +269,27 @@ function M.convert_to_reference()
     return
   end
 
-  -- Generate unique reference ID
   local ref, err = generate_unique_ref_id(link.text, link.url)
   if not ref then
     utils.notify("Cannot generate reference: " .. err, vim.log.levels.ERROR)
     return
   end
 
-  -- Check if we're reusing an existing reference
   local existing_url = M.find_reference_url(ref)
   local reusing_existing = existing_url and existing_url == link.url
 
-  -- Replace inline link with reference link
-  local line = utils.get_line(link.line_num)
-  local new_link = "[" .. link.text .. "][" .. ref .. "]"
-  local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
-  utils.set_line(link.line_num, new_line)
+  local new_link = build_reference_link(link.text, ref)
+  utils.replace_in_line(link.line_num, link.start_pos, link.end_pos, new_link)
 
-  -- Only add reference definition if not reusing existing one
   if not reusing_existing then
     local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
     local last_line = #lines
 
-    -- Add blank line if needed
     if lines[last_line] ~= "" then
       vim.api.nvim_buf_set_lines(0, last_line, last_line, false, { "" })
       last_line = last_line + 1
     end
 
-    -- Add reference definition
     local ref_def = "[" .. ref .. "]: " .. link.url
     vim.api.nvim_buf_set_lines(0, last_line, last_line, false, { ref_def })
 
@@ -397,7 +299,8 @@ function M.convert_to_reference()
   end
 end
 
--- Convert reference link to inline
+---Convert reference link to inline
+---@return nil
 function M.convert_to_inline()
   local link = M.get_link_at_cursor()
 
@@ -411,76 +314,48 @@ function M.convert_to_inline()
     return
   end
 
-  -- Find reference URL
   local url = M.find_reference_url(link.ref)
   if not url then
     utils.notify("Reference definition not found: " .. link.ref, vim.log.levels.ERROR)
     return
   end
 
-  -- Replace reference link with inline link
-  local line = utils.get_line(link.line_num)
-  local new_link = "[" .. link.text .. "](" .. url .. ")"
-  local new_line = line:sub(1, link.start_pos - 1) .. new_link .. line:sub(link.end_pos + 1)
-  utils.set_line(link.line_num, new_line)
-
+  local new_link = build_link(link.text, url)
+  utils.replace_in_line(link.line_num, link.start_pos, link.end_pos, new_link)
   utils.notify("Converted to inline link")
 end
 
--- Auto-convert URL to link
+---Auto-convert URL to link
+---@return nil
 function M.auto_link_url()
-  local cursor = utils.get_cursor()
-  local line = utils.get_current_line()
-  local col = cursor[2] -- 0-indexed column
+  local url_pattern = "(" .. M.patterns.url .. ")"
 
-  -- Find all URLs in the line with their positions
-  local urls = {}
-  local init = 1
-  while true do
-    local url_start, url_end, url = line:find("(" .. M.patterns.url .. ")", init)
-    if not url_start then
-      break
+  local result = utils.find_pattern_at_cursor(url_pattern, function(match)
+    -- Remove the capture group parentheses from the match
+    local url = match:match("^" .. M.patterns.url .. "$")
+    if url then
+      return { url = url }
     end
-    table.insert(urls, {
-      url = url,
-      start_pos = url_start,
-      end_pos = url_end,
-    })
-    init = url_end + 1
+    return nil
+  end)
+
+  if not result then
+    utils.notify("No URL under cursor", vim.log.levels.WARN)
+    return
   end
 
-  -- Find URL under cursor
-  for _, url_info in ipairs(urls) do
-    -- Convert to 0-indexed for comparison with cursor col
-    local start_idx = url_info.start_pos - 1
-    local end_idx = url_info.end_pos - 1
-
-    if col >= start_idx and col <= end_idx then
-      -- Prompt for link text (default to URL)
-      local text = utils.input("Link text (empty for URL): ")
-      -- If user cancelled, return without making changes
-      if text == nil then
-        return
-      end
-      -- If user entered empty string, use URL as text
-      if text == "" then
-        text = url_info.url
-      end
-
-      -- Replace URL with link
-      local link = "[" .. text .. "](" .. url_info.url .. ")"
-      local new_line = line:sub(1, url_info.start_pos - 1) .. link .. line:sub(url_info.end_pos + 1)
-      utils.set_line(cursor[1], new_line)
-
-      -- Move cursor to after the link
-      utils.set_cursor(cursor[1], url_info.start_pos - 1 + #link)
-
-      utils.notify("URL converted to link")
-      return
-    end
+  local text = utils.input("Link text (empty for URL): ")
+  if text == nil then
+    return
+  end
+  if text == "" then
+    text = result.url
   end
 
-  utils.notify("No URL under cursor", vim.log.levels.WARN)
+  local link = build_link(text, result.url)
+  utils.replace_in_line(result.line_num, result.start_pos, result.end_pos, link)
+  utils.set_cursor(result.line_num, result.start_pos - 1 + #link)
+  utils.notify("URL converted to link")
 end
 
 return M
