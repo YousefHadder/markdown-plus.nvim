@@ -577,7 +577,7 @@ describe("markdown-plus utils", function()
     end)
   end)
 
-  describe("insert_at_cursor", function()
+  describe("insert_after_cursor", function()
     local buf
 
     before_each(function()
@@ -591,11 +591,11 @@ describe("markdown-plus utils", function()
       end
     end)
 
-    it("inserts content at cursor position", function()
+    it("inserts content after cursor position", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
-      vim.api.nvim_win_set_cursor(0, { 1, 4 }) -- after 'hello' (on 'o')
+      vim.api.nvim_win_set_cursor(0, { 1, 4 }) -- on 'o' of 'hello'
 
-      utils.insert_at_cursor(" beautiful")
+      utils.insert_after_cursor(" beautiful")
 
       assert.are.equal("hello beautiful world", utils.get_line(1))
     end)
@@ -604,18 +604,18 @@ describe("markdown-plus utils", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello world" })
       vim.api.nvim_win_set_cursor(0, { 1, 4 })
 
-      utils.insert_at_cursor("!!!")
+      utils.insert_after_cursor("!!!")
 
       local cursor = vim.api.nvim_win_get_cursor(0)
       assert.are.equal(1, cursor[1])
       assert.are.equal(8, cursor[2]) -- after "hello!!!"
     end)
 
-    it("inserts at start of line", function()
+    it("inserts after first character when cursor at start", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "world" })
-      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 }) -- on 'w'
 
-      utils.insert_at_cursor("hello ")
+      utils.insert_after_cursor("hello ")
 
       assert.are.equal("whello orld", utils.get_line(1))
     end)
@@ -624,7 +624,7 @@ describe("markdown-plus utils", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello" })
       vim.api.nvim_win_set_cursor(0, { 1, 4 }) -- on last char
 
-      utils.insert_at_cursor(" world")
+      utils.insert_after_cursor(" world")
 
       assert.are.equal("hello world", utils.get_line(1))
     end)
@@ -633,7 +633,7 @@ describe("markdown-plus utils", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "你好" })
       vim.api.nvim_win_set_cursor(0, { 1, 0 }) -- on first char
 
-      utils.insert_at_cursor("世界")
+      utils.insert_after_cursor("世界")
 
       assert.are.equal("你世界好", utils.get_line(1))
     end)

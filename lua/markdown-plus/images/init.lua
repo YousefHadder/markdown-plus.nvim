@@ -169,7 +169,7 @@ function M.insert_image()
   local title = utils.input("Title (optional): ", "")
 
   local image = build_image(alt, url, title)
-  utils.insert_at_cursor(image)
+  utils.insert_after_cursor(image)
   utils.notify("Image inserted")
 end
 

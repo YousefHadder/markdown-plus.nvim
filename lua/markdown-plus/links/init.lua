@@ -9,7 +9,7 @@ M.config = {}
 ---Link patterns for detection
 ---@type table<string, string>
 M.patterns = {
-  inline_link = "%[(.-)]%((.-)%)", -- [text](url)
+  inline_link = "%[(.-)%]%((.-)%)", -- [text](url)
   reference_link = "%[(.-)%]%[(.-)%]", -- [text][ref]
   reference_def = "^%[(.-)%]:%s*(.+)$", -- [ref]: url
   url = "https?://[%w-_%.%?%.:/%#%[%]@!%$&'%(%)%*%+,;=]+", -- URL pattern
@@ -143,7 +143,7 @@ function M.insert_link()
   end
 
   local link = build_link(text, url)
-  utils.insert_at_cursor(link)
+  utils.insert_after_cursor(link)
   utils.notify("Link inserted")
 end
 

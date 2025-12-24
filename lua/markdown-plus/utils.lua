@@ -398,7 +398,7 @@ end
 
 ---Find all matches of a pattern in the current line and return the one under cursor
 ---@param pattern string Lua pattern to search for
----@param extractor? fun(match: string, start_pos: number, end_pos: number): table|nil Optional function to extract data from match
+---@param extractor? fun(match: string, match_start: number, match_end: number): table|nil Optional function to extract data from match
 ---@return table|nil result The extracted data from extractor, or basic match info, or nil if no match at cursor
 function M.find_pattern_at_cursor(pattern, extractor)
   local cursor = M.get_cursor()
@@ -517,10 +517,10 @@ function M.replace_in_line(line_num, start_pos, end_pos, new_content)
   M.set_line(line_num, new_line)
 end
 
----Insert content at cursor position and move cursor after inserted content
+---Insert content after cursor position and move cursor after inserted content
 ---@param content string Content to insert
 ---@return nil
-function M.insert_at_cursor(content)
+function M.insert_after_cursor(content)
   local cursor = M.get_cursor()
   local line = M.get_current_line()
   local col = cursor[2]
