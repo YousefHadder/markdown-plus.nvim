@@ -1,0 +1,26 @@
+{
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "commit": false,
+  "commitType": "docs",
+  "commitConvention": "angular",
+  "contributors": [
+    {
+      "login": "SuniRein",
+      "name": "SuniRein",
+      "avatar_url": "https://avatars.githubusercontent.com/u/64690248?v=4",
+      "profile": "https://github.com/SuniRein",
+      "contributions": [
+        "bug"
+      ]
+    }
+  ],
+  "contributorsPerLine": 7,
+  "skipCi": true,
+  "repoType": "github",
+  "repoHost": "https://github.com",
+  "projectName": "markdown-plus.nvim",
+  "projectOwner": "YousefHadder"
+}
