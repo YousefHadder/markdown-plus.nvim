@@ -1,6 +1,6 @@
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-1-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-9-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 ![507DBB8A-996C-44B7-88BE-ABB7BC1BFD92_1_201_a](https://github.com/user-attachments/assets/8f6b9adf-13ce-4418-b6cf-1196784bda45)
 
@@ -93,6 +93,16 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
   <tbody>
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/neo451"><img src="https://avatars.githubusercontent.com/u/111681693?v=4?s=100" width="100px;" alt="neo451"/><br /><sub><b>neo451</b></sub></a><br /><a href="#ideas-neo451" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/SuniRein"><img src="https://avatars.githubusercontent.com/u/64690248?v=4?s=100" width="100px;" alt="SuniRein"/><br /><sub><b>SuniRein</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3ASuniRein" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Jaehaks"><img src="https://avatars.githubusercontent.com/u/26200835?v=4?s=100" width="100px;" alt="Jaehaks"/><br /><sub><b>Jaehaks</b></sub></a><br /><a href="#ideas-Jaehaks" title="Ideas, Planning, & Feedback">🤔</a> <a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3AJaehaks" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/VectorZeroAI"><img src="https://avatars.githubusercontent.com/u/222407581?v=4?s=100" width="100px;" alt="Null"/><br /><sub><b>Null</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3AVectorZeroAI" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.buaa.edu.cn/"><img src="https://avatars.githubusercontent.com/u/151506788?v=4?s=100" width="100px;" alt="赵泽文(Zhao Zev)"/><br /><sub><b>赵泽文(Zhao Zev)</b></sub></a><br /><a href="#ideas-Zevan770" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/coglinks"><img src="https://avatars.githubusercontent.com/u/103402972?v=4?s=100" width="100px;" alt="coglinks"/><br /><sub><b>coglinks</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Acoglinks" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/levYatsishin"><img src="https://avatars.githubusercontent.com/u/58232690?v=4?s=100" width="100px;" alt="Leo Yatsishin"/><br /><sub><b>Leo Yatsishin</b></sub></a><br /><a href="#ideas-levYatsishin" title="Ideas, Planning, & Feedback">🤔</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/jemag"><img src="https://avatars.githubusercontent.com/u/7985687?v=4?s=100" width="100px;" alt="Alexandre Desjardins"/><br /><sub><b>Alexandre Desjardins</b></sub></a><br /><a href="#ideas-jemag" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/j-steinbach"><img src="https://avatars.githubusercontent.com/u/69524139?v=4?s=100" width="100px;" alt="J. Steinbach"/><br /><sub><b>J. Steinbach</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Aj-steinbach" title="Bug reports">🐛</a></td>
     </tr>
   </tbody>
 </table>

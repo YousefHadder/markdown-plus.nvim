@@ -15,6 +15,79 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "SuniRein",
+      "name": "SuniRein",
+      "avatar_url": "https://avatars.githubusercontent.com/u/64690248?v=4",
+      "profile": "https://github.com/SuniRein",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "Jaehaks",
+      "name": "Jaehaks",
+      "avatar_url": "https://avatars.githubusercontent.com/u/26200835?v=4",
+      "profile": "https://github.com/Jaehaks",
+      "contributions": [
+        "ideas",
+        "bug"
+      ]
+    },
+    {
+      "login": "VectorZeroAI",
+      "name": "Null",
+      "avatar_url": "https://avatars.githubusercontent.com/u/222407581?v=4",
+      "profile": "https://github.com/VectorZeroAI",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "Zevan770",
+      "name": "赵泽文(Zhao Zev)",
+      "avatar_url": "https://avatars.githubusercontent.com/u/151506788?v=4",
+      "profile": "https://www.buaa.edu.cn/",
+      "contributions": [
+        "ideas"
+      ]
+    },
+    {
+      "login": "coglinks",
+      "name": "coglinks",
+      "avatar_url": "https://avatars.githubusercontent.com/u/103402972?v=4",
+      "profile": "https://github.com/coglinks",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "levYatsishin",
+      "name": "Leo Yatsishin",
+      "avatar_url": "https://avatars.githubusercontent.com/u/58232690?v=4",
+      "profile": "https://github.com/levYatsishin",
+      "contributions": [
+        "ideas"
+      ]
+    },
+    {
+      "login": "jemag",
+      "name": "Alexandre Desjardins",
+      "avatar_url": "https://avatars.githubusercontent.com/u/7985687?v=4",
+      "profile": "https://github.com/jemag",
+      "contributions": [
+        "ideas"
+      ]
+    },
+    {
+      "login": "j-steinbach",
+      "name": "J. Steinbach",
+      "avatar_url": "https://avatars.githubusercontent.com/u/69524139?v=4",
+      "profile": "https://github.com/j-steinbach",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
