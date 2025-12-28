@@ -190,6 +190,8 @@ function M.replace_checkbox_state(line, list_info)
         -- Unchecking the task
         if existing_timestamp and config.remove_on_uncheck then
           content = remove_timestamp(content)
+          -- Trim trailing whitespace after removing timestamp
+          content = content:gsub("%s+$", "")
         end
         -- If not remove_on_uncheck, keep the timestamp
       end

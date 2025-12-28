@@ -1403,6 +1403,15 @@ describe("markdown-plus list management", function()
         assert.is_nil(lines[1]:match("  ✅"))
       end)
 
+      it("trims trailing whitespace when unchecking task with timestamp", function()
+        -- Task with trailing spaces before timestamp (simulating manual edit)
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Task   ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should remove both timestamp and trailing whitespace
+        assert.are.equal("- [ ] Task", lines[1])
+      end)
+
       it("handles invalid date format gracefully", function()
         markdown_plus.config.list.checkbox_completion.date_format = "%Q" -- Invalid format
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
