@@ -51,6 +51,7 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Context-aware Tab/Shift-Tab for indentation
   - Automatic empty item removal
   - Smart backspace to remove list markers
+  - Checkbox completion timestamps (Obsidian-style task tracking)
 
 - Header operations:
   - Quick header level promotion/demotion
@@ -305,6 +306,67 @@ mode:
     Visual mode - select lines and press <leader>mx to toggle multiple items
     Insert mode - press <C-t> to toggle without leaving insert mode
 <
+
+CHECKBOX COMPLETION TIMESTAMPS ~
+                                            *markdown-plus-checkbox-completion*
+
+Automatically add completion timestamps when checking tasks, similar to
+Obsidian-style task completion tracking.
+
+Enable in configuration:
+>lua
+    require('markdown-plus').setup({
+      list = {
+        checkbox_completion = {
+          enabled = true,           -- Enable completion timestamps
+          format = 'emoji',         -- Timestamp format (see below)
+          date_format = '%Y-%m-%d', -- os.date() format string
+          remove_on_uncheck = true, -- Remove timestamp when unchecking
+          update_existing = true,   -- Update timestamp when re-checking
+        },
+      },
+    })
+<
+
+When enabled, checking a task adds a timestamp:
+>markdown
+    - [ ] Buy groceries     →  - [x] Buy groceries ✅ 2025-12-28
+<
+
+Unchecking removes the timestamp (if `remove_on_uncheck = true`):
+>markdown
+    - [x] Buy groceries ✅ 2025-12-28  →  - [ ] Buy groceries
+<
+
+TIMESTAMP FORMATS ~
+
+Four formats are available, each with different rendering compatibility:
+
+    emoji           ✅ 2025-12-28
+                    Renders in: Most platforms (emoji is universal)
+                    Example: `- [x] Task ✅ 2025-12-28`
+
+    comment         <!-- completed: 2025-12-28 -->
+                    Renders in: Hidden in all renderers (HTML comment)
+                    Example: `- [x] Task <!-- completed: 2025-12-28 -->`
+
+    dataview        [completion:: 2025-12-28]
+                    Renders in: Obsidian with Dataview plugin
+                    Example: `- [x] Task [completion:: 2025-12-28]`
+
+    parenthetical   (completed: 2025-12-28)
+                    Renders in: Plain text on all platforms
+                    Example: `- [x] Task (completed: 2025-12-28)`
+
+CUSTOM DATE FORMATS ~
+
+The `date_format` option accepts any valid `os.date()` format string:
+
+    %Y-%m-%d        2025-12-28 (ISO 8601, default)
+    %d/%m/%Y        28/12/2025 (European)
+    %m/%d/%Y        12/28/2025 (US)
+    %Y-%m-%d %H:%M  2025-12-28 14:30 (with time)
+    %B %d, %Y       December 28, 2025 (long format)
 
 AUTO-CONTINUATION ~
 
@@ -1315,6 +1377,15 @@ The plugin can be configured through the setup function:
       footnotes = {              -- Footnotes configuration
         section_header = 'Footnotes',  -- Header text for footnotes section
         confirm_delete = true,         -- Confirm before deleting footnotes
+      },
+      list = {                   -- List configuration
+        checkbox_completion = {
+          enabled = false,            -- Add timestamps when checking tasks
+          format = 'emoji',           -- 'emoji', 'comment', 'dataview', 'parenthetical'
+          date_format = '%Y-%m-%d',   -- os.date() format string
+          remove_on_uncheck = true,   -- Remove timestamp when unchecking
+          update_existing = true,     -- Update timestamp when re-checking
+        },
       },
       table = {                  -- Table sub-configuration
         auto_format = true,
