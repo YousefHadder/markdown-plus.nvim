@@ -3,6 +3,115 @@ local utils = require("markdown-plus.utils")
 local parser = require("markdown-plus.list.parser")
 local M = {}
 
+---@type markdown-plus.InternalListConfig|nil
+M.config = nil
+
+---Setup checkbox module with configuration
+---@param config markdown-plus.InternalListConfig|nil List configuration
+function M.setup(config)
+  M.config = config
+end
+
+---Get checkbox completion config with defaults
+---@return markdown-plus.InternalCheckboxCompletionConfig
+function M.get_completion_config()
+  -- Try to get config from main plugin first (allows runtime changes)
+  local ok, markdown_plus = pcall(require, "markdown-plus")
+  if ok and markdown_plus.config and markdown_plus.config.list and markdown_plus.config.list.checkbox_completion then
+    return markdown_plus.config.list.checkbox_completion
+  end
+  -- Fall back to module config if set
+  if M.config and M.config.checkbox_completion then
+    return M.config.checkbox_completion
+  end
+  -- Return defaults if no config available
+  return {
+    enabled = false,
+    format = "emoji",
+    date_format = "%Y-%m-%d",
+    remove_on_uncheck = true,
+    update_existing = true,
+  }
+end
+
+-- Timestamp format definitions
+-- Each format has:
+--   template: function to generate the timestamp string
+--   pattern: Lua pattern to match existing timestamps (for removal/update)
+-- Note: Patterns are specific to common date formats to avoid matching arbitrary text.
+--       Default pattern matches ISO 8601 (YYYY-MM-DD) and common variants with time.
+--       Custom date_format values should use similar numeric date structures.
+local TIMESTAMP_FORMATS = {
+  emoji = {
+    template = function(date)
+      return " ✅ " .. date
+    end,
+    -- Match: " ✅ YYYY-MM-DD" or " ✅ DD/MM/YYYY" or with time (HH:MM, HH:MM:SS)
+    pattern = " ✅ %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]*$",
+  },
+  comment = {
+    template = function(date)
+      return " <!-- completed: " .. date .. " -->"
+    end,
+    -- Match: " <!-- completed: YYYY-MM-DD -->" or with time
+    pattern = " <!%-%- completed: %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]* %-%->$",
+  },
+  dataview = {
+    template = function(date)
+      return " [completion:: " .. date .. "]"
+    end,
+    -- Match: " [completion:: YYYY-MM-DD]" or with time
+    pattern = " %[completion:: %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]*%]$",
+  },
+  parenthetical = {
+    template = function(date)
+      return " (completed: " .. date .. ")"
+    end,
+    -- Match: " (completed: YYYY-MM-DD)" or with time
+    pattern = " %(completed: %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]*%)$",
+  },
+}
+
+---Generate a completion timestamp string
+---@param config markdown-plus.InternalCheckboxCompletionConfig
+---@return string The formatted timestamp string
+local function generate_timestamp(config)
+  local format_def = TIMESTAMP_FORMATS[config.format]
+  if not format_def then
+    return ""
+  end
+  -- os.date() returns nil for invalid format strings; fall back to empty string
+  local date = os.date(config.date_format) or ""
+  return format_def.template(date)
+end
+
+---Remove any completion timestamp from content
+---@param content string The content to clean
+---@return string The content without timestamp
+local function remove_timestamp(content)
+  -- Try to remove any known timestamp format
+  for _, format_def in pairs(TIMESTAMP_FORMATS) do
+    local cleaned = content:gsub(format_def.pattern, "")
+    if cleaned ~= content then
+      return cleaned
+    end
+  end
+  return content
+end
+
+---Check if content has an existing timestamp
+---@param content string The content to check
+---@return boolean has_timestamp Whether a timestamp exists
+---@return string|nil format_name The format name if found
+local function has_timestamp(content)
+  for name, format_def in pairs(TIMESTAMP_FORMATS) do
+    if content:match(format_def.pattern) then
+      return true, name
+    end
+  end
+  return false, nil
+end
+
 ---Toggle checkbox on a specific line
 ---@param line_num number 1-indexed line number
 function M.toggle_checkbox_on_line(line_num)
@@ -44,6 +153,7 @@ end
 function M.replace_checkbox_state(line, list_info)
   local indent = list_info.indent
   local marker = list_info.marker
+  local config = M.get_completion_config()
 
   -- Find the checkbox pattern and extract the content after it
   local checkbox_pattern = "^(" .. utils.escape_pattern(indent) .. utils.escape_pattern(marker) .. "%s*)%[.?%]%s*(.*)"
@@ -52,7 +162,41 @@ function M.replace_checkbox_state(line, list_info)
 
   if prefix and content ~= nil then
     local current_state = list_info.checkbox
-    local new_state = (current_state == "x" or current_state == "X") and " " or "x"
+    local is_checking = not (current_state == "x" or current_state == "X")
+    local new_state = is_checking and "x" or " "
+
+    -- Handle completion timestamps
+    if config.enabled then
+      local existing_timestamp = has_timestamp(content)
+
+      if is_checking then
+        -- Checking the task
+        if existing_timestamp then
+          if config.update_existing then
+            -- Remove old timestamp and add new one
+            content = remove_timestamp(content)
+            -- Trim trailing whitespace before adding new timestamp
+            content = content:gsub("%s+$", "")
+            content = content .. generate_timestamp(config)
+          end
+          -- If not update_existing, keep the old timestamp as-is
+        else
+          -- No existing timestamp, add one
+          -- Trim trailing whitespace before adding timestamp
+          content = content:gsub("%s+$", "")
+          content = content .. generate_timestamp(config)
+        end
+      else
+        -- Unchecking the task
+        if existing_timestamp and config.remove_on_uncheck then
+          content = remove_timestamp(content)
+          -- Trim trailing whitespace after removing timestamp
+          content = content:gsub("%s+$", "")
+        end
+        -- If not remove_on_uncheck, keep the timestamp
+      end
+    end
+
     return prefix .. "[" .. new_state .. "] " .. content
   end
 

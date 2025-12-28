@@ -12,6 +12,7 @@
 ---@field table? markdown-plus.TableConfig Table configuration
 ---@field callouts? markdown-plus.CalloutsConfig Callouts configuration
 ---@field footnotes? markdown-plus.FootnotesConfig Footnotes configuration
+---@field list? markdown-plus.ListConfig List configuration
 
 ---Feature configuration
 ---@class markdown-plus.FeatureConfig
@@ -50,6 +51,18 @@
 ---@field section_header? string Header text for footnotes section (default: "Footnotes")
 ---@field confirm_delete? boolean Confirm before deleting footnotes (default: true)
 
+---List configuration
+---@class markdown-plus.ListConfig
+---@field checkbox_completion? markdown-plus.CheckboxCompletionConfig Checkbox completion timestamp configuration
+
+---Checkbox completion timestamp configuration
+---@class markdown-plus.CheckboxCompletionConfig
+---@field enabled? boolean Enable completion timestamps when checking tasks (default: false)
+---@field format? "emoji"|"comment"|"dataview"|"parenthetical" Timestamp format (default: "emoji")
+---@field date_format? string os.date() format string (default: "%Y-%m-%d")
+---@field remove_on_uncheck? boolean Remove timestamp when unchecking (default: true)
+---@field update_existing? boolean Update existing timestamp when re-checking (default: true)
+
 ---Code block configuration
 ---@class markdown-plus.CodeBlockConfig
 ---@field enabled? boolean Enable code block features (default: true)
@@ -73,6 +86,7 @@
 ---@field callouts markdown-plus.InternalCalloutsConfig
 ---@field code_block markdown-plus.InternalCodeBlockConfig
 ---@field footnotes markdown-plus.InternalFootnotesConfig
+---@field list markdown-plus.InternalListConfig
 
 ---Internal feature configuration
 ---@class markdown-plus.InternalFeatureConfig
@@ -122,6 +136,18 @@
 ---@class markdown-plus.InternalFootnotesConfig
 ---@field section_header string
 ---@field confirm_delete boolean
+
+---Internal list configuration
+---@class markdown-plus.InternalListConfig
+---@field checkbox_completion markdown-plus.InternalCheckboxCompletionConfig
+
+---Internal checkbox completion configuration
+---@class markdown-plus.InternalCheckboxCompletionConfig
+---@field enabled boolean
+---@field format string
+---@field date_format string
+---@field remove_on_uncheck boolean
+---@field update_existing boolean
 
 ---@class markdown-plus.ListInfo
 ---@field type string List type: "unordered", "ordered", "ordered_paren", "letter_lower", "letter_lower_paren", "letter_upper", "letter_upper_paren"
