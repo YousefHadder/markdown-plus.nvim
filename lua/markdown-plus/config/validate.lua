@@ -3,6 +3,9 @@ local M = {}
 -- Valid table alignment values
 local VALID_ALIGNMENTS = { left = true, center = true, right = true }
 
+-- Valid checkbox completion format values
+local VALID_COMPLETION_FORMATS = { emoji = true, comment = true, dataview = true, parenthetical = true }
+
 ---Validate user configuration
 ---@param opts markdown-plus.Config User configuration
 ---@return boolean is_valid True if config is valid
@@ -60,6 +63,10 @@ function M.validate(opts)
     return false, err
   end
   ok, err = validate_field("config", "footnotes", opts.footnotes, "table", true)
+  if not ok then
+    return false, err
+  end
+  ok, err = validate_field("config", "list", opts.list, "table", true)
   if not ok then
     return false, err
   end
@@ -228,6 +235,7 @@ function M.validate(opts)
     callouts = true,
     code_block = true,
     footnotes = true,
+    list = true,
   }
   for key in pairs(opts) do
     if not known_fields[key] then
@@ -414,6 +422,106 @@ function M.validate(opts)
             "config.footnotes: unknown field '%s'. Valid fields are: %s",
             key,
             table.concat(vim.tbl_keys(known_footnotes_fields), ", ")
+          )
+      end
+    end
+  end
+
+  -- Validate list config
+  if opts.list then
+    ok, err = validate_field("config", "list.checkbox_completion", opts.list.checkbox_completion, "table", true)
+    if not ok then
+      return false, err
+    end
+
+    -- Validate checkbox_completion nested config
+    if opts.list.checkbox_completion then
+      ok, err = validate_field(
+        "config",
+        "list.checkbox_completion.enabled",
+        opts.list.checkbox_completion.enabled,
+        "boolean",
+        true
+      )
+      if not ok then
+        return false, err
+      end
+      ok, err = validate_field(
+        "config",
+        "list.checkbox_completion.format",
+        opts.list.checkbox_completion.format,
+        "string",
+        true
+      )
+      if not ok then
+        return false, err
+      end
+      ok, err = validate_field(
+        "config",
+        "list.checkbox_completion.date_format",
+        opts.list.checkbox_completion.date_format,
+        "string",
+        true
+      )
+      if not ok then
+        return false, err
+      end
+      ok, err = validate_field(
+        "config",
+        "list.checkbox_completion.remove_on_uncheck",
+        opts.list.checkbox_completion.remove_on_uncheck,
+        "boolean",
+        true
+      )
+      if not ok then
+        return false, err
+      end
+      ok, err = validate_field(
+        "config",
+        "list.checkbox_completion.update_existing",
+        opts.list.checkbox_completion.update_existing,
+        "boolean",
+        true
+      )
+      if not ok then
+        return false, err
+      end
+
+      -- Validate format is one of the allowed values
+      if opts.list.checkbox_completion.format then
+        if not VALID_COMPLETION_FORMATS[opts.list.checkbox_completion.format] then
+          return false,
+            string.format(
+              "config.list.checkbox_completion.format: must be one of: %s",
+              table.concat(vim.tbl_keys(VALID_COMPLETION_FORMATS), ", ")
+            )
+        end
+      end
+
+      -- Check for unknown checkbox_completion fields
+      local known_checkbox_completion_fields =
+        { enabled = true, format = true, date_format = true, remove_on_uncheck = true, update_existing = true }
+      for key in pairs(opts.list.checkbox_completion) do
+        if not known_checkbox_completion_fields[key] then
+          return false,
+            string.format(
+              "config.list.checkbox_completion: unknown field '%s'. Valid fields are: %s",
+              key,
+              table.concat(vim.tbl_keys(known_checkbox_completion_fields), ", ")
+            )
+        end
+      end
+    end
+
+    -- Check for unknown list fields
+    local known_list_fields = { checkbox_completion = true }
+    for key in pairs(opts.list) do
+      if not known_list_fields[key] then
+        return false,
+          string.format(
+            "config.list: unknown field '%s'. Valid fields are: %s",
+            key,
+            table.concat(vim.tbl_keys(known_list_fields), ", ")
           )
       end
     end

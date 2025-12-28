@@ -20,6 +20,8 @@ M.patterns = parser.patterns
 ---@param config markdown-plus.InternalConfig Plugin configuration
 function M.setup(config)
   M.config = config or {}
+  -- Pass list-specific config to checkbox module
+  checkbox.setup(M.config.list)
 end
 
 ---Enable list features for current buffer
@@ -155,5 +157,6 @@ M.add_checkbox_to_line = checkbox.add_checkbox_to_line
 M.toggle_checkbox_line = checkbox.toggle_checkbox_line
 M.toggle_checkbox_range = checkbox.toggle_checkbox_range
 M.toggle_checkbox_insert = checkbox.toggle_checkbox_insert
+M.get_completion_config = checkbox.get_completion_config
 
 return M

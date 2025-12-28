@@ -1142,6 +1142,219 @@ describe("markdown-plus list management", function()
     end)
   end)
 
+  describe("checkbox completion timestamps", function()
+    local markdown_plus
+
+    before_each(function()
+      markdown_plus = require("markdown-plus")
+      -- Reset to default config before each test
+      markdown_plus.config.list = {
+        checkbox_completion = {
+          enabled = false,
+          format = "emoji",
+          date_format = "%Y-%m-%d",
+          remove_on_uncheck = true,
+          update_existing = true,
+        },
+      }
+    end)
+
+    describe("when disabled (default)", function()
+      it("does not add timestamp when checking task", function()
+        markdown_plus.config.list.checkbox_completion.enabled = false
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- [x] Task to complete", lines[1])
+      end)
+    end)
+
+    describe("when enabled with emoji format", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "emoji"
+      end)
+
+      it("adds emoji timestamp when checking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should match pattern: "- [x] Task to complete ✅ YYYY-MM-DD"
+        assert.is_not_nil(lines[1]:match("^%- %[x%] Task to complete ✅ %d%d%d%d%-%d%d%-%d%d$"))
+      end)
+
+      it("removes timestamp when unchecking task", function()
+        markdown_plus.config.list.checkbox_completion.remove_on_uncheck = true
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Task completed ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- [ ] Task completed", lines[1])
+      end)
+
+      it("preserves timestamp when unchecking if remove_on_uncheck is false", function()
+        markdown_plus.config.list.checkbox_completion.remove_on_uncheck = false
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Task completed ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- [ ] Task completed ✅ 2024-01-15", lines[1])
+      end)
+
+      it("updates existing timestamp when re-checking task", function()
+        markdown_plus.config.list.checkbox_completion.update_existing = true
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task completed ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should have updated timestamp (today's date), not 2024-01-15
+        local today = os.date("%Y-%m-%d")
+        -- Escape hyphens in today's date for pattern matching
+        local today_pattern = today:gsub("%-", "%%-")
+        assert.is_not_nil(lines[1]:match("^%- %[x%] Task completed ✅ " .. today_pattern .. "$"))
+      end)
+
+      it("does not update existing timestamp when update_existing is false", function()
+        markdown_plus.config.list.checkbox_completion.update_existing = false
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task completed ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should keep original timestamp
+        assert.are.equal("- [x] Task completed ✅ 2024-01-15", lines[1])
+      end)
+    end)
+
+    describe("when enabled with comment format", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "comment"
+      end)
+
+      it("adds comment timestamp when checking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should match pattern: "- [x] Task to complete <!-- completed: YYYY-MM-DD -->"
+        assert.is_not_nil(lines[1]:match("^%- %[x%] Task to complete <!%-%- completed: %d%d%d%d%-%d%d%-%d%d %-%->$"))
+      end)
+
+      it("removes comment timestamp when unchecking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Task completed <!-- completed: 2024-01-15 -->" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- [ ] Task completed", lines[1])
+      end)
+    end)
+
+    describe("when enabled with dataview format", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "dataview"
+      end)
+
+      it("adds dataview timestamp when checking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should match pattern: "- [x] Task to complete [completion:: YYYY-MM-DD]"
+        assert.is_not_nil(lines[1]:match("^%- %[x%] Task to complete %[completion:: %d%d%d%d%-%d%d%-%d%d%]$"))
+      end)
+
+      it("removes dataview timestamp when unchecking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Task completed [completion:: 2024-01-15]" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- [ ] Task completed", lines[1])
+      end)
+    end)
+
+    describe("when enabled with parenthetical format", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "parenthetical"
+      end)
+
+      it("adds parenthetical timestamp when checking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should match pattern: "- [x] Task to complete (completed: YYYY-MM-DD)"
+        assert.is_not_nil(lines[1]:match("^%- %[x%] Task to complete %(completed: %d%d%d%d%-%d%d%-%d%d%)$"))
+      end)
+
+      it("removes parenthetical timestamp when unchecking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Task completed (completed: 2024-01-15)" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- [ ] Task completed", lines[1])
+      end)
+    end)
+
+    describe("custom date format", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "emoji"
+      end)
+
+      it("uses custom date format when specified", function()
+        markdown_plus.config.list.checkbox_completion.date_format = "%d/%m/%Y"
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should match pattern: "- [x] Task to complete ✅ DD/MM/YYYY"
+        assert.is_not_nil(lines[1]:match("^%- %[x%] Task to complete ✅ %d%d/%d%d/%d%d%d%d$"))
+      end)
+    end)
+
+    describe("ordered list checkboxes", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "emoji"
+      end)
+
+      it("adds timestamp to ordered list checkbox", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. [ ] Ordered task" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.is_not_nil(lines[1]:match("^1%. %[x%] Ordered task ✅ %d%d%d%d%-%d%d%-%d%d$"))
+      end)
+    end)
+
+    describe("indented list checkboxes", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "emoji"
+      end)
+
+      it("adds timestamp to indented checkbox", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "  - [ ] Nested task" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.is_not_nil(lines[1]:match("^  %- %[x%] Nested task ✅ %d%d%d%d%-%d%d%-%d%d$"))
+      end)
+    end)
+
+    describe("toggle_checkbox_range with completion", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "emoji"
+      end)
+
+      it("adds timestamps to multiple tasks when checking", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+          "- [ ] First task",
+          "- [ ] Second task",
+          "- [ ] Third task",
+        })
+        -- Enter visual mode and select all 3 lines
+        vim.cmd("normal! ggV")
+        vim.cmd("normal! 2j")
+        list.toggle_checkbox_range()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.is_not_nil(lines[1]:match("^%- %[x%] First task ✅ %d%d%d%d%-%d%d%-%d%d$"))
+        assert.is_not_nil(lines[2]:match("^%- %[x%] Second task ✅ %d%d%d%d%-%d%d%-%d%d$"))
+        assert.is_not_nil(lines[3]:match("^%- %[x%] Third task ✅ %d%d%d%d%-%d%d%-%d%d$"))
+      end)
+    end)
+  end)
+
   describe("unicode character handling", function()
     describe("handle_backspace with multi-byte characters", function()
       it("deletes multi-byte CJK character (Chinese period) in non-list line", function()

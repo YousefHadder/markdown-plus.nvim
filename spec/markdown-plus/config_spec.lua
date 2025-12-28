@@ -443,6 +443,147 @@ describe("markdown-plus configuration", function()
     end)
   end)
 
+  describe("list configuration", function()
+    it("accepts valid list config with checkbox_completion", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          list = {
+            checkbox_completion = {
+              enabled = true,
+              format = "emoji",
+              date_format = "%Y-%m-%d",
+              remove_on_uncheck = true,
+              update_existing = true,
+            },
+          },
+        })
+      end)
+    end)
+
+    it("accepts empty list config", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          list = {},
+        })
+      end)
+    end)
+
+    it("accepts list config with only checkbox_completion enabled", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          list = {
+            checkbox_completion = {
+              enabled = true,
+            },
+          },
+        })
+      end)
+    end)
+
+    it("accepts all valid format values", function()
+      local valid_formats = { "emoji", "comment", "dataview", "parenthetical" }
+      for _, format in ipairs(valid_formats) do
+        assert.has_no.errors(function()
+          markdown_plus.setup({
+            list = {
+              checkbox_completion = {
+                format = format,
+              },
+            },
+          })
+        end)
+      end
+    end)
+
+    it("rejects invalid format value", function()
+      local original_list = markdown_plus.list
+      markdown_plus.list = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          list = {
+            checkbox_completion = {
+              format = "invalid_format",
+            },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.list)
+      markdown_plus.list = original_list
+    end)
+
+    it("rejects non-boolean enabled value", function()
+      local original_list = markdown_plus.list
+      markdown_plus.list = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          list = {
+            checkbox_completion = {
+              enabled = "yes",
+            },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.list)
+      markdown_plus.list = original_list
+    end)
+
+    it("rejects non-string date_format value", function()
+      local original_list = markdown_plus.list
+      markdown_plus.list = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          list = {
+            checkbox_completion = {
+              date_format = 123,
+            },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.list)
+      markdown_plus.list = original_list
+    end)
+
+    it("rejects unknown fields in list config", function()
+      local original_list = markdown_plus.list
+      markdown_plus.list = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          list = {
+            unknown_field = true,
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.list)
+      markdown_plus.list = original_list
+    end)
+
+    it("rejects unknown fields in checkbox_completion config", function()
+      local original_list = markdown_plus.list
+      markdown_plus.list = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          list = {
+            checkbox_completion = {
+              unknown_nested_field = true,
+            },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.list)
+      markdown_plus.list = original_list
+    end)
+  end)
+
   describe("callouts configuration", function()
     it("accepts valid callouts config", function()
       assert.has_no.errors(function()

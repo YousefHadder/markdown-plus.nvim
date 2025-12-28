@@ -45,6 +45,15 @@ M.config = {
     section_header = "Footnotes",
     confirm_delete = true,
   },
+  list = {
+    checkbox_completion = {
+      enabled = false,
+      format = "emoji",
+      date_format = "%Y-%m-%d",
+      remove_on_uncheck = true,
+      update_existing = true,
+    },
+  },
 }
 
 -- Module references
