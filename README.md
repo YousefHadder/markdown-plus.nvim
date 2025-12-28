@@ -1,6 +1,6 @@
 
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-9-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-10-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 ![507DBB8A-996C-44B7-88BE-ABB7BC1BFD92_1_201_a](https://github.com/user-attachments/assets/8f6b9adf-13ce-4418-b6cf-1196784bda45)
 
@@ -102,6 +102,8 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
     <tr>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/jemag"><img src="https://avatars.githubusercontent.com/u/7985687?v=4?s=100" width="100px;" alt="Alexandre Desjardins"/><br /><sub><b>Alexandre Desjardins</b></sub></a><br /><a href="#ideas-jemag" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/j-steinbach"><img src="https://avatars.githubusercontent.com/u/69524139?v=4?s=100" width="100px;" alt="J. Steinbach"/><br /><sub><b>J. Steinbach</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Aj-steinbach" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/augustocdias"><img src="https://avatars.githubusercontent.com/u/1080789?v=4?s=100" width="100px;" alt="Augusto César Dias"/><br /><sub><b>Augusto César Dias</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/commits?author=augustocdias" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/ambaradan"><img src="https://avatars.githubusercontent.com/u/87865413?v=4?s=100" width="100px;" alt="ambaradan"/><br /><sub><b>ambaradan</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/commits?author=ambaradan" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
