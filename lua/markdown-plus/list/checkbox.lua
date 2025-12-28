@@ -38,30 +38,37 @@ end
 -- Each format has:
 --   template: function to generate the timestamp string
 --   pattern: Lua pattern to match existing timestamps (for removal/update)
+-- Note: Patterns are specific to common date formats to avoid matching arbitrary text.
+--       Default pattern matches ISO 8601 (YYYY-MM-DD) and common variants with time.
+--       Custom date_format values should use similar numeric date structures.
 local TIMESTAMP_FORMATS = {
   emoji = {
     template = function(date)
       return " ✅ " .. date
     end,
-    pattern = " ✅ [%d%p]+$",
+    -- Match: " ✅ YYYY-MM-DD" or " ✅ DD/MM/YYYY" or with time (HH:MM, HH:MM:SS)
+    pattern = " ✅ %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]*$",
   },
   comment = {
     template = function(date)
       return " <!-- completed: " .. date .. " -->"
     end,
-    pattern = " <!%-%- completed: [%d%p]+ %-%->$",
+    -- Match: " <!-- completed: YYYY-MM-DD -->" or with time
+    pattern = " <!%-%- completed: %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]* %-%->$",
   },
   dataview = {
     template = function(date)
       return " [completion:: " .. date .. "]"
     end,
-    pattern = " %[completion:: [%d%p]+%]$",
+    -- Match: " [completion:: YYYY-MM-DD]" or with time
+    pattern = " %[completion:: %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]*%]$",
   },
   parenthetical = {
     template = function(date)
       return " (completed: " .. date .. ")"
     end,
-    pattern = " %(completed: [%d%p]+%)$",
+    -- Match: " (completed: YYYY-MM-DD)" or with time
+    pattern = " %(completed: %d%d%d?%d?[%-%/%.:]%d%d[%-%/%.:]%d%d%d?%d?[%s%d:]*%)$",
   },
 }
 
@@ -73,7 +80,8 @@ local function generate_timestamp(config)
   if not format_def then
     return ""
   end
-  local date = os.date(config.date_format)
+  -- os.date() returns nil for invalid format strings; fall back to empty string
+  local date = os.date(config.date_format) or ""
   return format_def.template(date)
 end
 
@@ -167,11 +175,15 @@ function M.replace_checkbox_state(line, list_info)
           if config.update_existing then
             -- Remove old timestamp and add new one
             content = remove_timestamp(content)
+            -- Trim trailing whitespace before adding new timestamp
+            content = content:gsub("%s+$", "")
             content = content .. generate_timestamp(config)
           end
           -- If not update_existing, keep the old timestamp as-is
         else
           -- No existing timestamp, add one
+          -- Trim trailing whitespace before adding timestamp
+          content = content:gsub("%s+$", "")
           content = content .. generate_timestamp(config)
         end
       else

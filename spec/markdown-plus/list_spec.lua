@@ -1353,6 +1353,66 @@ describe("markdown-plus list management", function()
         assert.is_not_nil(lines[3]:match("^%- %[x%] Third task ✅ %d%d%d%d%-%d%d%-%d%d$"))
       end)
     end)
+
+    describe("edge cases: content with numbers and punctuation", function()
+      before_each(function()
+        markdown_plus.config.list.checkbox_completion.enabled = true
+        markdown_plus.config.list.checkbox_completion.format = "emoji"
+        markdown_plus.config.list.checkbox_completion.remove_on_uncheck = true
+      end)
+
+      it("does not remove phone number when unchecking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Call 555-1234 ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should only remove the timestamp, not the phone number
+        assert.are.equal("- [ ] Call 555-1234", lines[1])
+      end)
+
+      it("does not remove price when unchecking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Buy item for $19.99 ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should only remove the timestamp, not the price
+        assert.are.equal("- [ ] Buy item for $19.99", lines[1])
+      end)
+
+      it("does not remove arbitrary numbers when unchecking task", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Task 123.456 done ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should only remove the timestamp, not the numbers
+        assert.are.equal("- [ ] Task 123.456 done", lines[1])
+      end)
+
+      it("correctly handles task with date-like content and timestamp", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] Meeting on 2024-12-25 ✅ 2024-01-15" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should only remove the timestamp at the end, not the date in content
+        assert.are.equal("- [ ] Meeting on 2024-12-25", lines[1])
+      end)
+
+      it("handles trailing whitespace before timestamp correctly", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task with spaces  " })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should trim trailing whitespace before adding timestamp
+        assert.is_not_nil(lines[1]:match("^%- %[x%] Task with spaces ✅ %d%d%d%d%-%d%d%-%d%d$"))
+        -- Ensure no extra spaces between content and timestamp
+        assert.is_nil(lines[1]:match("  ✅"))
+      end)
+
+      it("handles invalid date format gracefully", function()
+        markdown_plus.config.list.checkbox_completion.date_format = "%Q" -- Invalid format
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task to complete" })
+        list.toggle_checkbox_on_line(1)
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Should not crash, even with invalid format (may result in literal format string or empty)
+        -- Just verify the checkbox was toggled and a timestamp marker exists
+        assert.is_true(lines[1]:match("^%- %[x%] Task to complete ✅") ~= nil)
+      end)
+    end)
   end)
 
   describe("unicode character handling", function()
