@@ -91,16 +91,21 @@
       ]
     },
     {
-      "login": "augustocdias",
-      "name": "Augusto César Dias",
-      "avatar_url": "https://avatars.githubusercontent.com/u/1080789?v=4",
-      "profile": "https://github.com/augustocdias",
       "login": "ambaradan",
       "name": "ambaradan",
       "avatar_url": "https://avatars.githubusercontent.com/u/87865413?v=4",
       "profile": "https://github.com/ambaradan",
       "contributions": [
         "code"
+      ]
+    },
+    {
+      "login": "webdavis",
+      "name": "Stephen A. Davis",
+      "avatar_url": "https://avatars.githubusercontent.com/u/23553256?v=4",
+      "profile": "https://github.com/webdavis",
+      "contributions": [
+        "ideas"
       ]
     }
   ],
