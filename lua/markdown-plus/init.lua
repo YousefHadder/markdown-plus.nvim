@@ -54,6 +54,12 @@ M.config = {
       update_existing = true,
     },
   },
+  links = {
+    smart_paste = {
+      enabled = false,
+      timeout = 5,
+    },
+  },
 }
 
 -- Module references
