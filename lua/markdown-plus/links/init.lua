@@ -1,6 +1,7 @@
 -- Links & References module for markdown-plus.nvim
 local utils = require("markdown-plus.utils")
 local keymap_helper = require("markdown-plus.keymap_helper")
+local smart_paste = require("markdown-plus.links.smart_paste")
 local M = {}
 
 ---@type markdown-plus.InternalConfig
@@ -42,6 +43,7 @@ end
 ---@return nil
 function M.setup(config)
   M.config = config or {}
+  smart_paste.setup(M.config)
 end
 
 ---Enable links features for current buffer
@@ -100,6 +102,13 @@ function M.setup_keymaps()
       modes = "n",
       default_key = "<leader>ma",
       desc = "Convert URL to markdown link",
+    },
+    {
+      plug = keymap_helper.plug_name("SmartPaste"),
+      fn = smart_paste.smart_paste,
+      modes = "n",
+      default_key = "<leader>mp",
+      desc = "Smart paste URL from clipboard as markdown link",
     },
   })
 end
