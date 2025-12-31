@@ -88,6 +88,27 @@ local function parse_title(html)
   return nil
 end
 
+---Check if URL needs angle bracket wrapping for markdown
+---URLs with parentheses, spaces, or other special characters need wrapping
+---@param url string URL to check
+---@return boolean True if URL needs angle brackets
+local function url_needs_brackets(url)
+  -- Parentheses break markdown link syntax: [text](url(with)parens) is invalid
+  -- Spaces and angle brackets also need special handling
+  return url:match("[()%s<>]") ~= nil
+end
+
+---Format URL for use in markdown link syntax
+---Wraps URL in angle brackets if it contains special characters
+---@param url string URL to format
+---@return string Formatted URL safe for markdown
+local function format_url_for_markdown(url)
+  if url_needs_brackets(url) then
+    return "<" .. url .. ">"
+  end
+  return url
+end
+
 ---Get URL from system clipboard
 ---@return string|nil URL or nil if clipboard doesn't contain a URL
 local function get_clipboard_url()
@@ -182,7 +203,9 @@ local function replace_placeholder(bufnr, mark_id, url, title)
 
   -- Escape ] in title for markdown link text
   local safe_title = title:gsub("%]", "\\]")
-  local new_link = string.format("[%s](%s)", safe_title, url)
+  -- Format URL for markdown (wrap in angle brackets if contains special chars)
+  local safe_url = format_url_for_markdown(url)
+  local new_link = string.format("[%s](%s)", safe_title, safe_url)
 
   -- Replace the placeholder
   local before = line:sub(1, start_col)
@@ -214,6 +237,12 @@ local function prompt_for_title(bufnr, mark_id, url, err_msg)
         -- User cancelled - replace with raw URL
         -- Get extmark to find placeholder position
         if not vim.api.nvim_buf_is_valid(bufnr) then
+          return
+        end
+
+        -- Check buffer is modifiable
+        if not vim.bo[bufnr].modifiable then
+          vim.notify("markdown-plus: Buffer is not modifiable", vim.log.levels.WARN)
           return
         end
 
@@ -258,6 +287,12 @@ function M.smart_paste()
     return
   end
 
+  -- Check buffer is modifiable before inserting placeholder
+  if not vim.bo.modifiable then
+    vim.notify("markdown-plus: Buffer is not modifiable", vim.log.levels.WARN)
+    return
+  end
+
   local bufnr = vim.api.nvim_get_current_buf()
   local cursor = vim.api.nvim_win_get_cursor(0)
   local row = cursor[1] - 1 -- 0-indexed
@@ -266,8 +301,9 @@ function M.smart_paste()
   -- Get current line
   local line = vim.api.nvim_get_current_line()
 
-  -- Create placeholder
-  local placeholder = "[⏳ Loading...](" .. url .. ")"
+  -- Create placeholder (format URL for markdown safety)
+  local safe_url = format_url_for_markdown(url)
+  local placeholder = "[⏳ Loading...](" .. safe_url .. ")"
 
   -- Insert placeholder at cursor position
   local before = line:sub(1, col)
@@ -319,5 +355,7 @@ M._html_unescape = html_unescape
 M._is_url = is_url
 M._parse_title = parse_title
 M._get_clipboard_url = get_clipboard_url
+M._url_needs_brackets = url_needs_brackets
+M._format_url_for_markdown = format_url_for_markdown
 
 return M

@@ -524,5 +524,76 @@ describe("markdown-plus links", function()
         assert.equals("Twitter Title", smart_paste._parse_title(html))
       end)
     end)
+
+    describe("_url_needs_brackets", function()
+      it("returns true for URLs with parentheses", function()
+        assert.is_true(smart_paste._url_needs_brackets("https://example.com/page(1).html"))
+      end)
+
+      it("returns true for URLs with spaces", function()
+        assert.is_true(smart_paste._url_needs_brackets("https://example.com/my page.html"))
+      end)
+
+      it("returns true for URLs with angle brackets", function()
+        assert.is_true(smart_paste._url_needs_brackets("https://example.com/<path>"))
+      end)
+
+      it("returns true for URLs with multiple special chars", function()
+        assert.is_true(smart_paste._url_needs_brackets("https://example.com/page (1).html"))
+      end)
+
+      it("returns false for regular URLs", function()
+        assert.is_false(smart_paste._url_needs_brackets("https://example.com/page.html"))
+      end)
+
+      it("returns false for URLs with query strings", function()
+        assert.is_false(smart_paste._url_needs_brackets("https://example.com/search?q=test&page=1"))
+      end)
+
+      it("returns false for URLs with fragments", function()
+        assert.is_false(smart_paste._url_needs_brackets("https://example.com/page#section"))
+      end)
+
+      it("returns false for URLs with encoded characters", function()
+        assert.is_false(smart_paste._url_needs_brackets("https://example.com/page%20name.html"))
+      end)
+    end)
+
+    describe("_format_url_for_markdown", function()
+      it("wraps URLs with parentheses in angle brackets", function()
+        assert.equals(
+          "<https://example.com/page(1).html>",
+          smart_paste._format_url_for_markdown("https://example.com/page(1).html")
+        )
+      end)
+
+      it("wraps URLs with spaces in angle brackets", function()
+        assert.equals(
+          "<https://example.com/my page.html>",
+          smart_paste._format_url_for_markdown("https://example.com/my page.html")
+        )
+      end)
+
+      it("returns regular URLs unchanged", function()
+        assert.equals(
+          "https://example.com/page.html",
+          smart_paste._format_url_for_markdown("https://example.com/page.html")
+        )
+      end)
+
+      it("returns URLs with query strings unchanged", function()
+        assert.equals(
+          "https://example.com/search?q=test",
+          smart_paste._format_url_for_markdown("https://example.com/search?q=test")
+        )
+      end)
+
+      it("handles Wikipedia-style URLs with parentheses", function()
+        assert.equals(
+          "<https://en.wikipedia.org/wiki/Lua_(programming_language)>",
+          smart_paste._format_url_for_markdown("https://en.wikipedia.org/wiki/Lua_(programming_language)")
+        )
+      end)
+    end)
   end)
 end)
