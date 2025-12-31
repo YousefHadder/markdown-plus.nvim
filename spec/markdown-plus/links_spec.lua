@@ -1,6 +1,7 @@
 -- Tests for markdown-plus links module
 describe("markdown-plus links", function()
   local links = require("markdown-plus.links")
+  local smart_paste = require("markdown-plus.links.smart_paste")
 
   before_each(function()
     -- Create a test buffer
@@ -281,6 +282,229 @@ describe("markdown-plus links", function()
       end
       -- Should reuse existing reference (normalized to same ID), not create duplicate
       assert.equals(1, ref_count)
+    end)
+  end)
+
+  describe("smart_paste", function()
+    describe("_is_url", function()
+      it("returns true for http URLs", function()
+        assert.is_true(smart_paste._is_url("http://example.com"))
+      end)
+
+      it("returns true for https URLs", function()
+        assert.is_true(smart_paste._is_url("https://example.com"))
+      end)
+
+      it("returns true for URLs with paths", function()
+        assert.is_true(smart_paste._is_url("https://example.com/path/to/page"))
+      end)
+
+      it("returns true for URLs with query strings", function()
+        assert.is_true(smart_paste._is_url("https://example.com/search?q=test&page=1"))
+      end)
+
+      it("returns true for URLs with fragments", function()
+        assert.is_true(smart_paste._is_url("https://example.com/page#section"))
+      end)
+
+      it("returns false for non-URL strings", function()
+        assert.is_false(smart_paste._is_url("not a url"))
+      end)
+
+      it("returns false for ftp URLs", function()
+        assert.is_false(smart_paste._is_url("ftp://example.com"))
+      end)
+
+      it("returns false for file URLs", function()
+        assert.is_false(smart_paste._is_url("file:///path/to/file"))
+      end)
+
+      it("returns false for nil", function()
+        assert.is_false(smart_paste._is_url(nil))
+      end)
+
+      it("returns false for numbers", function()
+        assert.is_false(smart_paste._is_url(123))
+      end)
+
+      it("returns false for empty string", function()
+        assert.is_false(smart_paste._is_url(""))
+      end)
+    end)
+
+    describe("_html_unescape", function()
+      it("decodes &amp;", function()
+        assert.equals("foo & bar", smart_paste._html_unescape("foo &amp; bar"))
+      end)
+
+      it("decodes &lt; and &gt;", function()
+        assert.equals("<div>", smart_paste._html_unescape("&lt;div&gt;"))
+      end)
+
+      it("decodes &quot;", function()
+        assert.equals('say "hello"', smart_paste._html_unescape("say &quot;hello&quot;"))
+      end)
+
+      it("decodes &#39; and &apos;", function()
+        assert.equals("it's", smart_paste._html_unescape("it&#39;s"))
+        assert.equals("it's", smart_paste._html_unescape("it&apos;s"))
+      end)
+
+      it("decodes &#x27;", function()
+        assert.equals("it's", smart_paste._html_unescape("it&#x27;s"))
+      end)
+
+      it("decodes &nbsp;", function()
+        assert.equals("hello world", smart_paste._html_unescape("hello&nbsp;world"))
+      end)
+
+      it("decodes multiple entities", function()
+        assert.equals('Tom & Jerry say "hi"', smart_paste._html_unescape("Tom &amp; Jerry say &quot;hi&quot;"))
+      end)
+
+      it("handles strings with no entities", function()
+        assert.equals("plain text", smart_paste._html_unescape("plain text"))
+      end)
+    end)
+
+    describe("_parse_title", function()
+      it("extracts og:title", function()
+        local html = [[
+          <html><head>
+          <meta property="og:title" content="My OG Title">
+          <title>Fallback Title</title>
+          </head></html>
+        ]]
+        assert.equals("My OG Title", smart_paste._parse_title(html))
+      end)
+
+      it("extracts og:title with reversed attribute order", function()
+        local html = [[
+          <html><head>
+          <meta content="My OG Title" property="og:title">
+          </head></html>
+        ]]
+        assert.equals("My OG Title", smart_paste._parse_title(html))
+      end)
+
+      it("extracts twitter:title when no og:title", function()
+        local html = [[
+          <html><head>
+          <meta name="twitter:title" content="My Twitter Title">
+          <title>Fallback Title</title>
+          </head></html>
+        ]]
+        assert.equals("My Twitter Title", smart_paste._parse_title(html))
+      end)
+
+      it("extracts twitter:title with reversed attribute order", function()
+        local html = [[
+          <html><head>
+          <meta content="My Twitter Title" name="twitter:title">
+          </head></html>
+        ]]
+        assert.equals("My Twitter Title", smart_paste._parse_title(html))
+      end)
+
+      it("falls back to <title> tag", function()
+        local html = [[
+          <html><head>
+          <title>Page Title</title>
+          </head></html>
+        ]]
+        assert.equals("Page Title", smart_paste._parse_title(html))
+      end)
+
+      it("handles <title> with attributes", function()
+        local html = [[
+          <html><head>
+          <title lang="en">Page Title</title>
+          </head></html>
+        ]]
+        assert.equals("Page Title", smart_paste._parse_title(html))
+      end)
+
+      it("decodes HTML entities in title", function()
+        local html = [[
+          <html><head>
+          <title>Tom &amp; Jerry</title>
+          </head></html>
+        ]]
+        assert.equals("Tom & Jerry", smart_paste._parse_title(html))
+      end)
+
+      it("normalizes whitespace in title", function()
+        local html = [[
+          <html><head>
+          <title>
+            Page   Title
+            Here
+          </title>
+          </head></html>
+        ]]
+        assert.equals("Page Title Here", smart_paste._parse_title(html))
+      end)
+
+      it("returns nil for empty HTML", function()
+        assert.is_nil(smart_paste._parse_title(""))
+      end)
+
+      it("returns nil for nil input", function()
+        assert.is_nil(smart_paste._parse_title(nil))
+      end)
+
+      it("returns nil when no title found", function()
+        local html = [[
+          <html><head>
+          <meta name="description" content="A description">
+          </head></html>
+        ]]
+        assert.is_nil(smart_paste._parse_title(html))
+      end)
+
+      it("returns nil for empty title tag", function()
+        local html = [[
+          <html><head>
+          <title></title>
+          </head></html>
+        ]]
+        assert.is_nil(smart_paste._parse_title(html))
+      end)
+
+      it("returns nil for whitespace-only title", function()
+        local html = [[
+          <html><head>
+          <title>   </title>
+          </head></html>
+        ]]
+        assert.is_nil(smart_paste._parse_title(html))
+      end)
+
+      it("handles Windows line endings", function()
+        local html = "<html>\r\n<head>\r\n<title>Title</title>\r\n</head></html>"
+        assert.equals("Title", smart_paste._parse_title(html))
+      end)
+
+      it("prefers og:title over twitter:title", function()
+        local html = [[
+          <html><head>
+          <meta property="og:title" content="OG Title">
+          <meta name="twitter:title" content="Twitter Title">
+          <title>Page Title</title>
+          </head></html>
+        ]]
+        assert.equals("OG Title", smart_paste._parse_title(html))
+      end)
+
+      it("prefers twitter:title over <title>", function()
+        local html = [[
+          <html><head>
+          <meta name="twitter:title" content="Twitter Title">
+          <title>Page Title</title>
+          </head></html>
+        ]]
+        assert.equals("Twitter Title", smart_paste._parse_title(html))
+      end)
     end)
   end)
 end)
