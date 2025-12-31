@@ -158,6 +158,37 @@ function M.check()
       end
     end
 
+    -- Check smart paste dependencies
+    if mp_ok and markdown_plus.config and markdown_plus.config.links then
+      local smart_paste_config = markdown_plus.config.links.smart_paste
+      if smart_paste_config and smart_paste_config.enabled then
+        health.start("Smart Paste")
+
+        -- Check curl
+        if vim.fn.executable("curl") == 1 then
+          health.ok("curl is installed (required for smart paste)")
+        else
+          health.error("curl is not installed (required for smart paste to fetch page titles)")
+        end
+
+        -- Check Neovim version for vim.system()
+        local nvim_ver = vim.version()
+        if (nvim_ver.major > 0) or (nvim_ver.major == 0 and nvim_ver.minor >= 10) then
+          health.ok("Neovim 0.10+ detected (required for async vim.system())")
+        else
+          health.error(
+            string.format(
+              "Neovim %d.%d is too old for smart paste (requires 0.10+ for vim.system())",
+              nvim_ver.major,
+              nvim_ver.minor
+            )
+          )
+        end
+
+        health.ok(string.format("Smart paste timeout: %d seconds", smart_paste_config.timeout or 5))
+      end
+    end
+
     -- Additional recommendations
     health.start("Recommendations")
 

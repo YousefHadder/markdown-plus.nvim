@@ -541,23 +541,11 @@ function M.validate(opts)
 
     -- Validate smart_paste nested config
     if opts.links.smart_paste then
-      ok, err = validate_field(
-        "config",
-        "links.smart_paste.enabled",
-        opts.links.smart_paste.enabled,
-        "boolean",
-        true
-      )
+      ok, err = validate_field("config", "links.smart_paste.enabled", opts.links.smart_paste.enabled, "boolean", true)
       if not ok then
         return false, err
       end
-      ok, err = validate_field(
-        "config",
-        "links.smart_paste.timeout",
-        opts.links.smart_paste.timeout,
-        "number",
-        true
-      )
+      ok, err = validate_field("config", "links.smart_paste.timeout", opts.links.smart_paste.timeout, "number", true)
       if not ok then
         return false, err
       end
