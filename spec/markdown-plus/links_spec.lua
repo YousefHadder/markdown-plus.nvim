@@ -485,6 +485,24 @@ describe("markdown-plus links", function()
         assert.equals("Title", smart_paste._parse_title(html))
       end)
 
+      it("handles uppercase <TITLE> tag", function()
+        local html = [[
+          <HTML><HEAD>
+          <TITLE>Page Title</TITLE>
+          </HEAD></HTML>
+        ]]
+        assert.equals("Page Title", smart_paste._parse_title(html))
+      end)
+
+      it("handles mixed case title tag", function()
+        local html = [[
+          <html><head>
+          <Title>Mixed Case Title</Title>
+          </head></html>
+        ]]
+        assert.equals("Mixed Case Title", smart_paste._parse_title(html))
+      end)
+
       it("prefers og:title over twitter:title", function()
         local html = [[
           <html><head>

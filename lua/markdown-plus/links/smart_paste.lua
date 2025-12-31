@@ -76,8 +76,8 @@ local function parse_title(html)
     return tw
   end
 
-  -- Try <title> tag
-  local t = h:match("<title[^>]*>(.-)</title>")
+  -- Try <title> tag (case-insensitive)
+  local t = h:match("<[Tt][Ii][Tt][Ll][Ee][^>]*>(.-)</[Tt][Ii][Tt][Ll][Ee]>")
   if t then
     t = vim.trim(html_unescape(t:gsub("%s+", " ")))
     if t ~= "" then
