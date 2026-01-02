@@ -5,6 +5,26 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.10.0...v1.11.0) (2026-01-02)
+
+
+### Features
+
+* **links:** add smart paste feature ([642a338](https://github.com/YousefHadder/markdown-plus.nvim/commit/642a3387d6dd929f7f5ee2cd45458b0e5b943283))
+* **links:** add smart_paste config types ([3c5d69b](https://github.com/YousefHadder/markdown-plus.nvim/commit/3c5d69befde6f0ca3435fd3833f4000d5b183f02))
+* **links:** add smart_paste config validation ([1645c41](https://github.com/YousefHadder/markdown-plus.nvim/commit/1645c418c8e98364461a23475a906d873a8a1fd1))
+* **links:** add smart_paste default config ([0c6c71e](https://github.com/YousefHadder/markdown-plus.nvim/commit/0c6c71ecdaa3d5edcd0d17138cc6f8070cab9e89))
+* **links:** add smart_paste module implementation ([5ce4bdb](https://github.com/YousefHadder/markdown-plus.nvim/commit/5ce4bdb27102f62cdf63e0601a567a4e70626356))
+* **links:** integrate smart_paste into links module ([4597fd5](https://github.com/YousefHadder/markdown-plus.nvim/commit/4597fd5afe69db1fa69f3f76858e3a03da7781d9))
+* **list:** add checkbox completion timestamps ([05084a4](https://github.com/YousefHadder/markdown-plus.nvim/commit/05084a442a3567f544b354dd12e356030a50894c))
+* **list:** add checkbox completion timestamps ([d548ac7](https://github.com/YousefHadder/markdown-plus.nvim/commit/d548ac789607e03e54c8ffcfe41cb598366bf755)), closes [#186](https://github.com/YousefHadder/markdown-plus.nvim/issues/186)
+
+
+### Bug Fixes
+
+* **links:** address PR review feedback for smart_paste ([9d193ab](https://github.com/YousefHadder/markdown-plus.nvim/commit/9d193abbd36c86af99c57568ab559bd9cb05de8f))
+* **links:** handle case-insensitive HTML title tags ([4ca4a77](https://github.com/YousefHadder/markdown-plus.nvim/commit/4ca4a7791f1b3cd69df0d36e47f7d6271161c0c3))
+
 ## [1.10.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.9.1...v1.10.0) (2025-12-25)
 
 
