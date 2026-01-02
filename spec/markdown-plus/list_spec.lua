@@ -1540,4 +1540,83 @@ describe("markdown-plus list management", function()
       end)
     end)
   end)
+
+  describe("skip_in_codeblock wrapper", function()
+    local handlers = require("markdown-plus.list.handlers")
+
+    it("does not call handler when inside code block", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "```rust",
+        "- this looks like a list but is code",
+        "```",
+      })
+      vim.api.nvim_win_set_cursor(0, { 2, 0 }) -- inside code block
+
+      local handler_called = false
+      local wrapped = handlers.skip_in_codeblock(function()
+        handler_called = true
+      end, "<Tab>")
+
+      wrapped()
+
+      assert.is_false(handler_called)
+    end)
+
+    it("calls handler when not inside code block", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Header",
+        "- actual list item",
+        "```",
+        "code",
+        "```",
+      })
+      vim.api.nvim_win_set_cursor(0, { 2, 0 }) -- on list item, not in code block
+
+      local handler_called = false
+      local wrapped = handlers.skip_in_codeblock(function()
+        handler_called = true
+      end, "<Tab>")
+
+      wrapped()
+
+      assert.is_true(handler_called)
+    end)
+
+    it("handles tilde code blocks", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "~~~python",
+        "- comment that looks like list",
+        "~~~",
+      })
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+      local handler_called = false
+      local wrapped = handlers.skip_in_codeblock(function()
+        handler_called = true
+      end, "<Tab>")
+
+      wrapped()
+
+      assert.is_false(handler_called)
+    end)
+
+    it("works correctly after code block ends", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "```",
+        "code",
+        "```",
+        "- real list item",
+      })
+      vim.api.nvim_win_set_cursor(0, { 4, 0 }) -- after code block
+
+      local handler_called = false
+      local wrapped = handlers.skip_in_codeblock(function()
+        handler_called = true
+      end, "<Tab>")
+
+      wrapped()
+
+      assert.is_true(handler_called)
+    end)
+  end)
 end)

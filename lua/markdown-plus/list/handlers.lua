@@ -4,6 +4,21 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
+---Skips the handler when inside a codeblock, falling back to the default key behavior (E.g; backspace/tab)
+---@param handler function
+---@param fallback_key string
+---@return function Wrapped handler
+function M.skip_in_codeblock(handler, fallback_key)
+  return function()
+    if utils.is_in_code_block() then
+      local key = vim.api.nvim_replace_termcodes(fallback_key, true, false, true)
+      vim.api.nvim_feedkeys(key, "n", false)
+      return
+    end
+    handler()
+  end
+end
+
 ---Find parent list item by looking upward from current line
 ---@param current_row number Current row number (1-indexed)
 ---@param current_line string Current line content

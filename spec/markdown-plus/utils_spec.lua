@@ -721,4 +721,143 @@ describe("markdown-plus utils", function()
       assert.are.equal("the quick brown fox", result.line)
     end)
   end)
+
+  -- Tests use treesitter when available (markdown filetype), with regex fallback
+  describe("is_in_code_block", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.bo[buf].filetype = "markdown"
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("returns false when not in a code block", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Header",
+        "Some text",
+        "- list item",
+      })
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+      assert.is_false(utils.is_in_code_block())
+    end)
+
+    it("returns true when inside a backtick code block", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "Some text",
+        "```rust",
+        "fn main() {",
+        "    println!(\"Hello\");",
+        "}",
+        "```",
+        "More text",
+      })
+      vim.api.nvim_win_set_cursor(0, { 4, 0 }) -- inside code block
+
+      assert.is_true(utils.is_in_code_block())
+    end)
+
+    it("returns true when inside a tilde code block", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "Some text",
+        "~~~python",
+        "def hello():",
+        "    print('Hello')",
+        "~~~",
+        "More text",
+      })
+      vim.api.nvim_win_set_cursor(0, { 3, 0 }) -- inside code block
+
+      assert.is_true(utils.is_in_code_block())
+    end)
+
+    it("returns false after code block closes", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "```",
+        "code",
+        "```",
+        "not code",
+      })
+      vim.api.nvim_win_set_cursor(0, { 4, 0 }) -- after code block
+
+      assert.is_false(utils.is_in_code_block())
+    end)
+
+    it("returns true on first line inside code block", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "```",
+        "first line of code",
+        "```",
+      })
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+      assert.is_true(utils.is_in_code_block())
+    end)
+
+    it("returns true on the opening fence line (fence is part of block)", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "text before",
+        "```rust",
+        "code here",
+        "```",
+      })
+      vim.api.nvim_win_set_cursor(0, { 2, 0 }) -- on opening fence
+
+      -- The fence line is considered part of the code block
+      -- This is acceptable since list handlers won't match fence syntax anyway
+      assert.is_true(utils.is_in_code_block())
+    end)
+
+    it("handles indented code fences", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "- list item",
+        "  ```",
+        "  indented code",
+        "  ```",
+        "- next item",
+      })
+      vim.api.nvim_win_set_cursor(0, { 3, 0 }) -- inside indented code block
+
+      assert.is_true(utils.is_in_code_block())
+    end)
+
+    it("handles multiple code blocks", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "```",
+        "first block",
+        "```",
+        "between blocks",
+        "```",
+        "second block",
+        "```",
+      })
+
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+      assert.is_true(utils.is_in_code_block())
+
+      vim.api.nvim_win_set_cursor(0, { 4, 0 })
+      assert.is_false(utils.is_in_code_block())
+
+      vim.api.nvim_win_set_cursor(0, { 6, 0 })
+      assert.is_true(utils.is_in_code_block())
+    end)
+
+    it("handles unclosed code block", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "```",
+        "unclosed code",
+        "more code",
+      })
+      vim.api.nvim_win_set_cursor(0, { 3, 0 })
+
+      assert.is_true(utils.is_in_code_block())
+    end)
+  end)
 end)

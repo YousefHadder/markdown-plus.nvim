@@ -110,7 +110,7 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Configurable section header
 
 - Context-aware keymaps:
-  - List operations only active within lists
+  - List operations only active within lists and not active inside code blocks
   - Proper fallback to default Vim behavior
   - Insert mode operations that respect context
 
