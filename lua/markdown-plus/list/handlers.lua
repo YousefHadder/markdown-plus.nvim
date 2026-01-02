@@ -190,15 +190,9 @@ function M.handle_tab()
   local list_info = parser.parse_list_line(current_line)
 
   if not list_info then
-    -- Not in a list, insert a tab character or spaces
-    local cursor = utils.get_cursor()
-    local row, col = cursor[1], cursor[2]
-    local indent = string.rep(" ", vim.bo.shiftwidth or 2)
-    -- Use UTF-8 safe split to handle multibyte characters correctly
-    local before, after = utils.split_after_cursor(current_line, col)
-    local new_line = before .. indent .. after
-    utils.set_line(row, new_line)
-    utils.set_cursor(row, #before + #indent)
+    -- Not in a list, fall through to default Tab behavior
+    local key = vim.api.nvim_replace_termcodes("<Tab>", true, false, true)
+    vim.api.nvim_feedkeys(key, "n", false)
     return
   end
 
@@ -221,18 +215,9 @@ function M.handle_shift_tab()
   local list_info = parser.parse_list_line(current_line)
 
   if not list_info then
-    -- Not a list line: remove up to shiftwidth spaces from start
-    local cursor = utils.get_cursor()
-    local row, col = cursor[1], cursor[2]
-    local indent_size = vim.bo.shiftwidth or 2
-    local leading = current_line:match("^(%s*)")
-    local to_remove = math.min(#leading, indent_size)
-    if to_remove > 0 then
-      local new_line = current_line:sub(to_remove + 1)
-      utils.set_line(row, new_line)
-      local new_col = math.max(0, col - to_remove)
-      utils.set_cursor(row, new_col)
-    end
+    -- Not a list line, fall through to default Shift+Tab behavior
+    local key = vim.api.nvim_replace_termcodes("<S-Tab>", true, false, true)
+    vim.api.nvim_feedkeys(key, "n", false)
     return
   end
 
