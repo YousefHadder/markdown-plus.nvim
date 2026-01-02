@@ -70,6 +70,10 @@ function M.validate(opts)
   if not ok then
     return false, err
   end
+  ok, err = validate_field("config", "links", opts.links, "table", true)
+  if not ok then
+    return false, err
+  end
 
   -- Validate filetypes array
   if opts.filetypes then
@@ -236,6 +240,7 @@ function M.validate(opts)
     code_block = true,
     footnotes = true,
     list = true,
+    links = true,
   }
   for key in pairs(opts) do
     if not known_fields[key] then
@@ -522,6 +527,57 @@ function M.validate(opts)
             "config.list: unknown field '%s'. Valid fields are: %s",
             key,
             table.concat(vim.tbl_keys(known_list_fields), ", ")
+          )
+      end
+    end
+  end
+
+  -- Validate links config
+  if opts.links then
+    ok, err = validate_field("config", "links.smart_paste", opts.links.smart_paste, "table", true)
+    if not ok then
+      return false, err
+    end
+
+    -- Validate smart_paste nested config
+    if opts.links.smart_paste then
+      ok, err = validate_field("config", "links.smart_paste.enabled", opts.links.smart_paste.enabled, "boolean", true)
+      if not ok then
+        return false, err
+      end
+      ok, err = validate_field("config", "links.smart_paste.timeout", opts.links.smart_paste.timeout, "number", true)
+      if not ok then
+        return false, err
+      end
+
+      -- Validate timeout is positive
+      if opts.links.smart_paste.timeout and opts.links.smart_paste.timeout <= 0 then
+        return false, "config.links.smart_paste.timeout: must be a positive number"
+      end
+
+      -- Check for unknown smart_paste fields
+      local known_smart_paste_fields = { enabled = true, timeout = true }
+      for key in pairs(opts.links.smart_paste) do
+        if not known_smart_paste_fields[key] then
+          return false,
+            string.format(
+              "config.links.smart_paste: unknown field '%s'. Valid fields are: %s",
+              key,
+              table.concat(vim.tbl_keys(known_smart_paste_fields), ", ")
+            )
+        end
+      end
+    end
+
+    -- Check for unknown links fields
+    local known_links_fields = { smart_paste = true }
+    for key in pairs(opts.links) do
+      if not known_links_fields[key] then
+        return false,
+          string.format(
+            "config.links: unknown field '%s'. Valid fields are: %s",
+            key,
+            table.concat(vim.tbl_keys(known_links_fields), ", ")
           )
       end
     end

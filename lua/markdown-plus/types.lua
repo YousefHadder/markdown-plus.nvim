@@ -13,6 +13,7 @@
 ---@field callouts? markdown-plus.CalloutsConfig Callouts configuration
 ---@field footnotes? markdown-plus.FootnotesConfig Footnotes configuration
 ---@field list? markdown-plus.ListConfig List configuration
+---@field links? markdown-plus.LinksConfig Links configuration
 
 ---Feature configuration
 ---@class markdown-plus.FeatureConfig
@@ -55,6 +56,15 @@
 ---@class markdown-plus.ListConfig
 ---@field checkbox_completion? markdown-plus.CheckboxCompletionConfig Checkbox completion timestamp configuration
 
+---Links configuration
+---@class markdown-plus.LinksConfig
+---@field smart_paste? markdown-plus.SmartPasteConfig Smart paste configuration
+
+---Smart paste configuration
+---@class markdown-plus.SmartPasteConfig
+---@field enabled? boolean Enable smart URL paste (default: false, opt-in)
+---@field timeout? number Fetch timeout in seconds (default: 5)
+
 ---Checkbox completion timestamp configuration
 ---@class markdown-plus.CheckboxCompletionConfig
 ---@field enabled? boolean Enable completion timestamps when checking tasks (default: false)
@@ -87,6 +97,7 @@
 ---@field code_block markdown-plus.InternalCodeBlockConfig
 ---@field footnotes markdown-plus.InternalFootnotesConfig
 ---@field list markdown-plus.InternalListConfig
+---@field links markdown-plus.InternalLinksConfig
 
 ---Internal feature configuration
 ---@class markdown-plus.InternalFeatureConfig
@@ -140,6 +151,15 @@
 ---Internal list configuration
 ---@class markdown-plus.InternalListConfig
 ---@field checkbox_completion markdown-plus.InternalCheckboxCompletionConfig
+
+---Internal links configuration
+---@class markdown-plus.InternalLinksConfig
+---@field smart_paste markdown-plus.InternalSmartPasteConfig
+
+---Internal smart paste configuration
+---@class markdown-plus.InternalSmartPasteConfig
+---@field enabled boolean
+---@field timeout number
 
 ---Internal checkbox completion configuration
 ---@class markdown-plus.InternalCheckboxCompletionConfig
