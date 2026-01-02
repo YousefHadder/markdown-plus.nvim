@@ -76,6 +76,7 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Auto-convert bare URLs to markdown links
   - Convert between inline and reference-style links
   - Smart reference ID generation and reuse
+  - Smart paste: convert clipboard URLs to links with fetched page titles
   - Open links with native Neovim (gx)
 
 - Image Links:
@@ -755,6 +756,48 @@ Links with different text create separate references even with same URL:
     [my-dotfiles]: https://github.com/yousefhadder/dotfiles
 <
 
+SMART PASTE ~
+                                                    *markdown-plus-smart-paste*
+
+Smart paste reads a URL from your clipboard and automatically converts it
+to a markdown link by fetching the page title. This is opt-in and disabled
+by default.
+
+Enable in configuration:
+>lua
+    require('markdown-plus').setup({
+      links = {
+        smart_paste = {
+          enabled = true,   -- Enable smart paste feature
+          timeout = 5,      -- Fetch timeout in seconds
+        },
+      },
+    })
+<
+
+Usage:
+1. Copy a URL to your system clipboard
+2. Press `<leader>mp` (or use `<Plug>(MarkdownPlusSmartPaste)`)
+3. A placeholder `[⏳ Loading...](url)` appears at cursor
+4. After fetch completes, it updates to `[Page Title](url)`
+
+>markdown
+    Cursor here|
+
+    Press <leader>mp with https://github.com in clipboard:
+
+    Step 1 (immediate): [⏳ Loading...](https://github.com)|
+    Step 2 (async):     [GitHub](https://github.com)|
+<
+
+When title fetch fails:
+- You'll be prompted to enter a title manually
+- If you cancel the prompt, the placeholder is replaced with the raw URL
+
+Requirements:
+- `curl` must be installed (check with `:checkhealth markdown-plus`)
+- Neovim 0.10+ (for `vim.system()` async API)
+
 ==============================================================================
 IMAGES                                              *markdown-plus-usage-images*
 
@@ -1293,6 +1336,7 @@ Default keymaps:
         auto_link_url = '<leader>ma',      -- Convert URL to link
         to_reference = '<leader>mR',       -- Convert to reference-style
         to_inline = '<leader>mI',          -- Convert to inline
+        smart_paste = '<leader>mp',        -- Smart paste URL from clipboard
         follow_link = 'gd',                -- Follow TOC link
         open_link = 'gx',                  -- Open link in browser (native)
 
@@ -1385,6 +1429,12 @@ The plugin can be configured through the setup function:
           date_format = '%Y-%m-%d',   -- os.date() format string
           remove_on_uncheck = true,   -- Remove timestamp when unchecking
           update_existing = true,     -- Update timestamp when re-checking
+        },
+      },
+      links = {                  -- Links configuration
+        smart_paste = {
+          enabled = false,            -- Convert clipboard URLs to links (opt-in)
+          timeout = 5,                -- Fetch timeout in seconds
         },
       },
       table = {                  -- Table sub-configuration
@@ -1602,6 +1652,7 @@ LINKS ~
     <Plug>(MarkdownPlusConvertToReference) - Convert to reference-style (n)
     <Plug>(MarkdownPlusConvertToInline)    - Convert to inline link (n)
     <Plug>(MarkdownPlusAutoLinkURL)        - Auto-convert URL to link (n)
+    <Plug>(MarkdownPlusSmartPaste)         - Smart paste URL from clipboard (n)
 
 IMAGES ~
 
@@ -1898,6 +1949,19 @@ markdown-plus.links.find_reference_url(ref)
         {ref}  (string) The reference ID to look up
     Returns: ~
         (string|nil) The URL if found, nil otherwise
+
+                                              *markdown-plus.links.smart_paste*
+markdown-plus.links.smart_paste()
+    Reads a URL from clipboard and converts it to a markdown link with the
+    page title fetched asynchronously. Requires `links.smart_paste.enabled`
+    to be true in configuration.
+
+    Flow: ~
+        1. Reads URL from system clipboard (+ register)
+        2. Inserts placeholder: `[⏳ Loading...](url)`
+        3. Fetches page title asynchronously via curl
+        4. Updates placeholder with actual title
+        5. On failure, prompts user for title or replaces with raw URL
 
 QUOTES MODULE                                           *markdown-plus.quote*
 
