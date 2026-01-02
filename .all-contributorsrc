@@ -107,6 +107,16 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "ten3roberts",
+      "name": "Freja Roberts",
+      "avatar_url": "https://avatars.githubusercontent.com/u/25723553?v=4",
+      "profile": "https://ten3roberts.github.io",
+      "contributions": [
+        "code",
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
