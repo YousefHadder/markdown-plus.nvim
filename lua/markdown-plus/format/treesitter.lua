@@ -121,6 +121,35 @@ function M.get_any_format_at_cursor(exclude_type)
   return nil
 end
 
+---Check if cursor is inside a fenced code block
+---@return boolean|nil True if inside code block, false if not, nil if treesitter unavailable
+function M.is_in_fenced_code_block()
+  if not M.is_available() then
+    return nil
+  end
+
+  local ok_parser, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
+  if not ok_parser or not parser then
+    return nil
+  end
+  parser:parse(true)
+
+  local ok, node = pcall(vim.treesitter.get_node)
+  if not ok or not node then
+    return nil
+  end
+
+  -- Find codeblock in ancestors
+  while node do
+    if node:type() == "fenced_code_block" then
+      return true
+    end
+    node = node:parent()
+  end
+
+  return false
+end
+
 ---Remove formatting from a treesitter node range
 ---@param node_info markdown-plus.format.NodeInfo Node info from get_formatting_node_at_cursor
 ---@param format_type string The format type to remove

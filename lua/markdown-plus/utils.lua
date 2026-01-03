@@ -386,6 +386,32 @@ function M.notify(msg, level)
   vim.notify("markdown-plus: " .. msg, level or vim.log.levels.INFO)
 end
 
+---Check if cursor is currently inside a fenced code block
+---Uses treesitter when available, falls back to regex-based detection
+---@return boolean True if cursor is inside a code block
+function M.is_in_code_block()
+  local ts = require("markdown-plus.format.treesitter")
+  local ts_result = ts.is_in_fenced_code_block()
+  if ts_result ~= nil then
+    return ts_result
+  end
+
+  -- Fallback to regex-based detection
+  -- Scans from buffer start to current line, toggling state on each fence
+  local cursor = M.get_cursor()
+  local current_row = cursor[1]
+  local lines = vim.api.nvim_buf_get_lines(0, 0, current_row, false)
+
+  local in_code_block = false
+  for _, line in ipairs(lines) do
+    if line:match("^%s*```") or line:match("^%s*~~~") then
+      in_code_block = not in_code_block
+    end
+  end
+
+  return in_code_block
+end
+
 -- =============================================================================
 -- Element utilities (shared by links, images, and similar modules)
 -- =============================================================================
