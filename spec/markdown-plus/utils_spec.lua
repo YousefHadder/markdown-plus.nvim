@@ -754,7 +754,7 @@ describe("markdown-plus utils", function()
         "Some text",
         "```rust",
         "fn main() {",
-        "    println!(\"Hello\");",
+        '    println!("Hello");',
         "}",
         "```",
         "More text",

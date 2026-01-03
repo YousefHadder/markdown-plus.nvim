@@ -1619,4 +1619,128 @@ describe("markdown-plus list management", function()
       assert.is_true(handler_called)
     end)
   end)
+
+  describe("handle_tab", function()
+    describe("on list lines", function()
+      it("indents list item by shiftwidth", function()
+        vim.bo[buf].shiftwidth = 2
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 2 })
+        list.handle_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("  - Item", lines[1])
+      end)
+
+      it("indents ordered list item by shiftwidth", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. First item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 5 })
+        list.handle_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("    1. First item", lines[1])
+      end)
+
+      it("indents checkbox list item", function()
+        vim.bo[buf].shiftwidth = 2
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task" })
+        vim.api.nvim_win_set_cursor(0, { 1, 6 })
+        list.handle_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("  - [ ] Task", lines[1])
+      end)
+
+      it("updates cursor position after indent", function()
+        vim.bo[buf].shiftwidth = 2
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 4 })
+        list.handle_tab()
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        assert.are.equal(6, cursor[2]) -- original 4 + 2 (shiftwidth)
+      end)
+    end)
+
+    describe("on non-list lines", function()
+      it("falls through to default Tab behavior (does not modify buffer directly)", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Regular text" })
+        vim.api.nvim_win_set_cursor(0, { 1, 4 })
+        -- The handler feeds <Tab> keys, which won't execute in test context
+        -- but should NOT modify the buffer itself
+        list.handle_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Line should be unchanged (Tab key sent but not processed in test)
+        assert.are.equal("Regular text", lines[1])
+      end)
+    end)
+  end)
+
+  describe("handle_shift_tab", function()
+    describe("on list lines", function()
+      it("outdents list item by shiftwidth", function()
+        vim.bo[buf].shiftwidth = 2
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "  - Item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 4 })
+        list.handle_shift_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- Item", lines[1])
+      end)
+
+      it("outdents ordered list item by shiftwidth", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "    1. First item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 8 })
+        list.handle_shift_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("1. First item", lines[1])
+      end)
+
+      it("does not outdent if already at root level", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 2 })
+        list.handle_shift_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- Item", lines[1]) -- unchanged
+      end)
+
+      it("does not outdent if indent is less than shiftwidth", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "  - Item" }) -- only 2 spaces
+        vim.api.nvim_win_set_cursor(0, { 1, 4 })
+        list.handle_shift_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("  - Item", lines[1]) -- unchanged
+      end)
+
+      it("updates cursor position after outdent", function()
+        vim.bo[buf].shiftwidth = 2
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "  - Item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 6 })
+        list.handle_shift_tab()
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        assert.are.equal(4, cursor[2]) -- original 6 - 2 (shiftwidth)
+      end)
+
+      it("clamps cursor to 0 if would go negative", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "    - Item" })
+        vim.api.nvim_win_set_cursor(0, { 1, 2 }) -- cursor in indent area
+        list.handle_shift_tab()
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        assert.are.equal(0, cursor[2]) -- clamped to 0
+      end)
+    end)
+
+    describe("on non-list lines", function()
+      it("falls through to default Shift-Tab behavior (does not modify buffer directly)", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "    Regular text" })
+        vim.api.nvim_win_set_cursor(0, { 1, 6 })
+        -- The handler feeds <S-Tab> keys, which won't execute in test context
+        -- but should NOT modify the buffer itself
+        list.handle_shift_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        -- Line should be unchanged (S-Tab key sent but not processed in test)
+        assert.are.equal("    Regular text", lines[1])
+      end)
+    end)
+  end)
 end)
