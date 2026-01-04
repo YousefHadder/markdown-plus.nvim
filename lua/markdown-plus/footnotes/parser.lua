@@ -75,7 +75,7 @@ end
 ---@param lines string[] All lines in buffer (used for regex fallback)
 ---@return table<number, boolean> Set of line numbers inside code blocks
 local function get_code_block_lines(lines)
-  local ts_result = ts.get_lines_in_node_type("fenced_code_block")
+  local ts_result = ts.get_lines_in_node_type(ts.nodes.FENCED_CODE_BLOCK)
   if ts_result then
     return ts_result
   end

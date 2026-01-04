@@ -7,23 +7,26 @@ local M = {}
 local DELIMITER_DOT = "."
 local DELIMITER_PAREN = ")"
 
+-- Treesitter node type constants (imported from treesitter module)
+local nodes = ts.nodes
+
 -- =============================================================================
 -- Treesitter Node Mappings
 -- =============================================================================
 
 -- Map treesitter marker nodes to list types
 local TS_MARKER_TYPES = {
-  list_marker_minus = { type = "unordered", marker = "-", delimiter = "" },
-  list_marker_plus = { type = "unordered", marker = "+", delimiter = "" },
-  list_marker_star = { type = "unordered", marker = "*", delimiter = "" },
-  list_marker_dot = { type = "ordered", delimiter = DELIMITER_DOT },
-  list_marker_parenthesis = { type = "ordered_paren", delimiter = DELIMITER_PAREN },
+  [nodes.LIST_MARKER_MINUS] = { type = "unordered", marker = "-", delimiter = "" },
+  [nodes.LIST_MARKER_PLUS] = { type = "unordered", marker = "+", delimiter = "" },
+  [nodes.LIST_MARKER_STAR] = { type = "unordered", marker = "*", delimiter = "" },
+  [nodes.LIST_MARKER_DOT] = { type = "ordered", delimiter = DELIMITER_DOT },
+  [nodes.LIST_MARKER_PARENTHESIS] = { type = "ordered_paren", delimiter = DELIMITER_PAREN },
 }
 
 -- Map checkbox nodes to checkbox state
 local TS_CHECKBOX_TYPES = {
-  task_list_marker_unchecked = " ",
-  task_list_marker_checked = "x",
+  [nodes.TASK_LIST_MARKER_UNCHECKED] = " ",
+  [nodes.TASK_LIST_MARKER_CHECKED] = "x",
 }
 
 ---List patterns for detection
@@ -155,7 +158,7 @@ local function parse_list_line_ts(row)
   end
 
   -- Find list_item ancestor
-  local list_item = ts.find_ancestor(node, "list_item")
+  local list_item = ts.find_ancestor(node, nodes.LIST_ITEM)
   if not list_item then
     return nil
   end

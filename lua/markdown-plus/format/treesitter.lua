@@ -6,6 +6,50 @@ local patterns = require("markdown-plus.format.patterns")
 
 local M = {}
 
+-- Centralized definitions for all markdown treesitter node types used
+---@class markdown-plus.ts.NodeTypes
+M.nodes = {
+  -- Block elements
+  FENCED_CODE_BLOCK = "fenced_code_block",
+  PARAGRAPH = "paragraph",
+  HEADING = "heading", -- Not currently used
+
+  -- List elements
+  LIST = "list",
+  LIST_ITEM = "list_item",
+
+  -- List markers (unordered)
+
+  ----
+  LIST_MARKER_MINUS = "list_marker_minus",
+  ---+
+  LIST_MARKER_PLUS = "list_marker_plus",
+  ---*
+  LIST_MARKER_STAR = "list_marker_star",
+
+  -- List markers (ordered)
+  --- A.
+  LIST_MARKER_DOT = "list_marker_dot",
+  --- A)
+  LIST_MARKER_PARENTHESIS = "list_marker_parenthesis",
+
+  -- Task list markers
+
+  -- - [  ]
+  TASK_LIST_MARKER_UNCHECKED = "task_list_marker_unchecked",
+  -- - [x]
+  TASK_LIST_MARKER_CHECKED = "task_list_marker_checked",
+
+  -- Inline elements (from markdown_inline parser)
+  INLINE = "inline",
+  CODE_SPAN = "code_span",
+  ---_text_
+  EMPHASIS = "emphasis",
+  ---**test**
+  STRONG_EMPHASIS = "strong_emphasis",
+  STRIKETHROUGH = "strikethrough",
+}
+
 ---Check if treesitter markdown parser is available for the current buffer
 ---@return boolean True if treesitter is available and can be used
 function M.is_available()
@@ -109,7 +153,7 @@ end
 
 ---Get set of line numbers inside nodes of a specific type
 ---Efficiently queries all nodes of the type and collects their line ranges
----@param node_type string Node type to find (e.g., "fenced_code_block")
+---@param node_type string Node type to find (M.nodes.FENCED_CODE_BLOCK)
 ---@return table<number, boolean>|nil Line number set (1-indexed), or nil if ts unavailable
 function M.get_lines_in_node_type(node_type)
   local parser = M.get_parser()
@@ -227,7 +271,7 @@ function M.is_in_fenced_code_block()
   if not node then
     return nil
   end
-  return M.find_ancestor(node, "fenced_code_block") ~= nil
+  return M.find_ancestor(node, M.nodes.FENCED_CODE_BLOCK) ~= nil
 end
 
 ---Remove formatting from a treesitter node range

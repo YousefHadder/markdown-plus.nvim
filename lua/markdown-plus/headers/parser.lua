@@ -56,7 +56,7 @@ function M.get_all_headers()
   local headers = {}
 
   -- Get code block lines (try treesitter first, fallback to regex)
-  local code_block_lines = ts.get_lines_in_node_type("fenced_code_block")
+  local code_block_lines = ts.get_lines_in_node_type(ts.nodes.FENCED_CODE_BLOCK)
   if not code_block_lines then
     code_block_lines = get_code_block_lines_regex(lines)
   end
