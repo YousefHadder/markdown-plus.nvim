@@ -83,7 +83,7 @@ function M.find_parent_list_item(line, line_num, lines)
   end
 
   -- Must not be a list item itself
-  if parser.parse_list_line(line) then
+  if parser.parse_list_line(line, line_num) then
     return nil
   end
 
@@ -95,7 +95,7 @@ function M.find_parent_list_item(line, line_num, lines)
     end
 
     -- Try to parse as list item
-    local list_info = parser.parse_list_line(prev_line)
+    local list_info = parser.parse_list_line(prev_line, i)
     if list_info then
       -- Calculate where content starts in the list item
       local content_start_col = M.get_content_start_col(list_info)

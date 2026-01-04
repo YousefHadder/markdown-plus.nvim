@@ -1,10 +1,30 @@
 -- List parsing module for markdown-plus.nvim
 local utils = require("markdown-plus.utils")
+local ts = require("markdown-plus.format.treesitter")
 local M = {}
 
 -- Constants
 local DELIMITER_DOT = "."
 local DELIMITER_PAREN = ")"
+
+-- =============================================================================
+-- Treesitter Node Mappings
+-- =============================================================================
+
+-- Map treesitter marker nodes to list types
+local TS_MARKER_TYPES = {
+  list_marker_minus = { type = "unordered", marker = "-", delimiter = "" },
+  list_marker_plus = { type = "unordered", marker = "+", delimiter = "" },
+  list_marker_star = { type = "unordered", marker = "*", delimiter = "" },
+  list_marker_dot = { type = "ordered", delimiter = DELIMITER_DOT },
+  list_marker_parenthesis = { type = "ordered_paren", delimiter = DELIMITER_PAREN },
+}
+
+-- Map checkbox nodes to checkbox state
+local TS_CHECKBOX_TYPES = {
+  task_list_marker_unchecked = " ",
+  task_list_marker_checked = "x",
+}
 
 ---List patterns for detection
 ---@class markdown-plus.list.Patterns
@@ -125,14 +145,86 @@ local function build_list_info(indent, marker, checkbox, config)
   }
 end
 
----Parse a line to detect list information
----@param line string Line to parse
----@return markdown-plus.ListInfo|nil List info or nil if not a list
-function M.parse_list_line(line)
-  if not line then
+---Parse list info a specific row (1-indexed)
+---@param row number 1-indexed row number
+---@return markdown-plus.ListInfo|nil
+local function parse_list_line_ts(row)
+  local node = ts.get_node_at_position(row, 0)
+  if not node then
     return nil
   end
 
+  -- Find list_item ancestor
+  local list_item = ts.find_ancestor(node, "list_item")
+  if not list_item then
+    return nil
+  end
+
+  -- Check list_item starts on requested row (not a continuation line)
+  local item_start_row = list_item:range() + 1 -- Convert to 1-indexed
+  if item_start_row ~= row then
+    return nil
+  end
+
+  -- Find marker and checkbox child nodes
+  local marker_node, checkbox_node
+  for child in list_item:iter_children() do
+    local child_type = child:type()
+    if TS_MARKER_TYPES[child_type] then
+      marker_node = child
+    elseif TS_CHECKBOX_TYPES[child_type] then
+      checkbox_node = child
+    end
+  end
+
+  if not marker_node then
+    return nil
+  end
+
+  -- Extract info from marker node
+  local marker_type_info = TS_MARKER_TYPES[marker_node:type()]
+  local marker_text = vim.treesitter.get_node_text(marker_node, 0)
+
+  -- Treesitter includes leading whitespace in the marker node, so extract indent from marker text
+  local indent = marker_text:match("^(%s*)") or ""
+  -- Remove the indent from marker_text for further processing
+  marker_text = marker_text:sub(#indent + 1)
+
+  -- Extract marker value
+  local marker, list_type, delimiter
+  if marker_type_info.type == "ordered" then
+    marker = marker_text:match("(%d+)")
+    list_type = "ordered"
+    delimiter = DELIMITER_DOT
+  elseif marker_type_info.type == "ordered_paren" then
+    marker = marker_text:match("(%d+)")
+    list_type = "ordered_paren"
+    delimiter = DELIMITER_PAREN
+  else
+    -- Unordered: -, +, *
+    marker = marker_type_info.marker
+    list_type = "unordered"
+    delimiter = ""
+  end
+
+  -- Handle checkbox
+  local checkbox_state = nil
+  if checkbox_node then
+    checkbox_state = TS_CHECKBOX_TYPES[checkbox_node:type()]
+  end
+
+  return build_list_info(indent, marker, checkbox_state, {
+    type = list_type,
+    delimiter = delimiter,
+    has_checkbox = checkbox_state ~= nil,
+  })
+end
+
+---Parse list info using regex patterns
+---Used as fallback when treesitter is unavailable or for letter lists
+---@param line string Line to parse
+---@return markdown-plus.ListInfo|nil
+local function parse_list_line_regex(line)
   -- Try each pattern in order (checkbox variants first, then regular)
   for _, config in ipairs(PATTERN_CONFIG) do
     local pattern = M.patterns[config.pattern]
@@ -150,6 +242,29 @@ function M.parse_list_line(line)
   end
 
   return nil
+end
+
+---Parse a line to detect list information
+---Uses treesitter when row is provided and available, falls back to regex
+---@param line string Line to parse
+---@param row number 1-indexed row for treesitter
+---@return markdown-plus.ListInfo|nil List info or nil if not a list
+function M.parse_list_line(line, row)
+  if not line then
+    return nil
+  end
+
+  -- Try treesitter first (if row provided)
+  local ts_result = parse_list_line_ts(row)
+  if ts_result then
+    return ts_result
+  end
+
+  -- Fall through to regex if ts returns nil
+  -- (handles letter lists, ts unavailable, continuation lines, etc.)
+
+  -- Fallback to regex
+  return parse_list_line_regex(line)
 end
 
 ---Check if a list item is empty (only contains marker)
@@ -239,7 +354,7 @@ function M.get_previous_marker(list_info, row)
     -- Check for previous list item at same indent
     if row > 1 then
       local prev_line = utils.get_line(row - 1)
-      local prev_list_info = M.parse_list_line(prev_line)
+      local prev_list_info = M.parse_list_line(prev_line, row - 1)
       if prev_list_info and prev_list_info.type == list_info.type and #prev_list_info.indent == #list_info.indent then
         local prev_num = tonumber(prev_list_info.marker:match("(%d+)"))
         return (prev_num + 1) .. delimiter
@@ -249,7 +364,7 @@ function M.get_previous_marker(list_info, row)
   elseif is_letter_lower then
     if row > 1 then
       local prev_line = utils.get_line(row - 1)
-      local prev_list_info = M.parse_list_line(prev_line)
+      local prev_list_info = M.parse_list_line(prev_line, row - 1)
       if prev_list_info and prev_list_info.type == list_info.type and #prev_list_info.indent == #list_info.indent then
         local prev_letter = prev_list_info.marker:match("([a-z])")
         return M.next_letter(prev_letter, false) .. delimiter
@@ -259,7 +374,7 @@ function M.get_previous_marker(list_info, row)
   elseif is_letter_upper then
     if row > 1 then
       local prev_line = utils.get_line(row - 1)
-      local prev_list_info = M.parse_list_line(prev_line)
+      local prev_list_info = M.parse_list_line(prev_line, row - 1)
       if prev_list_info and prev_list_info.type == list_info.type and #prev_list_info.indent == #list_info.indent then
         local prev_letter = prev_list_info.marker:match("([A-Z])")
         return M.next_letter(prev_letter, true) .. delimiter

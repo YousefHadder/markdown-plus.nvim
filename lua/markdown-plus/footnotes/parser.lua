@@ -1,5 +1,7 @@
 -- Footnote parsing module for markdown-plus.nvim
 -- Handles pattern matching and detection of footnote references and definitions
+local ts = require("markdown-plus.format.treesitter")
+
 local M = {}
 
 ---@class markdown-plus.footnotes.Reference
@@ -43,10 +45,10 @@ local function is_code_fence(line)
   return line:match(M.patterns.code_fence) ~= nil or line:match(M.patterns.code_fence_tilde) ~= nil
 end
 
----Build a set of line numbers that are inside code blocks
+---Build a set of line numbers that are inside code blocks using regex (fallback)
 ---@param lines string[] All lines in buffer
 ---@return table<number, boolean> Set of line numbers inside code blocks
-local function get_code_block_lines(lines)
+local function get_code_block_lines_regex(lines)
   local in_code_block = false
   local code_lines = {}
 
@@ -67,6 +69,19 @@ local function get_code_block_lines(lines)
   end
 
   return code_lines
+end
+
+---Build a set of line numbers that are inside code blocks
+---@param lines string[] All lines in buffer (used for regex fallback)
+---@return table<number, boolean> Set of line numbers inside code blocks
+local function get_code_block_lines(lines)
+  local ts_result = ts.get_lines_in_node_type("fenced_code_block")
+  if ts_result then
+    return ts_result
+  end
+
+  -- Fallback to regex
+  return get_code_block_lines_regex(lines)
 end
 
 ---Parse a footnote reference at a specific position in a line

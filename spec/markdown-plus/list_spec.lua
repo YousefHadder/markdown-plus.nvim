@@ -6,6 +6,16 @@ local list = require("markdown-plus.list")
 describe("markdown-plus list management", function()
   local buf
 
+  ---Helper to parse a line by putting it in the buffer first
+  ---@param line string The line to parse
+  ---@param row? number Optional row (defaults to 1)
+  ---@return markdown-plus.ListInfo|nil
+  local function parse_line(line, row)
+    row = row or 1
+    vim.api.nvim_buf_set_lines(buf, row - 1, row, false, { line })
+    return list.parse_list_line(line, row)
+  end
+
   before_each(function()
     buf = vim.api.nvim_create_buf(false, true)
     vim.bo[buf].filetype = "markdown"
@@ -20,54 +30,54 @@ describe("markdown-plus list management", function()
 
   describe("parse_list_line", function()
     it("parses unordered list items", function()
-      local info = list.parse_list_line("- List item")
+      local info = parse_line("- List item")
       assert.is_not_nil(info)
       assert.are.equal("unordered", info.type)
       assert.are.equal("-", info.marker)
     end)
 
     it("parses ordered list items", function()
-      local info = list.parse_list_line("1. List item")
+      local info = parse_line("1. List item")
       assert.is_not_nil(info)
       assert.are.equal("ordered", info.type)
     end)
 
     it("parses parenthesized ordered list items", function()
-      local info = list.parse_list_line("1) List item")
+      local info = parse_line("1) List item")
       assert.is_not_nil(info)
       assert.are.equal("ordered_paren", info.type)
       assert.are.equal("1)", info.marker)
     end)
 
     it("parses parenthesized lowercase letter list items", function()
-      local info = list.parse_list_line("a) List item")
+      local info = parse_line("a) List item")
       assert.is_not_nil(info)
       assert.are.equal("letter_lower_paren", info.type)
       assert.are.equal("a)", info.marker)
     end)
 
     it("parses parenthesized uppercase letter list items", function()
-      local info = list.parse_list_line("A) List item")
+      local info = parse_line("A) List item")
       assert.is_not_nil(info)
       assert.are.equal("letter_upper_paren", info.type)
       assert.are.equal("A)", info.marker)
     end)
 
     it("parses task list items", function()
-      local info = list.parse_list_line("- [ ] Unchecked task")
+      local info = parse_line("- [ ] Unchecked task")
       assert.is_not_nil(info)
       assert.is_not_nil(info.checkbox)
     end)
 
     it("parses parenthesized ordered task list items", function()
-      local info = list.parse_list_line("1) [ ] Unchecked task")
+      local info = parse_line("1) [ ] Unchecked task")
       assert.is_not_nil(info)
       assert.are.equal("ordered_paren", info.type)
       assert.is_not_nil(info.checkbox)
     end)
 
     it("parses letter_lower list items", function()
-      local result = list.parse_list_line("  a. item")
+      local result = parse_line("  a. item")
       assert.is_not_nil(result)
       assert.equal("letter_lower", result.type)
       assert.equal("a.", result.marker)
@@ -75,7 +85,7 @@ describe("markdown-plus list management", function()
     end)
 
     it("parses letter_upper list items", function()
-      local result = list.parse_list_line("  A. item")
+      local result = parse_line("  A. item")
       assert.is_not_nil(result)
       assert.equal("letter_upper", result.type)
       assert.equal("A.", result.marker)
@@ -83,67 +93,67 @@ describe("markdown-plus list management", function()
     end)
 
     it("returns nil for non-list lines", function()
-      local info = list.parse_list_line("Not a list")
+      local info = parse_line("Not a list")
       assert.is_nil(info)
     end)
 
     it("parses empty ordered list items without trailing space", function()
-      local info = list.parse_list_line("3.")
+      local info = parse_line("3.")
       assert.is_not_nil(info)
       assert.are.equal("ordered", info.type)
       assert.are.equal("3.", info.marker)
     end)
 
     it("parses empty unordered list items without trailing space", function()
-      local info = list.parse_list_line("-")
+      local info = parse_line("-")
       assert.is_not_nil(info)
       assert.are.equal("unordered", info.type)
     end)
 
     it("parses empty letter list items without trailing space", function()
-      local info = list.parse_list_line("a.")
+      local info = parse_line("a.")
       assert.is_not_nil(info)
       assert.are.equal("letter_lower", info.type)
     end)
 
     it("parses empty parenthesized ordered list items without trailing space", function()
-      local info = list.parse_list_line("1)")
+      local info = parse_line("1)")
       assert.is_not_nil(info)
       assert.are.equal("ordered_paren", info.type)
     end)
 
     it("parses empty uppercase letter list items without trailing space", function()
-      local info = list.parse_list_line("A.")
+      local info = parse_line("A.")
       assert.is_not_nil(info)
       assert.are.equal("letter_upper", info.type)
     end)
 
     it("parses empty parenthesized letter list items without trailing space", function()
-      local lower = list.parse_list_line("a)")
+      local lower = parse_line("a)")
       assert.is_not_nil(lower)
       assert.are.equal("letter_lower_paren", lower.type)
 
-      local upper = list.parse_list_line("A)")
+      local upper = parse_line("A)")
       assert.is_not_nil(upper)
       assert.are.equal("letter_upper_paren", upper.type)
     end)
 
     it("does not parse decimal numbers as list items", function()
-      assert.is_nil(list.parse_list_line("1.0 is the release"))
-      assert.is_nil(list.parse_list_line("3.14159"))
-      assert.is_nil(list.parse_list_line("99.9% of cases"))
+      assert.is_nil(parse_line("1.0 is the release"))
+      assert.is_nil(parse_line("3.14159"))
+      assert.is_nil(parse_line("99.9% of cases"))
     end)
   end)
 
   describe("is_empty_list_item", function()
     it("detects empty list items", function()
-      local info = list.parse_list_line("- ")
+      local info = parse_line("- ")
       local is_empty = list.is_empty_list_item("- ", info)
       assert.is_true(is_empty)
     end)
 
     it("detects non-empty list items", function()
-      local info = list.parse_list_line("- Content")
+      local info = parse_line("- Content")
       local is_empty = list.is_empty_list_item("- Content", info)
       assert.is_false(is_empty)
     end)
@@ -720,70 +730,70 @@ describe("markdown-plus list management", function()
     describe("add_checkbox_to_line", function()
       it("adds checkbox to unordered list item", function()
         local line = "- Item without checkbox"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("- [ ] Item without checkbox", result)
       end)
 
       it("adds checkbox to ordered list item", function()
         local line = "1. First item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("1. [ ] First item", result)
       end)
 
       it("adds checkbox to letter list item (lowercase)", function()
         local line = "a. Letter item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("a. [ ] Letter item", result)
       end)
 
       it("adds checkbox to letter list item (uppercase)", function()
         local line = "A. Letter item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("A. [ ] Letter item", result)
       end)
 
       it("adds checkbox to parenthesized ordered list", function()
         local line = "1) Parenthesized item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("1) [ ] Parenthesized item", result)
       end)
 
       it("adds checkbox to parenthesized letter list (lowercase)", function()
         local line = "a) Parenthesized letter"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("a) [ ] Parenthesized letter", result)
       end)
 
       it("adds checkbox to parenthesized letter list (uppercase)", function()
         local line = "A) Parenthesized letter"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("A) [ ] Parenthesized letter", result)
       end)
 
       it("adds checkbox to indented list item", function()
         local line = "  - Indented item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("  - [ ] Indented item", result)
       end)
 
       it("adds checkbox to list item with + marker", function()
         local line = "+ Plus marker item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("+ [ ] Plus marker item", result)
       end)
 
       it("adds checkbox to list item with * marker", function()
         local line = "* Star marker item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.add_checkbox_to_line(line, list_info)
         assert.are.equal("* [ ] Star marker item", result)
       end)
@@ -792,42 +802,42 @@ describe("markdown-plus list management", function()
     describe("replace_checkbox_state", function()
       it("toggles unchecked to checked", function()
         local line = "- [ ] Unchecked item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.replace_checkbox_state(line, list_info)
         assert.are.equal("- [x] Unchecked item", result)
       end)
 
       it("toggles checked to unchecked", function()
         local line = "- [x] Checked item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.replace_checkbox_state(line, list_info)
         assert.are.equal("- [ ] Checked item", result)
       end)
 
       it("toggles uppercase X to unchecked", function()
         local line = "- [X] Checked with uppercase"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.replace_checkbox_state(line, list_info)
         assert.are.equal("- [ ] Checked with uppercase", result)
       end)
 
       it("toggles ordered list checkbox", function()
         local line = "1. [ ] Ordered unchecked"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.replace_checkbox_state(line, list_info)
         assert.are.equal("1. [x] Ordered unchecked", result)
       end)
 
       it("toggles letter list checkbox", function()
         local line = "a. [x] Letter checked"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.replace_checkbox_state(line, list_info)
         assert.are.equal("a. [ ] Letter checked", result)
       end)
 
       it("toggles indented checkbox", function()
         local line = "  - [x] Indented checked"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.replace_checkbox_state(line, list_info)
         assert.are.equal("  - [ ] Indented checked", result)
       end)
@@ -836,35 +846,35 @@ describe("markdown-plus list management", function()
     describe("toggle_checkbox_in_line", function()
       it("adds checkbox when none exists", function()
         local line = "- Regular item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.toggle_checkbox_in_line(line, list_info)
         assert.are.equal("- [ ] Regular item", result)
       end)
 
       it("toggles unchecked to checked", function()
         local line = "- [ ] Todo item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.toggle_checkbox_in_line(line, list_info)
         assert.are.equal("- [x] Todo item", result)
       end)
 
       it("toggles checked to unchecked", function()
         local line = "- [x] Completed item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.toggle_checkbox_in_line(line, list_info)
         assert.are.equal("- [ ] Completed item", result)
       end)
 
       it("works with ordered lists", function()
         local line = "1. Regular ordered"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.toggle_checkbox_in_line(line, list_info)
         assert.are.equal("1. [ ] Regular ordered", result)
       end)
 
       it("works with letter lists", function()
         local line = "a. Letter item"
-        local list_info = list.parse_list_line(line)
+        local list_info = parse_line(line)
         local result = list.toggle_checkbox_in_line(line, list_info)
         assert.are.equal("a. [ ] Letter item", result)
       end)
