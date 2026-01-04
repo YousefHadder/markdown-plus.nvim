@@ -1,585 +1,290 @@
+-- Schema-based configuration validation for markdown-plus.nvim
+-- Replaces the repetitive imperative validation with a declarative approach
+
 local M = {}
 
--- Valid table alignment values
-local VALID_ALIGNMENTS = { left = true, center = true, right = true }
+---@class markdown-plus.FieldSchema
+---@field type "boolean"|"string"|"number"|"table"|"array" Expected type
+---@field optional? boolean Whether field is optional (default: true)
+---@field enum? table<string, boolean> Valid enum values
+---@field range? {min: number, max: number} Valid range for numbers
+---@field array_type? string Type of array elements
+---@field array_validator? fun(item: any, index: number): boolean, string? Custom array item validator
+---@field validator? fun(value: any, path: string, root_opts: table): boolean, string? Custom validator
+---@field fields? table<string, markdown-plus.FieldSchema> Nested fields for tables
 
--- Valid checkbox completion format values
-local VALID_COMPLETION_FORMATS = { emoji = true, comment = true, dataview = true, parenthetical = true }
+-- Schema definition - single source of truth for config structure
+local SCHEMA = {
+  enabled = { type = "boolean" },
+  filetypes = { type = "array", array_type = "string" },
 
----Validate user configuration
----@param opts markdown-plus.Config User configuration
----@return boolean is_valid True if config is valid
----@return string|nil error_message Error message if config is invalid
-function M.validate(opts)
-  ---Helper to validate a single field with path context
-  ---@param path string Path context for error messages (e.g., "config.features")
-  ---@param field_name string Field name for error messages
-  ---@param value any The value to validate
-  ---@param type_or_validator string|function Type string or validator function
-  ---@param optional boolean Whether the field is optional
-  ---@return boolean is_valid
-  ---@return string|nil error_message
-  local function validate_field(path, field_name, value, type_or_validator, optional)
-    local ok, err = pcall(vim.validate, field_name, value, type_or_validator, optional)
-    if not ok then
-      local err_str = tostring(err)
-      return false, path .. "." .. field_name .. ": " .. (err_str:match(": (.+)$") or err_str)
+  features = {
+    type = "table",
+    fields = {
+      list_management = { type = "boolean" },
+      text_formatting = { type = "boolean" },
+      headers_toc = { type = "boolean" },
+      links = { type = "boolean" },
+      images = { type = "boolean" },
+      quotes = { type = "boolean" },
+      callouts = { type = "boolean" },
+      code_block = { type = "boolean" },
+      table = { type = "boolean" },
+      footnotes = { type = "boolean" },
+    },
+  },
+
+  keymaps = {
+    type = "table",
+    fields = {
+      enabled = { type = "boolean" },
+    },
+  },
+
+  toc = {
+    type = "table",
+    fields = {
+      initial_depth = { type = "number", range = { min = 1, max = 6 } },
+    },
+  },
+
+  table = {
+    type = "table",
+    fields = {
+      enabled = { type = "boolean" },
+      auto_format = { type = "boolean" },
+      default_alignment = { type = "string", enum = { left = true, center = true, right = true } },
+      confirm_destructive = { type = "boolean" },
+      keymaps = {
+        type = "table",
+        fields = {
+          enabled = { type = "boolean" },
+          prefix = { type = "string" },
+          insert_mode_navigation = { type = "boolean" },
+        },
+      },
+    },
+  },
+
+  callouts = {
+    type = "table",
+    fields = {
+      default_type = {
+        type = "string",
+        -- Custom validator for callout type (depends on custom_types)
+        validator = function(value, path, root_opts)
+          local standard = { NOTE = true, TIP = true, IMPORTANT = true, WARNING = true, CAUTION = true }
+          if standard[value] then
+            return true
+          end
+          if root_opts.callouts and root_opts.callouts.custom_types then
+            if vim.tbl_contains(root_opts.callouts.custom_types, value) then
+              return true
+            end
+          end
+          local valid_types = vim.tbl_keys(standard)
+          table.sort(valid_types)
+          local suffix = ""
+          if root_opts.callouts and root_opts.callouts.custom_types and #root_opts.callouts.custom_types > 0 then
+            suffix = " or one of your custom_types"
+          end
+          return false,
+            string.format(
+              "%s: '%s' is not a valid callout type. Must be one of: %s%s",
+              path,
+              value,
+              table.concat(valid_types, ", "),
+              suffix
+            )
+        end,
+      },
+      custom_types = {
+        type = "array",
+        array_type = "string",
+        array_validator = function(item, _)
+          if not item:match("^[A-Z]+$") then
+            return false, string.format("must contain only uppercase letters A-Z (got '%s')", item)
+          end
+          return true
+        end,
+      },
+    },
+  },
+
+  code_block = {
+    type = "table",
+    fields = {
+      enabled = { type = "boolean" },
+    },
+  },
+
+  footnotes = {
+    type = "table",
+    fields = {
+      section_header = { type = "string" },
+      confirm_delete = { type = "boolean" },
+    },
+  },
+
+  list = {
+    type = "table",
+    fields = {
+      checkbox_completion = {
+        type = "table",
+        fields = {
+          enabled = { type = "boolean" },
+          format = { type = "string", enum = { emoji = true, comment = true, dataview = true, parenthetical = true } },
+          date_format = { type = "string" },
+          remove_on_uncheck = { type = "boolean" },
+          update_existing = { type = "boolean" },
+        },
+      },
+    },
+  },
+
+  links = {
+    type = "table",
+    fields = {
+      smart_paste = {
+        type = "table",
+        fields = {
+          enabled = { type = "boolean" },
+          timeout = {
+            type = "number",
+            validator = function(value, path, _)
+              if value <= 0 then
+                return false, path .. ": must be a positive number"
+              end
+              return true
+            end,
+          },
+        },
+      },
+    },
+  },
+}
+
+---Get sorted keys for consistent error messages
+---@param tbl table
+---@return string[]
+local function sorted_keys(tbl)
+  local keys = vim.tbl_keys(tbl)
+  table.sort(keys)
+  return keys
+end
+
+---Validate a value against a field schema
+---@param value any Value to validate
+---@param field_schema markdown-plus.FieldSchema Schema for this field
+---@param path string Current path for error messages
+---@param root_opts table Root options (for cross-field validation)
+---@return boolean is_valid
+---@return string|nil error_message
+local function validate_field(value, field_schema, path, root_opts)
+  -- nil is ok for optional fields (all fields optional by default)
+  if value == nil then
+    if field_schema.optional == false then
+      return false, path .. ": required field is missing"
     end
     return true
   end
 
-  -- Validate top-level config
-  local ok, err
-  ok, err = validate_field("config", "enabled", opts.enabled, "boolean", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "features", opts.features, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "keymaps", opts.keymaps, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "filetypes", opts.filetypes, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "toc", opts.toc, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "table", opts.table, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "callouts", opts.callouts, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "code_block", opts.code_block, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "footnotes", opts.footnotes, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "list", opts.list, "table", true)
-  if not ok then
-    return false, err
-  end
-  ok, err = validate_field("config", "links", opts.links, "table", true)
-  if not ok then
-    return false, err
-  end
-
-  -- Validate filetypes array
-  if opts.filetypes then
-    if not vim.islist(opts.filetypes) then
-      return false, "config.filetypes: must be an array (list)"
+  -- Type check
+  local expected_type = field_schema.type
+  if expected_type == "array" then
+    -- Must be a table before checking vim.islist()
+    if type(value) ~= "table" then
+      return false, path .. ": must be an array (list), got " .. type(value)
     end
-    for i, ft in ipairs(opts.filetypes) do
-      if type(ft) ~= "string" then
-        return false, string.format("config.filetypes[%d]: must be a string, got %s", i, type(ft))
+    if not vim.islist(value) then
+      return false, path .. ": must be an array (list)"
+    end
+    -- Validate array items
+    for i, item in ipairs(value) do
+      if field_schema.array_type and type(item) ~= field_schema.array_type then
+        return false, string.format("%s[%d]: must be a %s, got %s", path, i, field_schema.array_type, type(item))
+      end
+      if field_schema.array_validator then
+        local ok, err = field_schema.array_validator(item, i)
+        if not ok then
+          return false, string.format("%s[%d]: %s", path, i, err)
+        end
       end
     end
+  elseif expected_type == "table" then
+    if type(value) ~= "table" then
+      return false, path .. ": must be a table, got " .. type(value)
+    end
+  else
+    if type(value) ~= expected_type then
+      return false, path .. ": must be a " .. expected_type .. ", got " .. type(value)
+    end
   end
 
-  -- Validate features
-  if opts.features then
-    ok, err = validate_field("config", "features.list_management", opts.features.list_management, "boolean", true)
-    if not ok then
-      return false, err
+  -- Enum check
+  if field_schema.enum and not field_schema.enum[value] then
+    return false, path .. ": must be one of: " .. table.concat(sorted_keys(field_schema.enum), ", ")
+  end
+
+  -- Range check
+  if field_schema.range then
+    if value < field_schema.range.min or value > field_schema.range.max then
+      return false, string.format("%s: must be between %d and %d", path, field_schema.range.min, field_schema.range.max)
     end
-    ok, err = validate_field("config", "features.text_formatting", opts.features.text_formatting, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.headers_toc", opts.features.headers_toc, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.links", opts.features.links, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.images", opts.features.images, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.quotes", opts.features.quotes, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.callouts", opts.features.callouts, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.code_block", opts.features.code_block, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.table", opts.features.table, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "features.footnotes", opts.features.footnotes, "boolean", true)
+  end
+
+  -- Custom validator
+  if field_schema.validator then
+    local ok, err = field_schema.validator(value, path, root_opts)
     if not ok then
       return false, err
     end
   end
 
-  -- Validate keymaps
-  if opts.keymaps then
-    ok, err = validate_field("config", "keymaps.enabled", opts.keymaps.enabled, "boolean", true)
-    if not ok then
-      return false, err
-    end
-  end
-
-  -- Validate toc config
-  if opts.toc then
-    ok, err = validate_field("config", "toc.initial_depth", opts.toc.initial_depth, "number", true)
-    if not ok then
-      return false, err
-    end
-
-    -- Validate initial_depth range
-    if opts.toc.initial_depth then
-      if opts.toc.initial_depth < 1 or opts.toc.initial_depth > 6 then
-        return false, "config.toc.initial_depth: must be between 1 and 6"
-      end
-    end
-  end
-
-  -- Validate table config
-  if opts.table then
-    ok, err = validate_field("config", "table.enabled", opts.table.enabled, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "table.auto_format", opts.table.auto_format, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "table.default_alignment", opts.table.default_alignment, "string", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "table.confirm_destructive", opts.table.confirm_destructive, "boolean", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "table.keymaps", opts.table.keymaps, "table", true)
-    if not ok then
-      return false, err
-    end
-
-    -- Validate default_alignment values
-    if opts.table.default_alignment then
-      if not VALID_ALIGNMENTS[opts.table.default_alignment] then
-        return false, "config.table.default_alignment: must be 'left', 'center', or 'right'"
-      end
-    end
-
-    -- Validate table keymaps
-    if opts.table.keymaps then
-      ok, err = validate_field("config", "table.keymaps.enabled", opts.table.keymaps.enabled, "boolean", true)
-      if not ok then
-        return false, err
-      end
-      ok, err = validate_field("config", "table.keymaps.prefix", opts.table.keymaps.prefix, "string", true)
-      if not ok then
-        return false, err
-      end
-      ok, err = validate_field(
-        "config",
-        "table.keymaps.insert_mode_navigation",
-        opts.table.keymaps.insert_mode_navigation,
-        "boolean",
-        true
-      )
-      if not ok then
-        return false, err
-      end
-    end
-  end
-
-  -- Validate code_block config
-  if opts.code_block then
-    ok, err = validate_field("config", "code_block.enabled", opts.code_block.enabled, "boolean", true)
-    if not ok then
-      return false, err
-    end
-
-    -- Check for unknown code_block fields
-    local known_code_block_fields = { enabled = true }
-    for key in pairs(opts.code_block) do
-      if not known_code_block_fields[key] then
+  -- Nested fields (for tables)
+  if field_schema.fields and type(value) == "table" then
+    -- Check for unknown fields
+    for key in pairs(value) do
+      if not field_schema.fields[key] then
         return false,
           string.format(
-            "config.code_block: unknown field '%s'. Valid fields are: %s",
+            "%s: unknown field '%s'. Valid fields are: %s",
+            path,
             key,
-            table.concat(vim.tbl_keys(known_code_block_fields), ", ")
+            table.concat(sorted_keys(field_schema.fields), ", ")
           )
       end
     end
+    -- Validate known fields
+    for field_name, nested_schema in pairs(field_schema.fields) do
+      local ok, err = validate_field(value[field_name], nested_schema, path .. "." .. field_name, root_opts)
+      if not ok then
+        return false, err
+      end
+    end
   end
 
+  return true
+end
+
+---Validate user configuration against schema
+---@param opts markdown-plus.Config User configuration
+---@return boolean is_valid True if config is valid
+---@return string|nil error_message Error message if config is invalid
+function M.validate(opts)
   -- Check for unknown top-level fields
-  local known_fields = {
-    enabled = true,
-    features = true,
-    keymaps = true,
-    filetypes = true,
-    toc = true,
-    table = true,
-    callouts = true,
-    code_block = true,
-    footnotes = true,
-    list = true,
-    links = true,
-  }
   for key in pairs(opts) do
-    if not known_fields[key] then
+    if not SCHEMA[key] then
       return false,
-        string.format(
-          "config: unknown field '%s'. Valid fields are: %s",
-          key,
-          table.concat(vim.tbl_keys(known_fields), ", ")
-        )
+        string.format("config: unknown field '%s'. Valid fields are: %s", key, table.concat(sorted_keys(SCHEMA), ", "))
     end
   end
 
-  -- Check for unknown feature fields
-  if opts.features then
-    local known_feature_fields = {
-      list_management = true,
-      text_formatting = true,
-      headers_toc = true,
-      links = true,
-      images = true,
-      quotes = true,
-      callouts = true,
-      code_block = true,
-      table = true,
-      footnotes = true,
-    }
-    for key in pairs(opts.features) do
-      if not known_feature_fields[key] then
-        return false,
-          string.format(
-            "config.features: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_feature_fields), ", ")
-          )
-      end
-    end
-  end
-
-  -- Check for unknown toc fields
-  if opts.toc then
-    local known_toc_fields = { initial_depth = true }
-    for key in pairs(opts.toc) do
-      if not known_toc_fields[key] then
-        return false,
-          string.format(
-            "config.toc: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_toc_fields), ", ")
-          )
-      end
-    end
-  end
-
-  -- Check for unknown table fields
-  if opts.table then
-    local known_table_fields =
-      { enabled = true, auto_format = true, default_alignment = true, confirm_destructive = true, keymaps = true }
-    for key in pairs(opts.table) do
-      if not known_table_fields[key] then
-        return false,
-          string.format(
-            "config.table: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_table_fields), ", ")
-          )
-      end
-    end
-
-    -- Check for unknown table.keymaps fields
-    if opts.table.keymaps then
-      local known_table_keymap_fields = { enabled = true, prefix = true, insert_mode_navigation = true }
-      for key in pairs(opts.table.keymaps) do
-        if not known_table_keymap_fields[key] then
-          return false,
-            string.format(
-              "config.table.keymaps: unknown field '%s'. Valid fields are: %s",
-              key,
-              table.concat(vim.tbl_keys(known_table_keymap_fields), ", ")
-            )
-        end
-      end
-    end
-  end
-
-  -- Check for unknown keymap fields
-  if opts.keymaps then
-    local known_keymap_fields = { enabled = true }
-    for key in pairs(opts.keymaps) do
-      if not known_keymap_fields[key] then
-        return false,
-          string.format(
-            "config.keymaps: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_keymap_fields), ", ")
-          )
-      end
-    end
-  end
-
-  -- Validate callouts config
-  if opts.callouts then
-    ok, err = validate_field("config", "callouts.default_type", opts.callouts.default_type, "string", true)
+  -- Validate each field against schema
+  for field_name, field_schema in pairs(SCHEMA) do
+    local ok, err = validate_field(opts[field_name], field_schema, "config." .. field_name, opts)
     if not ok then
       return false, err
-    end
-    ok, err = validate_field("config", "callouts.custom_types", opts.callouts.custom_types, "table", true)
-    if not ok then
-      return false, err
-    end
-
-    -- Standard GFM callout types
-    local standard_types = { NOTE = true, TIP = true, IMPORTANT = true, WARNING = true, CAUTION = true }
-
-    -- Validate default_type is a valid type
-    if opts.callouts.default_type then
-      local is_standard = standard_types[opts.callouts.default_type]
-      local is_custom = opts.callouts.custom_types
-        and vim.tbl_contains(opts.callouts.custom_types, opts.callouts.default_type)
-
-      if not is_standard and not is_custom then
-        return false,
-          string.format(
-            "config.callouts.default_type: '%s' is not a valid callout type. Must be one of: %s%s",
-            opts.callouts.default_type,
-            table.concat(vim.tbl_keys(standard_types), ", "),
-            opts.callouts.custom_types and " or one of your custom_types" or ""
-          )
-      end
-    end
-
-    -- Validate custom_types array
-    if opts.callouts.custom_types then
-      if not vim.islist(opts.callouts.custom_types) then
-        return false, "config.callouts.custom_types: must be an array (list)"
-      end
-      for i, custom_type in ipairs(opts.callouts.custom_types) do
-        if type(custom_type) ~= "string" then
-          return false,
-            string.format("config.callouts.custom_types[%d]: must be a string, got %s", i, type(custom_type))
-        end
-        -- Validate only A-Z letters
-        if not custom_type:match("^[A-Z]+$") then
-          return false,
-            string.format(
-              "config.callouts.custom_types[%d]: must contain only uppercase letters A-Z (got '%s')",
-              i,
-              custom_type
-            )
-        end
-      end
-    end
-
-    -- Check for unknown callouts fields
-    local known_callouts_fields = { default_type = true, custom_types = true }
-    for key in pairs(opts.callouts) do
-      if not known_callouts_fields[key] then
-        return false,
-          string.format(
-            "config.callouts: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_callouts_fields), ", ")
-          )
-      end
-    end
-  end
-
-  -- Validate footnotes config
-  if opts.footnotes then
-    ok, err = validate_field("config", "footnotes.section_header", opts.footnotes.section_header, "string", true)
-    if not ok then
-      return false, err
-    end
-    ok, err = validate_field("config", "footnotes.confirm_delete", opts.footnotes.confirm_delete, "boolean", true)
-    if not ok then
-      return false, err
-    end
-
-    -- Check for unknown footnotes fields
-    local known_footnotes_fields = { section_header = true, confirm_delete = true }
-    for key in pairs(opts.footnotes) do
-      if not known_footnotes_fields[key] then
-        return false,
-          string.format(
-            "config.footnotes: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_footnotes_fields), ", ")
-          )
-      end
-    end
-  end
-
-  -- Validate list config
-  if opts.list then
-    ok, err = validate_field("config", "list.checkbox_completion", opts.list.checkbox_completion, "table", true)
-    if not ok then
-      return false, err
-    end
-
-    -- Validate checkbox_completion nested config
-    if opts.list.checkbox_completion then
-      ok, err = validate_field(
-        "config",
-        "list.checkbox_completion.enabled",
-        opts.list.checkbox_completion.enabled,
-        "boolean",
-        true
-      )
-      if not ok then
-        return false, err
-      end
-      ok, err = validate_field(
-        "config",
-        "list.checkbox_completion.format",
-        opts.list.checkbox_completion.format,
-        "string",
-        true
-      )
-      if not ok then
-        return false, err
-      end
-      ok, err = validate_field(
-        "config",
-        "list.checkbox_completion.date_format",
-        opts.list.checkbox_completion.date_format,
-        "string",
-        true
-      )
-      if not ok then
-        return false, err
-      end
-      ok, err = validate_field(
-        "config",
-        "list.checkbox_completion.remove_on_uncheck",
-        opts.list.checkbox_completion.remove_on_uncheck,
-        "boolean",
-        true
-      )
-      if not ok then
-        return false, err
-      end
-      ok, err = validate_field(
-        "config",
-        "list.checkbox_completion.update_existing",
-        opts.list.checkbox_completion.update_existing,
-        "boolean",
-        true
-      )
-      if not ok then
-        return false, err
-      end
-
-      -- Validate format is one of the allowed values
-      if opts.list.checkbox_completion.format then
-        if not VALID_COMPLETION_FORMATS[opts.list.checkbox_completion.format] then
-          return false,
-            string.format(
-              "config.list.checkbox_completion.format: must be one of: %s",
-              table.concat(vim.tbl_keys(VALID_COMPLETION_FORMATS), ", ")
-            )
-        end
-      end
-
-      -- Check for unknown checkbox_completion fields
-      local known_checkbox_completion_fields =
-        { enabled = true, format = true, date_format = true, remove_on_uncheck = true, update_existing = true }
-      for key in pairs(opts.list.checkbox_completion) do
-        if not known_checkbox_completion_fields[key] then
-          return false,
-            string.format(
-              "config.list.checkbox_completion: unknown field '%s'. Valid fields are: %s",
-              key,
-              table.concat(vim.tbl_keys(known_checkbox_completion_fields), ", ")
-            )
-        end
-      end
-    end
-
-    -- Check for unknown list fields
-    local known_list_fields = { checkbox_completion = true }
-    for key in pairs(opts.list) do
-      if not known_list_fields[key] then
-        return false,
-          string.format(
-            "config.list: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_list_fields), ", ")
-          )
-      end
-    end
-  end
-
-  -- Validate links config
-  if opts.links then
-    ok, err = validate_field("config", "links.smart_paste", opts.links.smart_paste, "table", true)
-    if not ok then
-      return false, err
-    end
-
-    -- Validate smart_paste nested config
-    if opts.links.smart_paste then
-      ok, err = validate_field("config", "links.smart_paste.enabled", opts.links.smart_paste.enabled, "boolean", true)
-      if not ok then
-        return false, err
-      end
-      ok, err = validate_field("config", "links.smart_paste.timeout", opts.links.smart_paste.timeout, "number", true)
-      if not ok then
-        return false, err
-      end
-
-      -- Validate timeout is positive
-      if opts.links.smart_paste.timeout and opts.links.smart_paste.timeout <= 0 then
-        return false, "config.links.smart_paste.timeout: must be a positive number"
-      end
-
-      -- Check for unknown smart_paste fields
-      local known_smart_paste_fields = { enabled = true, timeout = true }
-      for key in pairs(opts.links.smart_paste) do
-        if not known_smart_paste_fields[key] then
-          return false,
-            string.format(
-              "config.links.smart_paste: unknown field '%s'. Valid fields are: %s",
-              key,
-              table.concat(vim.tbl_keys(known_smart_paste_fields), ", ")
-            )
-        end
-      end
-    end
-
-    -- Check for unknown links fields
-    local known_links_fields = { smart_paste = true }
-    for key in pairs(opts.links) do
-      if not known_links_fields[key] then
-        return false,
-          string.format(
-            "config.links: unknown field '%s'. Valid fields are: %s",
-            key,
-            table.concat(vim.tbl_keys(known_links_fields), ", ")
-          )
-      end
     end
   end
 
