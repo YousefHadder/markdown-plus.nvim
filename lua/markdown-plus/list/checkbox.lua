@@ -120,7 +120,7 @@ function M.toggle_checkbox_on_line(line_num)
     return
   end
 
-  local list_info = parser.parse_list_line(line)
+  local list_info = parser.parse_list_line(line, line_num)
 
   if not list_info then
     return -- Not a list item, do nothing
