@@ -5,12 +5,6 @@
 
 # OS specific
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
 
 # Logs
 *.log
@@ -22,26 +16,14 @@ Thumbs.db
 # IDE/Editor specific
 .vscode/
 .idea/
-*.sublime-*
 
 # Test artifacts
 /test_results/
 
-# Development files
-PLAN.md
-test_*.md
-test_*.lua
+# Documentation directory (internal planning, notes, etc.)
+docs/
 
-# Ignore all markdown/txt files by default
-*.md
-*.txt
-
-# EXCEPT these important documentation files
-!README.md
-!CHANGELOG.md
-!CODE_OF_CONDUCT.md
-!CONTRIBUTING.md
-!.github/copilot-instructions.md
-!.github/CLAUDE_CONTEXT.md
-!doc/markdown-plus.txt
+# Internal tools and configurations
 demo
+.github/agents
+.claude
