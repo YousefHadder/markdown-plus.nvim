@@ -5,6 +5,20 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.10.0...v1.11.0) (2026-01-04)
+
+
+### Features
+
+* **links:** add smart paste feature ([fde03fc](https://github.com/YousefHadder/markdown-plus.nvim/commit/fde03fc3ed118c37c4d6b5c4c3f4822e71a62d88))
+* **list:** add checkbox completion timestamps ([b214b65](https://github.com/YousefHadder/markdown-plus.nvim/commit/b214b65468d326b02bb6a9293ec477cc028350d6)), closes [#186](https://github.com/YousefHadder/markdown-plus.nvim/issues/186)
+
+
+### Bug Fixes
+
+* **code blocks:** prevent list indent and list utils from firing inside code blocks ([#193](https://github.com/YousefHadder/markdown-plus.nvim/issues/193)) ([b2b1910](https://github.com/YousefHadder/markdown-plus.nvim/commit/b2b1910363a38d58b7d20f7c3518289a9bf66451))
+* **lists:** tabs handling to use default neovim tab handling ([#198](https://github.com/YousefHadder/markdown-plus.nvim/issues/198)) ([1a06bd8](https://github.com/YousefHadder/markdown-plus.nvim/commit/1a06bd88fc94a7333cd8cfd829774f868d85e310))
+
 ## [1.10.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.9.1...v1.10.0) (2025-12-25)
 
 
