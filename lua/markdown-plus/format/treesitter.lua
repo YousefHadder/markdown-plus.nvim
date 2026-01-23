@@ -6,6 +6,36 @@ local patterns = require("markdown-plus.format.patterns")
 
 local M = {}
 
+-- =============================================================================
+-- Debug Logging
+-- =============================================================================
+-- Temporary logging to verify treesitter usage during development.
+-- Set M.debug = true to enable logging to :messages
+
+---@type boolean Enable debug logging for treesitter operations
+M.debug = false
+
+---Log a debug message if debug mode is enabled
+---Exposed as M.log() for use by other modules
+---@param msg string Message to log
+---@param ... any Additional values to include in the message
+function M.log(msg, ...)
+  if not M.debug then
+    return
+  end
+  local args = { ... }
+  local formatted = msg
+  if #args > 0 then
+    formatted = msg .. ": " .. vim.inspect(args)
+  end
+  vim.schedule(function()
+    vim.notify("[TS] " .. formatted, vim.log.levels.DEBUG)
+  end)
+end
+
+-- Local alias for internal use
+local log = M.log
+
 -- Centralized definitions for all markdown treesitter node types used
 ---@class markdown-plus.ts.NodeTypes
 M.nodes = {
@@ -55,11 +85,15 @@ M.nodes = {
 function M.is_available()
   -- Check if vim.treesitter.get_node exists (Neovim 0.9+)
   if not vim.treesitter or not vim.treesitter.get_node then
+    log("treesitter not available: vim.treesitter.get_node missing")
     return false
   end
 
   -- Try to get the markdown parser for current buffer (markdown_inline is injected)
   local ok = pcall(vim.treesitter.get_parser, 0, "markdown")
+  if not ok then
+    log("treesitter not available: markdown parser not found")
+  end
   return ok
 end
 
@@ -74,7 +108,10 @@ function M.get_parser()
     return nil
   end
 
-  -- Parse with injections, to enable markdown_inline
+  -- Parse with injections to enable markdown_inline
+  -- Note: We don't call invalidate() here as it's too aggressive and can cause
+  -- infinite loops when parsing triggers callbacks. The parse(true) will reparse
+  -- if the buffer has changed since the last parse.
   parser:parse(true)
   return parser
 end
@@ -92,11 +129,19 @@ function M.get_node_at_cursor(opts)
   if ignore_injections == nil then
     ignore_injections = false
   end
-  local ok, node = pcall(vim.treesitter.get_node, { ignore_injections = ignore_injections })
-  if not ok then
+
+  -- Query the tree directly instead of using vim.treesitter.get_node
+  -- to ensure we use the freshly parsed tree, not a cached one
+  local tree = parser:trees()[1]
+  if not tree then
     return nil
   end
-  return node
+
+  local root = tree:root()
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local row = cursor[1] - 1 -- Convert to 0-indexed
+  local col = cursor[2]
+  return root:named_descendant_for_range(row, col, row, col)
 end
 
 ---Get treesitter node at a specific position
@@ -109,11 +154,18 @@ function M.get_node_at_position(row, col)
     return nil
   end
   col = col or 0
-  local ok, node = pcall(vim.treesitter.get_node, { pos = { row - 1, col } })
-  if not ok then
+
+  -- Query the tree directly instead of using vim.treesitter.get_node
+  -- to ensure we use the freshly parsed tree, not a cached one
+  local tree = parser:trees()[1]
+  if not tree then
     return nil
   end
-  return node
+
+  local root = tree:root()
+  -- Convert to 0-indexed for treesitter API
+  local ts_row = row - 1
+  return root:named_descendant_for_range(ts_row, col, ts_row, col)
 end
 
 ---Find ancestor node of a specific type
@@ -158,20 +210,24 @@ end
 function M.get_lines_in_node_type(node_type)
   local parser = M.get_parser()
   if not parser then
+    log("get_lines_in_node_type: parser unavailable, using regex fallback")
     return nil
   end
 
   local tree = parser:trees()[1]
   if not tree then
+    log("get_lines_in_node_type: no tree available, using regex fallback")
     return nil
   end
 
   local root = tree:root()
   local line_set = {}
+  local node_count = 0
 
   -- Recursively find all nodes of the target type
   local function collect_lines(node)
     if node:type() == node_type then
+      node_count = node_count + 1
       local start_row, _, end_row, _ = node:range()
       -- Mark all lines in range (convert to 1-indexed)
       -- end_row is exclusive in treesitter, so we go up to end_row (not end_row + 1)
@@ -185,6 +241,9 @@ function M.get_lines_in_node_type(node_type)
   end
 
   collect_lines(root)
+  if node_count > 0 then
+    log("get_lines_in_node_type: found " .. node_count .. " " .. node_type .. " nodes")
+  end
   return line_set
 end
 

@@ -154,18 +154,38 @@ end
 local function parse_list_line_ts(row)
   local node = ts.get_node_at_position(row, 0)
   if not node then
+    ts.log("parse_list_line_ts: no node at row " .. row)
     return nil
   end
 
   -- Find list_item ancestor
   local list_item = ts.find_ancestor(node, nodes.LIST_ITEM)
   if not list_item then
+    -- Expected cases where treesitter doesn't see a list:
+    -- - inline: text that looks like a letter list (a., A.) but treesitter sees as paragraph
+    -- - document/section: empty lines or non-list content
+    -- - block_continuation: indented lines that treesitter sees as continuations
+    -- Only log unexpected node types for debugging
+    local node_type = node:type()
+    local expected_non_list = {
+      inline = true,
+      document = true,
+      section = true,
+      block_continuation = true,
+      indented_code_block = true,
+    }
+    if not expected_non_list[node_type] then
+      ts.log("parse_list_line_ts: unexpected - no list_item ancestor for " .. node_type)
+    end
     return nil
   end
 
   -- Check list_item starts on requested row (not a continuation line)
   local item_start_row = list_item:range() + 1 -- Convert to 1-indexed
   if item_start_row ~= row then
+    -- This line is part of a multi-line list item but not the start
+    -- Treesitter correctly identified it as belonging to a list_item that started elsewhere
+    -- This can happen with 4-space indented nested lists which treesitter sees differently
     return nil
   end
 
@@ -181,6 +201,7 @@ local function parse_list_line_ts(row)
   end
 
   if not marker_node then
+    ts.log("parse_list_line_ts: no marker node found in list_item children")
     return nil
   end
 
@@ -260,14 +281,23 @@ function M.parse_list_line(line, row)
   -- Try treesitter first (if row provided)
   local ts_result = parse_list_line_ts(row)
   if ts_result then
+    ts.log("parse_list_line: treesitter identified " .. ts_result.type .. " list")
     return ts_result
   end
 
   -- Fall through to regex if ts returns nil
-  -- (handles letter lists, ts unavailable, continuation lines, etc.)
+  -- This happens for:
+  -- 1. Letter lists (a., A., a), A)) - not supported by treesitter markdown parser
+  -- 2. Indented lists with 4+ spaces - treesitter sees as block continuation
+  -- 3. Lines in empty/different buffer state - treesitter returns document/section
+  -- 4. Treesitter unavailable
 
   -- Fallback to regex
-  return parse_list_line_regex(line)
+  local regex_result = parse_list_line_regex(line)
+  if regex_result then
+    ts.log("parse_list_line: regex identified " .. regex_result.type .. " list")
+  end
+  return regex_result
 end
 
 ---Check if a list item is empty (only contains marker)
