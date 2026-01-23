@@ -1,6 +1,6 @@
 -- List parsing module for markdown-plus.nvim
 local utils = require("markdown-plus.utils")
-local ts = require("markdown-plus.format.treesitter")
+local ts = require("markdown-plus.treesitter")
 local M = {}
 
 -- Constants

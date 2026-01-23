@@ -515,7 +515,7 @@ DEBUG LOGGING ~
 
 To verify Treesitter is being used correctly, you can enable debug logging:
 >lua
-    require('markdown-plus.format.treesitter').debug = true
+    require('markdown-plus.treesitter').debug = true
 <
 
 This will log messages to `:messages` showing when Treesitter successfully
@@ -2195,7 +2195,7 @@ If you suspect Treesitter parsing is not working correctly:
 
 2. Enable debug logging to verify Treesitter is being used:
 >lua
-    require('markdown-plus.format.treesitter').debug = true
+    require('markdown-plus.treesitter').debug = true
 <
 
 3. Perform an action (e.g., press Enter on a list item) and check `:messages`

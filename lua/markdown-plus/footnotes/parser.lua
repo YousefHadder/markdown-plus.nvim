@@ -1,6 +1,6 @@
 -- Footnote parsing module for markdown-plus.nvim
 -- Handles pattern matching and detection of footnote references and definitions
-local ts = require("markdown-plus.format.treesitter")
+local ts = require("markdown-plus.treesitter")
 
 local M = {}
 

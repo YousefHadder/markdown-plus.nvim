@@ -1,5 +1,5 @@
 -- Header parsing module for markdown-plus.nvim
-local ts = require("markdown-plus.format.treesitter")
+local ts = require("markdown-plus.treesitter")
 
 local M = {}
 
