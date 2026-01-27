@@ -118,6 +118,49 @@ describe("markdown-plus configuration", function()
 
       assert.is_false(markdown_plus.config.keymaps.enabled)
     end)
+
+    it("disables ALL keymaps including table keymaps when keymaps.enabled = false", function()
+      -- Create a markdown buffer
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.bo[buf].filetype = "markdown"
+      vim.api.nvim_set_current_buf(buf)
+
+      markdown_plus.setup({
+        keymaps = {
+          enabled = false,
+        },
+      })
+
+      -- Check that NO buffer-local keymaps were set (except built-in vim ones)
+      local mappings_n = vim.api.nvim_buf_get_keymap(buf, "n")
+      local mappings_i = vim.api.nvim_buf_get_keymap(buf, "i")
+
+      -- Count only BUFFER-LOCAL plugin keymaps (those pointing to <Plug>)
+      local plugin_mappings_n = 0
+      for _, map in ipairs(mappings_n) do
+        -- Only count buffer-local mappings (buffer == 1) that point to <Plug>
+        if map.buffer == 1 and map.rhs and map.rhs:match("^<Plug>") then
+          plugin_mappings_n = plugin_mappings_n + 1
+        end
+      end
+
+      -- Should have no plugin keymaps in normal mode
+      assert.are.equal(0, plugin_mappings_n, "Expected no normal mode plugin keymaps when disabled")
+
+      -- Count only buffer-local insert mode mappings
+      local plugin_mappings_i = 0
+      for _, map in ipairs(mappings_i) do
+        if map.buffer == 1 then
+          plugin_mappings_i = plugin_mappings_i + 1
+        end
+      end
+
+      -- Should have no insert mode keymaps
+      assert.are.equal(0, plugin_mappings_i, "Expected no insert mode keymaps when disabled")
+
+      -- Clean up
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
   end)
 
   describe("vim.g configuration", function()
