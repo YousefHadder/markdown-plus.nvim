@@ -122,7 +122,7 @@ local function is_csv_line(line)
   if line:match("^%s*>") then -- Blockquotes
     return false
   end
-  if line:match("^%s*```") then -- Code fences
+  if line:match("^%s*```") or line:match("^%s*~~~") then -- Code fences
     return false
   end
   if line:match("^%s*|") then -- Already a table
