@@ -135,11 +135,19 @@ describe("markdown-plus configuration", function()
       local mappings_n = vim.api.nvim_buf_get_keymap(buf, "n")
       local mappings_i = vim.api.nvim_buf_get_keymap(buf, "i")
 
-      -- Count only BUFFER-LOCAL plugin keymaps (those pointing to <Plug>)
+      -- Helper to check if a mapping is from markdown-plus (matches both naming conventions)
+      local function is_markdown_plus_mapping(map)
+        if not map.rhs then
+          return false
+        end
+        -- Match both <Plug>(MarkdownPlus...) and <Plug>(markdown-plus-...)
+        return map.rhs:match("<Plug>%(MarkdownPlus") or map.rhs:match("<Plug>%(markdown%-plus")
+      end
+
+      -- Count only BUFFER-LOCAL markdown-plus keymaps in normal mode
       local plugin_mappings_n = 0
       for _, map in ipairs(mappings_n) do
-        -- Only count buffer-local mappings (buffer == 1) that point to <Plug>
-        if map.buffer == 1 and map.rhs and map.rhs:match("^<Plug>") then
+        if map.buffer == 1 and is_markdown_plus_mapping(map) then
           plugin_mappings_n = plugin_mappings_n + 1
         end
       end
@@ -147,16 +155,16 @@ describe("markdown-plus configuration", function()
       -- Should have no plugin keymaps in normal mode
       assert.are.equal(0, plugin_mappings_n, "Expected no normal mode plugin keymaps when disabled")
 
-      -- Count only buffer-local insert mode mappings
+      -- Count only BUFFER-LOCAL markdown-plus keymaps in insert mode
       local plugin_mappings_i = 0
       for _, map in ipairs(mappings_i) do
-        if map.buffer == 1 then
+        if map.buffer == 1 and is_markdown_plus_mapping(map) then
           plugin_mappings_i = plugin_mappings_i + 1
         end
       end
 
       -- Should have no insert mode keymaps
-      assert.are.equal(0, plugin_mappings_i, "Expected no insert mode keymaps when disabled")
+      assert.are.equal(0, plugin_mappings_i, "Expected no insert mode plugin keymaps when disabled")
 
       -- Clean up
       vim.api.nvim_buf_delete(buf, { force = true })
