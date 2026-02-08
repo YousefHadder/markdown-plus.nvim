@@ -471,6 +471,12 @@ describe("markdown-plus footnotes", function()
 
         vim.api.nvim_buf_get_lines = orig_get_lines
         assert.is_true(success, "goto_definition should not error when line is nil")
+
+        -- Verify cursor jumped to a safe position (clamped to buffer line count)
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        local line_count = vim.api.nvim_buf_line_count(0)
+        assert.is_true(cursor[1] >= 1 and cursor[1] <= line_count, "cursor should be within buffer bounds")
+        assert.equals(0, cursor[2], "cursor column should be 0 on fallback")
       end)
     end)
   end)
