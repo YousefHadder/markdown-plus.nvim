@@ -137,9 +137,18 @@ function M.check()
     end
 
     -- Check treesitter markdown parser
-    local ts_ok = pcall(vim.treesitter.get_parser, 0, "markdown")
-    if ts_ok then
-      health.ok("Treesitter markdown parser is available (used for smart format detection)")
+    if vim.treesitter and vim.treesitter.get_parser then
+      local ts_ok = pcall(function()
+        return vim.treesitter.get_parser(0, "markdown")
+      end)
+      if ts_ok then
+        health.ok("Treesitter markdown parser is available (used for smart format detection)")
+      else
+        health.info(
+          "Treesitter markdown parser not available (format detection will use regex fallback)",
+          { "Install with :TSInstall markdown for improved format detection accuracy" }
+        )
+      end
     else
       health.info(
         "Treesitter markdown parser not available (format detection will use regex fallback)",
