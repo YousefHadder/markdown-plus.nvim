@@ -29,6 +29,11 @@ function M.goto_definition()
 
   -- Jump to definition, position cursor after ": "
   local line = vim.api.nvim_buf_get_lines(bufnr, def.line_num - 1, def.line_num, false)[1]
+  if not line then
+    vim.cmd("normal! m'")
+    vim.api.nvim_win_set_cursor(0, { def.line_num, 0 })
+    return
+  end
   local content_start = line:find(":%s*")
   if content_start then
     content_start = content_start + 1
