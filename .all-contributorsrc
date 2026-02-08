@@ -117,6 +117,15 @@
         "code",
         "bug"
       ]
+    },
+    {
+      "login": "m2228",
+      "name": "m2228",
+      "avatar_url": "https://avatars.githubusercontent.com/u/138136132?v=4",
+      "profile": "https://github.com/m2228",
+      "contributions": [
+        "bug"
+      ]
     }
   ],
   "contributorsPerLine": 7,
