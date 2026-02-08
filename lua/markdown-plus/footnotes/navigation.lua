@@ -29,6 +29,14 @@ function M.goto_definition()
 
   -- Jump to definition, position cursor after ": "
   local line = vim.api.nvim_buf_get_lines(bufnr, def.line_num - 1, def.line_num, false)[1]
+  if not line then
+    local line_count = vim.api.nvim_buf_line_count(bufnr)
+    local target_line = math.min(def.line_num, line_count)
+    vim.cmd("normal! m'")
+    vim.api.nvim_win_set_cursor(0, { target_line, 0 })
+    utils.notify("Footnote definition moved; jumped to nearest available line", vim.log.levels.INFO)
+    return
+  end
   local content_start = line:find(":%s*")
   if content_start then
     content_start = content_start + 1
