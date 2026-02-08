@@ -390,7 +390,7 @@ end
 ---Uses treesitter when available, falls back to regex-based detection
 ---@return boolean True if cursor is inside a code block
 function M.is_in_code_block()
-  local ts = require("markdown-plus.format.treesitter")
+  local ts = require("markdown-plus.treesitter")
   local ts_result = ts.is_in_fenced_code_block()
   if ts_result ~= nil then
     return ts_result
