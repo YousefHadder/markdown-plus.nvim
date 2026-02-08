@@ -199,7 +199,7 @@ end
 ---since injected language parsers won't have fenced_code_block nodes
 ---@return boolean|nil True if inside code block, false if not, nil if treesitter unavailable
 function M.is_in_fenced_code_block()
-  local node = M.get_node_at_cursor()
+  local node = M.get_node_at_cursor({ ignore_injections = true })
   if not node then
     return nil
   end
