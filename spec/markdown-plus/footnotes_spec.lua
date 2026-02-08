@@ -428,4 +428,50 @@ describe("markdown-plus footnotes", function()
       assert.equals(true, config.confirm_delete)
     end)
   end)
+
+  describe("navigation", function()
+    local navigation = require("markdown-plus.footnotes.navigation")
+
+    describe("goto_definition", function()
+      it("jumps to footnote definition from reference", function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "Text with[^1] footnote.",
+          "",
+          "[^1]: The definition.",
+        })
+        vim.api.nvim_win_set_cursor(0, { 1, 11 }) -- on [^1]
+
+        navigation.goto_definition()
+
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        assert.equals(3, cursor[1])
+      end)
+
+      it("does not error when definition line is out of range", function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "Text with[^1] footnote.",
+          "",
+          "[^1]: The definition.",
+        })
+        vim.api.nvim_win_set_cursor(0, { 1, 11 }) -- on [^1]
+
+        -- Stub nvim_buf_get_lines to return empty (simulating buffer shrink)
+        local orig_get_lines = vim.api.nvim_buf_get_lines
+        vim.api.nvim_buf_get_lines = function(buf, start, stop, strict)
+          -- Only intercept the single-line read for the definition
+          if start == 2 and stop == 3 then
+            return {}
+          end
+          return orig_get_lines(buf, start, stop, strict)
+        end
+
+        local success = pcall(function()
+          navigation.goto_definition()
+        end)
+
+        vim.api.nvim_buf_get_lines = orig_get_lines
+        assert.is_true(success, "goto_definition should not error when line is nil")
+      end)
+    end)
+  end)
 end)
