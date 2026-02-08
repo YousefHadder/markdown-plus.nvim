@@ -71,10 +71,11 @@ function M.get_indent_string(level)
   end
 end
 
--- Check if current buffer is markdown (deprecated, kept for compatibility)
--- Note: This check is now redundant as the autocmd pattern already filters by filetype
----@return boolean True if buffer filetype is markdown
+---Check if current buffer is markdown
+---@deprecated Use filetype autocmd filtering instead. Will be removed in 2.0.0.
+---@return boolean Always returns true
 function M.is_markdown_buffer()
+  vim.deprecate("is_markdown_buffer()", "filetype autocmd filtering", "2.0.0", "markdown-plus.nvim")
   return true
 end
 

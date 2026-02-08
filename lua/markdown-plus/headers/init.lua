@@ -1,5 +1,4 @@
 -- Headers & TOC module for markdown-plus.nvim
-local utils = require("markdown-plus.utils")
 local keymap_helper = require("markdown-plus.keymap_helper")
 
 -- Load sub-modules
@@ -30,10 +29,6 @@ end
 ---Enable headers features for current buffer
 ---@return nil
 function M.enable()
-  if not utils.is_markdown_buffer() then
-    return
-  end
-
   -- Set up keymaps
   M.setup_keymaps()
 end
