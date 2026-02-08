@@ -22,8 +22,9 @@ M.patterns = {
 
 ---Treesitter node types for format detection (markdown_inline parser)
 ---Maps format type names to treesitter node type names.
----Note: General node type constants are defined in treesitter.lua (M.nodes).
----These are kept here to avoid circular dependencies since treesitter.lua requires this module.
+---Note: General node type constants are defined in the shared module
+---`lua/markdown-plus/treesitter/init.lua` (required as `markdown-plus.treesitter`).
+---These mappings are kept here to avoid circular dependencies with `markdown-plus.treesitter`.
 ---@type table<string, string>
 M.ts_node_types = {
   bold = "strong_emphasis",

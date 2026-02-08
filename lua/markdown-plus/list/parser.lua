@@ -197,10 +197,16 @@ local function parse_list_line_ts(row)
   local marker, list_type, delimiter
   if marker_type_info.type == "ordered" then
     marker = marker_text:match("(%d+)")
+    if not marker then
+      return nil
+    end -- letter list, fall through to regex
     list_type = "ordered"
     delimiter = DELIMITER_DOT
   elseif marker_type_info.type == "ordered_paren" then
     marker = marker_text:match("(%d+)")
+    if not marker then
+      return nil
+    end -- letter list, fall through to regex
     list_type = "ordered_paren"
     delimiter = DELIMITER_PAREN
   else
@@ -258,7 +264,7 @@ function M.parse_list_line(line, row)
   end
 
   -- Try treesitter first (if row provided)
-  local ts_result = parse_list_line_ts(row)
+  local ts_result = row and parse_list_line_ts(row) or nil
   if ts_result then
     return ts_result
   end
