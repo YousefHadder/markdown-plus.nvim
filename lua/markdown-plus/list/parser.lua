@@ -256,7 +256,7 @@ end
 ---Parse a line to detect list information
 ---Uses treesitter when row is provided and available, falls back to regex
 ---@param line string Line to parse
----@param row number 1-indexed row for treesitter
+---@param row? number Optional 1-indexed row for treesitter
 ---@return markdown-plus.ListInfo|nil List info or nil if not a list
 function M.parse_list_line(line, row)
   if not line then

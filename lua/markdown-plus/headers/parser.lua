@@ -54,9 +54,7 @@ function M.get_all_headers()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local headers = {}
 
-  -- Use regex for full-buffer code block scanning (faster than TS tree walk,
-  -- see scripts/benchmark_treesitter.lua). TS is only used as fallback if
-  -- regex were to be removed in the future.
+  -- Use regex for full-buffer code block scanning (faster than TS tree walk)
   local code_block_lines = get_code_block_lines_regex(lines)
 
   for i, line in ipairs(lines) do
