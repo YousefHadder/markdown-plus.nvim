@@ -7,7 +7,7 @@
 [![LuaRocks](https://img.shields.io/luarocks/v/yousefhadder/markdown-plus.nvim?style=flat-square&logo=lua&color=purple)](https://luarocks.org/modules/yousefhadder/markdown-plus.nvim)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-[![Tests](https://img.shields.io/github/actions/workflow/status/yousefhadder/markdown-plus.nvim/ci.yml?branch=main&style=flat-square&logo=github&label=Tests)](https://github.com/yousefhadder/markdown-plus.nvim/actions/workflows/tests.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/yousefhadder/markdown-plus.nvim/ci.yml?branch=main&style=flat-square&logo=github&label=Tests)](https://github.com/yousefhadder/markdown-plus.nvim/actions/workflows/ci.yml)
 [![Neovim](https://img.shields.io/badge/Neovim%200.11+-green.svg?style=flat-square&logo=neovim&label=Neovim)](https://neovim.io)
 [![Lua](https://img.shields.io/badge/Lua%205.1+-blue.svg?style=flat-square&logo=lua&label=Lua)](https://www.lua.org/)
 
