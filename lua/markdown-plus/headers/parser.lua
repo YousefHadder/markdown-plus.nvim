@@ -1,5 +1,4 @@
 -- Header parsing module for markdown-plus.nvim
-local ts = require("markdown-plus.treesitter")
 
 local M = {}
 
@@ -55,11 +54,10 @@ function M.get_all_headers()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local headers = {}
 
-  -- Get code block lines (try treesitter first, fallback to regex)
-  local code_block_lines = ts.get_lines_in_node_type(ts.nodes.FENCED_CODE_BLOCK)
-  if not code_block_lines then
-    code_block_lines = get_code_block_lines_regex(lines)
-  end
+  -- Use regex for full-buffer code block scanning (faster than TS tree walk,
+  -- see scripts/benchmark_treesitter.lua). TS is only used as fallback if
+  -- regex were to be removed in the future.
+  local code_block_lines = get_code_block_lines_regex(lines)
 
   for i, line in ipairs(lines) do
     -- Only parse headers if we're not inside a code block

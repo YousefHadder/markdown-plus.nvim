@@ -1,6 +1,5 @@
 -- Footnote parsing module for markdown-plus.nvim
 -- Handles pattern matching and detection of footnote references and definitions
-local ts = require("markdown-plus.treesitter")
 
 local M = {}
 
@@ -72,15 +71,11 @@ local function get_code_block_lines_regex(lines)
 end
 
 ---Build a set of line numbers that are inside code blocks
----@param lines string[] All lines in buffer (used for regex fallback)
+---Uses regex for full-buffer scanning (faster than TS tree walk,
+---see scripts/benchmark_treesitter.lua)
+---@param lines string[] All lines in buffer
 ---@return table<number, boolean> Set of line numbers inside code blocks
 local function get_code_block_lines(lines)
-  local ts_result = ts.get_lines_in_node_type(ts.nodes.FENCED_CODE_BLOCK)
-  if ts_result then
-    return ts_result
-  end
-
-  -- Fallback to regex
   return get_code_block_lines_regex(lines)
 end
 
