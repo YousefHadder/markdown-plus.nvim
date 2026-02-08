@@ -92,6 +92,34 @@ describe("health check", function()
       vim.health = saved_health
       assert.is_true(success, "Should handle missing vim.health")
     end)
+
+    it("handles missing vim.treesitter gracefully", function()
+      local saved_ts = vim.treesitter
+      vim.treesitter = nil
+
+      local success = pcall(function()
+        health_module.check()
+      end)
+
+      vim.treesitter = saved_ts
+      assert.is_true(success, "Should handle missing vim.treesitter without throwing")
+    end)
+
+    it("handles treesitter get_parser error gracefully", function()
+      local saved_ts = vim.treesitter
+      vim.treesitter = {
+        get_parser = function()
+          error("no parser for markdown")
+        end,
+      }
+
+      local success = pcall(function()
+        health_module.check()
+      end)
+
+      vim.treesitter = saved_ts
+      assert.is_true(success, "Should handle treesitter parser error without throwing")
+    end)
   end)
 
   describe("module accessibility", function()

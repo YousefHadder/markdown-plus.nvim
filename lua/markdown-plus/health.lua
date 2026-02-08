@@ -136,6 +136,26 @@ function M.check()
       health.info("Not in markdown buffer (current filetype: " .. (current_ft ~= "" and current_ft or "none") .. ")")
     end
 
+    -- Check treesitter markdown parser
+    if vim.treesitter and vim.treesitter.get_parser then
+      local ts_ok = pcall(function()
+        return vim.treesitter.get_parser(0, "markdown")
+      end)
+      if ts_ok then
+        health.ok("Treesitter markdown parser is available (used for smart format detection)")
+      else
+        health.info(
+          "Treesitter markdown parser not available (format detection will use regex fallback)",
+          { "Install with :TSInstall markdown for improved format detection accuracy" }
+        )
+      end
+    else
+      health.info(
+        "Treesitter markdown parser not available (format detection will use regex fallback)",
+        { "Install with :TSInstall markdown for improved format detection accuracy" }
+      )
+    end
+
     -- Check configured filetypes
     if mp_ok and markdown_plus.config and markdown_plus.config.filetypes then
       local fts = markdown_plus.config.filetypes
