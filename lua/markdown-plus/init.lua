@@ -226,8 +226,8 @@ function M.enable_features_for_buffer()
   if M.callouts then
     M.callouts.enable()
   end
-  if M.table then
-    -- Set up buffer-local table keymaps
+  if M.table and M.config.keymaps.enabled then
+    -- Set up buffer-local table keymaps (only if global keymaps are enabled)
     require("markdown-plus.table.keymaps").setup_buffer_keymaps(M.config.table or M.table.config)
   end
   if M.footnotes then
