@@ -5,6 +5,24 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.10.0...v1.11.0) (2026-02-08)
+
+
+### Features
+
+* **health:** add treesitter markdown parser check ([#207](https://github.com/YousefHadder/markdown-plus.nvim/issues/207)) ([9a75a71](https://github.com/YousefHadder/markdown-plus.nvim/commit/9a75a71b9632d2f26093fd820f9631848ff2e27a))
+* **links:** add smart paste feature ([fde03fc](https://github.com/YousefHadder/markdown-plus.nvim/commit/fde03fc3ed118c37c4d6b5c4c3f4822e71a62d88))
+* **list:** add checkbox completion timestamps ([b214b65](https://github.com/YousefHadder/markdown-plus.nvim/commit/b214b65468d326b02bb6a9293ec477cc028350d6)), closes [#186](https://github.com/YousefHadder/markdown-plus.nvim/issues/186)
+
+
+### Bug Fixes
+
+* **code blocks:** prevent list indent and list utils from firing inside code blocks ([#193](https://github.com/YousefHadder/markdown-plus.nvim/issues/193)) ([b2b1910](https://github.com/YousefHadder/markdown-plus.nvim/commit/b2b1910363a38d58b7d20f7c3518289a9bf66451))
+* **config:** respect keymaps.enabled for table keymaps ([#203](https://github.com/YousefHadder/markdown-plus.nvim/issues/203)) ([52fbde4](https://github.com/YousefHadder/markdown-plus.nvim/commit/52fbde419a60ed1588d946ca543ed5742db57db9))
+* **docs:** correct CI badge link in README ([#205](https://github.com/YousefHadder/markdown-plus.nvim/issues/205)) ([74d1fb4](https://github.com/YousefHadder/markdown-plus.nvim/commit/74d1fb4517a97fc584cf0bf6c8541e78e5d947b6))
+* **footnotes:** add nil check in goto_definition navigation ([#208](https://github.com/YousefHadder/markdown-plus.nvim/issues/208)) ([438ea47](https://github.com/YousefHadder/markdown-plus.nvim/commit/438ea474f8f12993244c195b883dc1924a709086))
+* **lists:** tabs handling to use default neovim tab handling ([#198](https://github.com/YousefHadder/markdown-plus.nvim/issues/198)) ([1a06bd8](https://github.com/YousefHadder/markdown-plus.nvim/commit/1a06bd88fc94a7333cd8cfd829774f868d85e310))
+
 ## [1.10.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.9.1...v1.10.0) (2025-12-25)
 
 
