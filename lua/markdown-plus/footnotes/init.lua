@@ -7,7 +7,6 @@ local insertion = require("markdown-plus.footnotes.insertion")
 local navigation = require("markdown-plus.footnotes.navigation")
 local window = require("markdown-plus.footnotes.window")
 local keymap_helper = require("markdown-plus.keymap_helper")
-local utils = require("markdown-plus.utils")
 
 local M = {}
 
@@ -108,9 +107,6 @@ end
 --- Enable footnotes functionality for current buffer
 ---@return nil
 function M.enable()
-  if not utils.is_markdown_buffer() then
-    return
-  end
   M.setup_keymaps()
 end
 

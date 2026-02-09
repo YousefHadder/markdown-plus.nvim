@@ -4,31 +4,6 @@
 local utils = require("markdown-plus.utils")
 
 describe("markdown-plus utils", function()
-  describe("is_markdown_buffer", function()
-    it("returns true for markdown buffers", function()
-      local buf = vim.api.nvim_create_buf(false, true)
-      vim.bo[buf].filetype = "markdown"
-      vim.api.nvim_set_current_buf(buf)
-
-      assert.is_true(utils.is_markdown_buffer())
-
-      vim.api.nvim_buf_delete(buf, { force = true })
-    end)
-
-    it("always returns true (filetype filtering done by autocmd)", function()
-      -- Note: is_markdown_buffer() always returns true because filetype
-      -- filtering is handled by the autocmd pattern in init.lua.
-      -- This allows the plugin to work with any configured filetype.
-      local buf = vim.api.nvim_create_buf(false, true)
-      vim.bo[buf].filetype = "lua"
-      vim.api.nvim_set_current_buf(buf)
-
-      assert.is_true(utils.is_markdown_buffer())
-
-      vim.api.nvim_buf_delete(buf, { force = true })
-    end)
-  end)
-
   describe("set_cursor", function()
     it("sets cursor to specified position", function()
       local buf = vim.api.nvim_create_buf(false, true)
