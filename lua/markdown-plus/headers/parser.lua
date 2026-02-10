@@ -5,7 +5,7 @@ local M = {}
 ---Header pattern (matches # through ######)
 M.header_pattern = "^(#+)%s+(.+)$"
 
--- Code fence pattern for regex fallback
+-- Recognized fence patterns for regex matches
 local CODE_FENCE_PATTERN = "^%s*```"
 local CODE_FENCE_TILDE_PATTERN = "^%s*~~~"
 

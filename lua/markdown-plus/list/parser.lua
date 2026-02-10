@@ -7,26 +7,19 @@ local M = {}
 local DELIMITER_DOT = "."
 local DELIMITER_PAREN = ")"
 
--- Treesitter node type constants (imported from treesitter module)
-local nodes = ts.nodes
-
--- =============================================================================
--- Treesitter Node Mappings
--- =============================================================================
-
--- Map treesitter marker nodes to list types
+---Map treesitter marker nodes to list type names
 local TS_MARKER_TYPES = {
-  [nodes.LIST_MARKER_MINUS] = { type = "unordered", marker = "-", delimiter = "" },
-  [nodes.LIST_MARKER_PLUS] = { type = "unordered", marker = "+", delimiter = "" },
-  [nodes.LIST_MARKER_STAR] = { type = "unordered", marker = "*", delimiter = "" },
-  [nodes.LIST_MARKER_DOT] = { type = "ordered", delimiter = DELIMITER_DOT },
-  [nodes.LIST_MARKER_PARENTHESIS] = { type = "ordered_paren", delimiter = DELIMITER_PAREN },
+  [ts.nodes.LIST_MARKER_MINUS] = { type = "unordered", marker = "-", delimiter = "" },
+  [ts.nodes.LIST_MARKER_PLUS] = { type = "unordered", marker = "+", delimiter = "" },
+  [ts.nodes.LIST_MARKER_STAR] = { type = "unordered", marker = "*", delimiter = "" },
+  [ts.nodes.LIST_MARKER_DOT] = { type = "ordered", delimiter = DELIMITER_DOT },
+  [ts.nodes.LIST_MARKER_PARENTHESIS] = { type = "ordered_paren", delimiter = DELIMITER_PAREN },
 }
 
 -- Map checkbox nodes to checkbox state
 local TS_CHECKBOX_TYPES = {
-  [nodes.TASK_LIST_MARKER_UNCHECKED] = " ",
-  [nodes.TASK_LIST_MARKER_CHECKED] = "x",
+  [ts.nodes.TASK_LIST_MARKER_UNCHECKED] = " ",
+  [ts.nodes.TASK_LIST_MARKER_CHECKED] = "x",
 }
 
 ---List patterns for detection
@@ -159,7 +152,7 @@ local function parse_list_line_ts(row)
   end
 
   -- Find list_item ancestor
-  local list_item = ts.find_ancestor(node, nodes.LIST_ITEM)
+  local list_item = ts.find_ancestor(node, ts.nodes.LIST_ITEM)
   if not list_item then
     -- Expected cases where treesitter doesn't see a list:
     -- - inline: text that looks like a letter list (a., A.) but treesitter sees as paragraph

@@ -1,19 +1,11 @@
-<<<<<<< HEAD
--- Shared TreeSitter utilities for markdown-plus.nvim
--- Provides common treesitter helpers used across multiple modules
--- (format, list, headers, etc.)
+---Main treesitter support module, for ts assisted markdown parsing
 
 local utils = require("markdown-plus.utils")
 
 local M = {}
 
--- =============================================================================
--- Debug Logging
--- =============================================================================
--- Temporary logging to verify treesitter usage during development.
--- Set M.debug = true to enable logging to :messages
-
----@type boolean Enable debug logging for treesitter operations
+---Locally debug treesitter usage, and fallback mechanisms
+---@type boolean Enables debug logging for treesitter operations
 M.debug = false
 
 ---Log a debug message if debug mode is enabled
@@ -29,22 +21,14 @@ function M.log(msg, ...)
   if #args > 0 then
     formatted = msg .. ": " .. vim.inspect(args)
   end
+  --NOTE to self: may use plenary.log here
   vim.schedule(function()
     vim.notify("[TS] " .. formatted, vim.log.levels.DEBUG)
   end)
 end
 
--- Local alias for internal use
 local log = M.log
 
-=======
--- Shared treesitter utilities for markdown-plus.nvim
--- Provides generic treesitter helpers used across all modules
--- Format-specific treesitter functions remain in format/treesitter.lua
-
-local M = {}
-
->>>>>>> origin/refactor/ts-parse-utils
 -- Centralized definitions for all markdown treesitter node types used
 ---@class markdown-plus.ts.NodeTypes
 M.nodes = {
@@ -118,10 +102,13 @@ end
 ---@return vim.treesitter.LanguageTree|nil parser The parser or nil if unavailable
 function M.get_parser()
   if not M.is_available() then
+    log("No parser available")
     return nil
   end
+
   local ok, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
   if not ok or not parser then
+    log("Failed to acquire parser for markdown buffer")
     return nil
   end
 
@@ -153,14 +140,18 @@ end
 ---Get treesitter node at a specific position
 ---@param row number 1-indexed row
 ---@param col? number 0-indexed column (default: 0)
+---@param opts? {ignore_injections?: boolean} Options (default: ignore_injections=false)
 ---@return TSNode|nil node The node or nil if unavailable
-function M.get_node_at_position(row, col)
+function M.get_node_at_position(row, col, opts)
   local parser = M.get_parser()
   if not parser then
     return nil
   end
   col = col or 0
-  local ok, node = pcall(vim.treesitter.get_node, { pos = { row - 1, col } })
+  local ok, node = pcall(
+    vim.treesitter.get_node,
+    { pos = { row - 1, col }, ignore_injections = (opts or {}).ignore_injections or false }
+  )
   if not ok then
     return nil
   end
@@ -202,7 +193,7 @@ function M.is_row_in_node_type(row, node_type)
   return M.find_ancestor(node, node_type) ~= nil
 end
 
----Get set of line numbers inside nodes of a specific type
+---Returns a set of line numbers inside nodes of a specific type
 ---Efficiently queries all nodes of the type and collects their line ranges
 ---@param node_type string Node type to find (e.g. M.nodes.FENCED_CODE_BLOCK)
 ---@return table<number, boolean>|nil Line number set (1-indexed), or nil if ts unavailable
@@ -240,7 +231,7 @@ function M.get_lines_in_node_type(node_type)
 
   collect_lines(root)
   if node_count > 0 then
-    log(string.format("get_lines_in_node_type: found %d %s nodes" ,node_count , node_type)) 
+    log(string.format("get_lines_in_node_type: found %d %s nodes", node_count, node_type))
   end
   return line_set
 end

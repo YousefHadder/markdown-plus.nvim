@@ -70,8 +70,8 @@ local function get_code_block_lines_regex(lines)
   return code_lines
 end
 
----Build a set of line numbers that are inside code blocks
----Uses regex for full-buffer scanning (faster than TS tree walk)
+---Returns a set of line numbers that are inside code blocks
+---Uses regex for full-buffer scanning (faster than TS tree walk in testing)
 ---@param lines string[] All lines in buffer
 ---@return table<number, boolean> Set of line numbers inside code blocks
 local function get_code_block_lines(lines)

@@ -131,11 +131,7 @@ function M.remove_formatting_from_node(node_info, format_type, remove_formatting
   return true
 end
 
--- =============================================================================
--- Re-export shared utilities for backward compatibility
--- =============================================================================
--- Existing code using require('markdown-plus.format.treesitter') continues to work
-
+--- FIXME: determine what is *actually* public API surface
 M.debug = ts.debug
 M.log = ts.log
 M.nodes = ts.nodes
