@@ -218,10 +218,16 @@ local function parse_list_line_ts(row)
   local marker, list_type, delimiter
   if marker_type_info.type == "ordered" then
     marker = marker_text:match("(%d+)")
+    if not marker then
+      return nil
+    end -- letter list, fall through to regex
     list_type = "ordered"
     delimiter = DELIMITER_DOT
   elseif marker_type_info.type == "ordered_paren" then
     marker = marker_text:match("(%d+)")
+    if not marker then
+      return nil
+    end -- letter list, fall through to regex
     list_type = "ordered_paren"
     delimiter = DELIMITER_PAREN
   else
@@ -271,7 +277,7 @@ end
 ---Parse a line to detect list information
 ---Uses treesitter when row is provided and available, falls back to regex
 ---@param line string Line to parse
----@param row number 1-indexed row for treesitter
+---@param row? number Optional 1-indexed row for treesitter
 ---@return markdown-plus.ListInfo|nil List info or nil if not a list
 function M.parse_list_line(line, row)
   if not line then
@@ -279,7 +285,7 @@ function M.parse_list_line(line, row)
   end
 
   -- Try treesitter first (if row provided)
-  local ts_result = parse_list_line_ts(row)
+  local ts_result = row and parse_list_line_ts(row) or nil
   if ts_result then
     ts.log("parse_list_line: treesitter identified " .. ts_result.type .. " list")
     return ts_result

@@ -1,10 +1,10 @@
--- Format-specific TreeSitter functions for markdown-plus.nvim
--- Provides formatting detection and manipulation using treesitter
--- Shared utilities are imported from markdown-plus.treesitter
+-- Format-specific treesitter functions for markdown-plus.nvim
+-- Shared treesitter utilities live in lua/markdown-plus/treesitter/init.lua
 
 local ts = require("markdown-plus.treesitter")
 local utils = require("markdown-plus.utils")
 local patterns = require("markdown-plus.format.patterns")
+local ts = require("markdown-plus.treesitter")
 
 local M = {}
 
@@ -82,6 +82,12 @@ function M.get_any_format_at_cursor(exclude_type)
   end
 
   return nil
+end
+
+---Check if cursor is inside a fenced code block using treesitter
+---@return boolean|nil True if inside code block, false if not, nil if treesitter unavailable
+function M.is_in_fenced_code_block()
+  return ts.is_in_fenced_code_block()
 end
 
 ---Remove formatting from a treesitter node range

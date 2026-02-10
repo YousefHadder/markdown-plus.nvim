@@ -41,7 +41,7 @@ function M.find_list_groups(lines)
   local current_groups_by_indent = {} -- Track active groups by indentation level
 
   for i, line in ipairs(lines) do
-    local list_info = parser.parse_list_line(line, i)
+    local list_info = parser.parse_list_line(line)
 
     if list_info and shared.is_orderable_type(list_info.type) then
       local indent_level = #list_info.indent
