@@ -497,7 +497,7 @@ markdown-plus.nvim uses Treesitter for intelligent parsing when available.
 This provides more accurate detection and handling of markdown elements.
 
 Requirements:
-- Neovim 0.9+ (for `vim.treesitter.get_node`)
+- Neovim 0.11+ (for `vim.treesitter.get_node`)
 - Markdown Treesitter parser installed (`:TSInstall markdown markdown_inline`)
 
 When Treesitter is available, the plugin uses it for:

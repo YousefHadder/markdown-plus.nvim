@@ -131,7 +131,6 @@ function M.remove_formatting_from_node(node_info, format_type, remove_formatting
 end
 
 --- FIXME: determine what is *actually* public API surface
-M.debug = ts.debug
 M.log = ts.log
 M.nodes = ts.nodes
 M.is_available = ts.is_available
@@ -142,5 +141,22 @@ M.find_ancestor = ts.find_ancestor
 M.is_row_in_node_type = ts.is_row_in_node_type
 M.get_lines_in_node_type = ts.get_lines_in_node_type
 M.is_in_fenced_code_block = ts.is_in_fenced_code_block
+
+-- Forward debug property reads/writes to the shared ts module
+-- so that setting format.treesitter.debug = true actually enables logging
+setmetatable(M, {
+  __index = function(_, key)
+    if key == "debug" then
+      return ts.debug
+    end
+  end,
+  __newindex = function(_, key, value)
+    if key == "debug" then
+      ts.debug = value
+    else
+      rawset(M, key, value)
+    end
+  end,
+})
 
 return M
