@@ -4,13 +4,15 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
----Skips the handler when inside a codeblock, falling back to the default key behavior (E.g; backspace/tab)
----@param handler function
----@param fallback_key string
----@return function Wrapped handler
+---Create a wrapper that skips the handler when inside a code block
+---Falls through to default key behavior when in a code block
+---@param handler function The original handler function
+---@param fallback_key string The key to fall through to (e.g., "<CR>", "<Tab>")
+---@return function Wrapped handler (not an expr mapping)
 function M.skip_in_codeblock(handler, fallback_key)
   return function()
     if utils.is_in_code_block() then
+      -- Feed the original key to get default behavior
       local key = vim.api.nvim_replace_termcodes(fallback_key, true, false, true)
       vim.api.nvim_feedkeys(key, "n", false)
       return
@@ -70,7 +72,7 @@ function M.handle_enter()
   local row, col = cursor[1], cursor[2]
 
   -- Check if we're in a list
-  local list_info = parser.parse_list_line(current_line)
+  local list_info = parser.parse_list_line(current_line, row)
   local is_continuation_line = false
 
   if not list_info then
@@ -153,7 +155,7 @@ function M.continue_list_content()
   local row, col = cursor[1], cursor[2]
 
   -- Check if we're in a list
-  local list_info = parser.parse_list_line(current_line)
+  local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
     -- Not in a list, simulate default Enter behavior
@@ -187,7 +189,11 @@ end
 ---Handle Tab key for indentation
 function M.handle_tab()
   local current_line = utils.get_current_line()
-  local list_info = parser.parse_list_line(current_line)
+  local cursor = utils.get_cursor()
+  local row, col = cursor[1], cursor[2]
+
+  -- Check if we're in a list
+  local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
     -- Not in a list, fall through to default Tab behavior
@@ -197,8 +203,6 @@ function M.handle_tab()
   end
 
   -- Increase indentation
-  local cursor = utils.get_cursor()
-  local row, col = cursor[1], cursor[2]
   local indent_size = vim.bo.shiftwidth
 
   local new_indent = list_info.indent .. string.rep(" ", indent_size)
@@ -212,7 +216,11 @@ end
 ---Handle Shift+Tab key for outdentation
 function M.handle_shift_tab()
   local current_line = utils.get_current_line()
-  local list_info = parser.parse_list_line(current_line)
+  local cursor = utils.get_cursor()
+  local row, col = cursor[1], cursor[2]
+
+  -- Check if we're in a list (pass row for treesitter parsing)
+  local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
     -- Not a list line, fall through to default Shift+Tab behavior
@@ -222,8 +230,6 @@ function M.handle_shift_tab()
   end
 
   -- Decrease indentation
-  local cursor = utils.get_cursor()
-  local row, col = cursor[1], cursor[2]
   local indent_size = vim.bo.shiftwidth
 
   -- Can't outdent if already at root level
@@ -259,8 +265,8 @@ function M.handle_backspace()
   local cursor = utils.get_cursor()
   local row, col = cursor[1], cursor[2]
 
-  -- Check if we're in a list
-  local list_info = parser.parse_list_line(current_line)
+  -- Check if we're in a list (pass row for treesitter parsing)
+  local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
     -- Not in a list, default backspace behavior
@@ -298,8 +304,8 @@ function M.handle_normal_o()
   local cursor = utils.get_cursor()
   local row = cursor[1]
 
-  -- Check if current line is a list item
-  local list_info = parser.parse_list_line(current_line)
+  -- Check if current line is a list item (pass row for treesitter parsing)
+  local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
     -- Not in a list, insert blank line below and enter insert mode
@@ -327,8 +333,8 @@ function M.handle_normal_O()
   local cursor = utils.get_cursor()
   local row = cursor[1]
 
-  -- Check if current line is a list item
-  local list_info = parser.parse_list_line(current_line)
+  -- Check if current line is a list item (pass row for treesitter parsing)
+  local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
     -- Not in a list, insert blank line above and enter insert mode

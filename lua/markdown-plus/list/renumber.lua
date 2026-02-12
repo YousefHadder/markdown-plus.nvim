@@ -20,7 +20,7 @@ function M.is_list_breaking_line(line, line_num, lines)
   end
 
   -- Any non-list content breaks list continuity
-  if parser.parse_list_line(line) then
+  if parser.parse_list_line(line, line_num) then
     return false
   end
 

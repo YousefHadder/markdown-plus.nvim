@@ -1,26 +1,14 @@
--- Treesitter integration module for markdown-plus.nvim format feature
--- Handles treesitter-based format detection and manipulation
+-- Format-specific treesitter functions for markdown-plus.nvim
+-- Shared treesitter utilities live in lua/markdown-plus/treesitter/init.lua
 
+local ts = require("markdown-plus.treesitter")
 local utils = require("markdown-plus.utils")
 local patterns = require("markdown-plus.format.patterns")
 
 local M = {}
 
----Check if treesitter markdown parser is available for the current buffer
----@return boolean True if treesitter is available and can be used
-function M.is_available()
-  -- Check if vim.treesitter.get_node exists (Neovim 0.9+)
-  if not vim.treesitter or not vim.treesitter.get_node then
-    return false
-  end
-
-  -- Try to get the markdown parser for current buffer (markdown_inline is injected)
-  local ok = pcall(vim.treesitter.get_parser, 0, "markdown")
-  return ok
-end
-
 ---@class markdown-plus.format.NodeInfo
----@field node userdata The treesitter node object
+---@field node TSNode The treesitter node object
 ---@field start_row number Start row (1-indexed)
 ---@field start_col number Start column (1-indexed)
 ---@field end_row number End row (1-indexed)
@@ -37,22 +25,8 @@ function M.get_formatting_node_at_cursor(format_type)
     return nil
   end
 
-  if not M.is_available() then
-    return nil
-  end
-
-  -- Ensure the parser is started and parsed (including injections)
-  local ok_parser, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
-  if not ok_parser or not parser then
-    return nil
-  end
-  -- Parse with injections to enable markdown_inline
-  parser:parse(true)
-
-  -- Get the treesitter node at cursor, including injected languages (markdown_inline)
-  -- ignore_injections = false allows us to get nodes from the injected markdown_inline parser
-  local ok, node = pcall(vim.treesitter.get_node, { ignore_injections = false })
-  if not ok or not node then
+  local node = ts.get_node_at_cursor({ ignore_injections = false })
+  if not node then
     return nil
   end
 
@@ -84,20 +58,8 @@ end
 ---@param exclude_type string|nil Format type to exclude from check (optional)
 ---@return string|nil format_type The format type found, or nil if not in any format
 function M.get_any_format_at_cursor(exclude_type)
-  if not M.is_available() then
-    return nil
-  end
-
-  -- Get parser and parse once
-  local ok_parser, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
-  if not ok_parser or not parser then
-    return nil
-  end
-  parser:parse(true)
-
-  -- Get node at cursor once
-  local ok, node = pcall(vim.treesitter.get_node, { ignore_injections = false })
-  if not ok or not node then
+  local node = ts.get_node_at_cursor({ ignore_injections = false })
+  if not node then
     return nil
   end
 
@@ -121,33 +83,10 @@ function M.get_any_format_at_cursor(exclude_type)
   return nil
 end
 
----Check if cursor is inside a fenced code block
+---Check if cursor is inside a fenced code block using treesitter
 ---@return boolean|nil True if inside code block, false if not, nil if treesitter unavailable
 function M.is_in_fenced_code_block()
-  if not M.is_available() then
-    return nil
-  end
-
-  local ok_parser, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
-  if not ok_parser or not parser then
-    return nil
-  end
-  parser:parse(true)
-
-  local ok, node = pcall(vim.treesitter.get_node)
-  if not ok or not node then
-    return nil
-  end
-
-  -- Find codeblock in ancestors
-  while node do
-    if node:type() == "fenced_code_block" then
-      return true
-    end
-    node = node:parent()
-  end
-
-  return false
+  return ts.is_in_fenced_code_block()
 end
 
 ---Remove formatting from a treesitter node range
@@ -190,5 +129,34 @@ function M.remove_formatting_from_node(node_info, format_type, remove_formatting
 
   return true
 end
+
+--- FIXME: determine what is *actually* public API surface
+M.log = ts.log
+M.nodes = ts.nodes
+M.is_available = ts.is_available
+M.get_parser = ts.get_parser
+M.get_node_at_cursor = ts.get_node_at_cursor
+M.get_node_at_position = ts.get_node_at_position
+M.find_ancestor = ts.find_ancestor
+M.is_row_in_node_type = ts.is_row_in_node_type
+M.get_lines_in_node_type = ts.get_lines_in_node_type
+M.is_in_fenced_code_block = ts.is_in_fenced_code_block
+
+-- Forward debug property reads/writes to the shared ts module
+-- so that setting format.treesitter.debug = true actually enables logging
+setmetatable(M, {
+  __index = function(_, key)
+    if key == "debug" then
+      return ts.debug
+    end
+  end,
+  __newindex = function(_, key, value)
+    if key == "debug" then
+      ts.debug = value
+    else
+      rawset(M, key, value)
+    end
+  end,
+})
 
 return M

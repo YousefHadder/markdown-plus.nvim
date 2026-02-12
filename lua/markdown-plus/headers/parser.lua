@@ -1,8 +1,13 @@
 -- Header parsing module for markdown-plus.nvim
+
 local M = {}
 
 ---Header pattern (matches # through ######)
 M.header_pattern = "^(#+)%s+(.+)$"
+
+-- Recognized fence patterns for regex matches
+local CODE_FENCE_PATTERN = "^%s*```"
+local CODE_FENCE_TILDE_PATTERN = "^%s*~~~"
 
 ---Parse a line to extract header information
 ---@param line string Line to parse
@@ -24,21 +29,37 @@ function M.parse_header(line)
   return nil
 end
 
+---Build set of lines inside code blocks using regex (fallback)
+---@param lines string[] Buffer lines
+---@return table<number, boolean> Set of 1-indexed line numbers
+local function get_code_block_lines_regex(lines)
+  local code_lines = {}
+  local in_code_block = false
+
+  for i, line in ipairs(lines) do
+    if line:match(CODE_FENCE_PATTERN) or line:match(CODE_FENCE_TILDE_PATTERN) then
+      code_lines[i] = true -- fence line is part of block
+      in_code_block = not in_code_block
+    elseif in_code_block then
+      code_lines[i] = true
+    end
+  end
+
+  return code_lines
+end
+
 ---Get all headers in the buffer (excluding code blocks)
 ---@return table[] Array of headers with {level, text, hashes, line_num, full_line}
 function M.get_all_headers()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   local headers = {}
-  local in_code_block = false
+
+  -- Use regex for full-buffer code block scanning (faster than TS tree walk)
+  local code_block_lines = get_code_block_lines_regex(lines)
 
   for i, line in ipairs(lines) do
-    -- Check for code fence (``` or ~~~)
-    if line:match("^```") or line:match("^~~~") then
-      in_code_block = not in_code_block
-    end
-
     -- Only parse headers if we're not inside a code block
-    if not in_code_block then
+    if not code_block_lines[i] then
       local header = M.parse_header(line)
       if header then
         header.line_num = i

@@ -44,7 +44,7 @@ work with any filetype. See |markdown-plus-configuration-filetypes| for details.
 
 FEATURES                                     *markdown-plus-introduction-features*
 
-- Smart list management:
+- Smart list management (Treesitter-powered):
   - Auto-continuation with proper markers and indentation
   - Intelligent renumbering for ordered and letter-based lists
   - Support for multiple list types (unordered, ordered, letter-based, parenthesized)
@@ -52,6 +52,7 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Automatic empty item removal
   - Smart backspace to remove list markers
   - Checkbox completion timestamps (Obsidian-style task tracking)
+  - Treesitter-based list detection with regex fallback
 
 - Header operations:
   - Quick header level promotion/demotion
@@ -61,10 +62,11 @@ FEATURES                                     *markdown-plus-introduction-feature
   - TOC duplicate prevention with HTML comment markers
   - Navigate to headers from TOC
 
-- Text formatting:
+- Text formatting (Treesitter-powered):
   - Toggle bold, italic, strikethrough, inline code, highlight, and underline
   - Convert selected rows to code block
-  - Smart formatting that respects word boundaries (Treesitter-aware)
+  - Smart formatting that respects word boundaries
+  - Treesitter-based format detection with regex fallback
   - Support for nested formatting (e.g., bold inside italic)
   - Clear all formatting from selected text
   - Works in both normal and visual mode
@@ -109,8 +111,9 @@ FEATURES                                     *markdown-plus-introduction-feature
   - Multi-line footnote support
   - Configurable section header
 
-- Context-aware keymaps:
+- Context-aware keymaps (Treesitter-powered):
   - List operations only active within lists and not active inside code blocks
+  - Treesitter-based code block detection for accurate context awareness
   - Proper fallback to default Vim behavior
   - Insert mode operations that respect context
 
@@ -487,10 +490,40 @@ Dot-repeat example (normal mode only):
 Note: Visual mode formatting does not support dot-repeat.
 
 
-SMART FORMATTING (TREESITTER) ~
+TREESITTER INTEGRATION ~
+                                                *markdown-plus-treesitter*
 
-When Treesitter is available (and the markdown parser is installed), formatting
-becomes even smarter:
+markdown-plus.nvim uses Treesitter for intelligent parsing when available.
+This provides more accurate detection and handling of markdown elements.
+
+Requirements:
+- Neovim 0.11+ (for `vim.treesitter.get_node`)
+- Markdown Treesitter parser installed (`:TSInstall markdown markdown_inline`)
+
+When Treesitter is available, the plugin uses it for:
+- List item detection and parsing
+- Code block detection (to avoid processing content inside code blocks)
+- Format region detection (bold, italic, strikethrough, code)
+
+Fallback behavior:
+When Treesitter is unavailable or cannot parse a specific element, the plugin
+falls back to regex-based parsing. This ensures the plugin works in all
+environments while providing enhanced accuracy when possible.
+
+DEBUG LOGGING ~
+
+To verify Treesitter is being used correctly, you can enable debug logging:
+>lua
+    require('markdown-plus.treesitter').debug = true
+<
+
+This will log messages to `:messages` showing when Treesitter successfully
+identifies nodes vs when regex fallback is used.
+
+
+SMART FORMATTING ~
+
+With Treesitter, formatting becomes even smarter:
 
 1. Smart Toggling:
    If your cursor is anywhere inside a formatted region (e.g., inside **bold**),
@@ -2148,6 +2181,27 @@ ISSUE: LIST OPERATIONS AFFECTING NON-LIST TEXT ~
 
 The plugin is designed to be context-aware. If list operations are affecting
 non-list text, please report this as a bug with a minimal example.
+
+
+ISSUE: TREESITTER NOT WORKING ~
+
+If you suspect Treesitter parsing is not working correctly:
+
+1. Ensure the markdown parser is installed:
+>vim
+    :TSInstall markdown markdown_inline
+<
+
+2. Enable debug logging to verify Treesitter is being used:
+>lua
+    require('markdown-plus.treesitter').debug = true
+<
+
+3. Perform an action (e.g., press Enter on a list item) and check `:messages`
+   for `[TS]` prefixed messages showing whether Treesitter or regex was used.
+
+4. If you see "regex fallback" messages, the markdown parser may not be
+   properly installed or the buffer may not be recognized as markdown.
 
 
 ISSUE: FORMATTING TOGGLE NOT WORKING ~
