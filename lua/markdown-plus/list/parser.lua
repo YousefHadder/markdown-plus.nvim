@@ -145,7 +145,7 @@ end
 ---@param row number 1-indexed row number
 ---@return markdown-plus.ListInfo|nil
 local function parse_list_line_ts(row)
-  local node = ts.get_node_at_position(row, 0)
+  local node = ts.get_node_at_position(row, 0, { ignore_injections = true })
   if not node then
     ts.log("parse_list_line_ts: no node at row " .. row)
     return nil

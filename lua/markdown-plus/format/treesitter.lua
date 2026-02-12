@@ -4,7 +4,6 @@
 local ts = require("markdown-plus.treesitter")
 local utils = require("markdown-plus.utils")
 local patterns = require("markdown-plus.format.patterns")
-local ts = require("markdown-plus.treesitter")
 
 local M = {}
 

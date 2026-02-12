@@ -504,7 +504,6 @@ When Treesitter is available, the plugin uses it for:
 - List item detection and parsing
 - Code block detection (to avoid processing content inside code blocks)
 - Format region detection (bold, italic, strikethrough, code)
-- Header parsing for TOC generation
 
 Fallback behavior:
 When Treesitter is unavailable or cannot parse a specific element, the plugin

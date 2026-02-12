@@ -12,6 +12,15 @@ describe("markdown-plus list management", function()
   ---@return markdown-plus.ListInfo|nil
   local function parse_line(line, row)
     row = row or 1
+    -- Ensure buffer has enough lines for the target row
+    local line_count = vim.api.nvim_buf_line_count(buf)
+    if row > line_count then
+      local padding = {}
+      for _ = 1, row - line_count do
+        table.insert(padding, "")
+      end
+      vim.api.nvim_buf_set_lines(buf, line_count, line_count, false, padding)
+    end
     vim.api.nvim_buf_set_lines(buf, row - 1, row, false, { line })
     return list.parse_list_line(line, row)
   end

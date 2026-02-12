@@ -1,7 +1,5 @@
 ---Main treesitter support module, for ts assisted markdown parsing
 
-local utils = require("markdown-plus.utils")
-
 local M = {}
 
 ---Locally debug treesitter usage, and fallback mechanisms
@@ -212,6 +210,7 @@ function M.get_lines_in_node_type(node_type)
 
   local root = tree:root()
   local line_set = {}
+  local node_count = 0
 
   -- Recursively find all nodes of the target type
   local function collect_lines(node)
@@ -219,7 +218,7 @@ function M.get_lines_in_node_type(node_type)
       node_count = node_count + 1
       local start_row, _, end_row, _ = node:range()
       -- Mark all lines in range (convert to 1-indexed)
-      -- end_row is exclusive in treesitter, so we go up to end_row (not end_row + 1)
+      -- end_row from node:range() is exclusive, so convert both to 1-indexed
       for line = start_row + 1, end_row do
         line_set[line] = true
       end
