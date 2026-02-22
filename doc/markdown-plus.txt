@@ -510,16 +510,6 @@ When Treesitter is unavailable or cannot parse a specific element, the plugin
 falls back to regex-based parsing. This ensures the plugin works in all
 environments while providing enhanced accuracy when possible.
 
-DEBUG LOGGING ~
-
-To verify Treesitter is being used correctly, you can enable debug logging:
->lua
-    require('markdown-plus.treesitter').debug = true
-<
-
-This will log messages to `:messages` showing when Treesitter successfully
-identifies nodes vs when regex fallback is used.
-
 
 SMART FORMATTING ~
 
@@ -2192,16 +2182,15 @@ If you suspect Treesitter parsing is not working correctly:
     :TSInstall markdown markdown_inline
 <
 
-2. Enable debug logging to verify Treesitter is being used:
->lua
-    require('markdown-plus.treesitter').debug = true
+2. Check that the buffer filetype is set to markdown:
+>vim
+    :set filetype?
 <
 
-3. Perform an action (e.g., press Enter on a list item) and check `:messages`
-   for `[TS]` prefixed messages showing whether Treesitter or regex was used.
-
-4. If you see "regex fallback" messages, the markdown parser may not be
-   properly installed or the buffer may not be recognized as markdown.
+3. Verify the health check passes:
+>vim
+    :checkhealth markdown-plus
+<
 
 
 ISSUE: FORMATTING TOGGLE NOT WORKING ~

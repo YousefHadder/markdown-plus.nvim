@@ -2,30 +2,8 @@
 
 local M = {}
 
----Locally debug treesitter usage, and fallback mechanisms
----@type boolean Enables debug logging for treesitter operations
-M.debug = false
-
----Log a debug message if debug mode is enabled
----Exposed as M.log() for use by other modules
----@param msg string Message to log
----@param ... any Additional values to include in the message
-function M.log(msg, ...)
-  if not M.debug then
-    return
-  end
-  local args = { ... }
-  local formatted = msg
-  if #args > 0 then
-    formatted = msg .. ": " .. vim.inspect(args)
-  end
-  --NOTE to self: may use plenary.log here
-  vim.schedule(function()
-    vim.notify("[TS] " .. formatted, vim.log.levels.DEBUG)
-  end)
-end
-
-local log = M.log
+-- Per-buffer cache to avoid redundant parse(true) calls within the same edit cycle
+local _parse_cache = {}
 
 -- Centralized definitions for all markdown treesitter node types used
 ---@class markdown-plus.ts.NodeTypes
@@ -33,7 +11,7 @@ M.nodes = {
   -- Block elements
   FENCED_CODE_BLOCK = "fenced_code_block",
   PARAGRAPH = "paragraph",
-  HEADING = "heading", -- Not currently used
+  HEADING = "heading",
 
   -- List elements
   LIST = "list",
@@ -82,36 +60,39 @@ M.nodes = {
 ---Check if treesitter markdown parser is available for the current buffer
 ---@return boolean True if treesitter is available and can be used
 function M.is_available()
-  -- Check if vim.treesitter.get_node exists (Neovim 0.9+)
+  -- Check if vim.treesitter.get_node exists (Neovim 0.11+)
   if not vim.treesitter or not vim.treesitter.get_node then
-    log("treesitter not available: vim.treesitter.get_node missing")
     return false
   end
 
   -- Try to get the markdown parser for current buffer (markdown_inline is injected)
   local ok = pcall(vim.treesitter.get_parser, 0, "markdown")
-  if not ok then
-    log("treesitter not available: markdown parser not found")
-  end
   return ok
 end
 
 ---Get the parsed markdown parser for current buffer
+---Caches the parsed result per buffer changedtick to avoid redundant parse(true) calls
 ---@return vim.treesitter.LanguageTree|nil parser The parser or nil if unavailable
 function M.get_parser()
   if not M.is_available() then
-    log("No parser available")
     return nil
   end
 
-  local ok, parser = pcall(vim.treesitter.get_parser, 0, "markdown")
+  local bufnr = vim.api.nvim_get_current_buf()
+  local tick = vim.b[bufnr].changedtick
+  local cached = _parse_cache[bufnr]
+  if cached and cached.tick == tick then
+    return cached.parser
+  end
+
+  local ok, parser = pcall(vim.treesitter.get_parser, bufnr, "markdown")
   if not ok or not parser then
-    log("Failed to acquire parser for markdown buffer")
     return nil
   end
 
   -- Parse with injections, to enable markdown_inline
   parser:parse(true)
+  _parse_cache[bufnr] = { tick = tick, parser = parser }
   return parser
 end
 
@@ -191,46 +172,37 @@ function M.is_row_in_node_type(row, node_type)
   return M.find_ancestor(node, node_type) ~= nil
 end
 
----Returns a set of line numbers inside nodes of a specific type
----Efficiently queries all nodes of the type and collects their line ranges
+---Get set of line numbers inside nodes of a specific type
+---Uses a TS query instead of recursive tree-walk for better performance
 ---@param node_type string Node type to find (e.g. M.nodes.FENCED_CODE_BLOCK)
 ---@return table<number, boolean>|nil Line number set (1-indexed), or nil if ts unavailable
 function M.get_lines_in_node_type(node_type)
   local parser = M.get_parser()
   if not parser then
-    log("get_lines_in_node_type: parser unavailable, using regex fallback")
     return nil
   end
 
   local tree = parser:trees()[1]
   if not tree then
-    log("get_lines_in_node_type: no tree available, using regex fallback")
     return nil
   end
 
-  local root = tree:root()
-  local line_set = {}
-  local node_count = 0
-
-  -- Recursively find all nodes of the target type
-  local function collect_lines(node)
-    if node:type() == node_type then
-      node_count = node_count + 1
-      local start_row, _, end_row, _ = node:range()
-      -- Mark all lines in range (convert to 1-indexed)
-      -- end_row from node:range() is exclusive, so convert both to 1-indexed
-      for line = start_row + 1, end_row do
-        line_set[line] = true
-      end
-    end
-    for child in node:iter_children() do
-      collect_lines(child)
-    end
+  local query_str = string.format("(%s) @t", node_type)
+  local ok, query = pcall(vim.treesitter.query.parse, "markdown", query_str)
+  if not ok or not query then
+    return nil
   end
 
-  collect_lines(root)
-  if node_count > 0 then
-    log(string.format("get_lines_in_node_type: found %d %s nodes", node_count, node_type))
+  local line_set = {}
+  for _, node, _ in query:iter_captures(tree:root(), 0) do
+    local start_row, _, end_row, _ = node:range()
+    -- Mark all lines in range (convert to 1-indexed)
+    -- end_row is exclusive in treesitter, so we go up to end_row (not end_row + 1)
+    -- This means fence lines (``` openers and closers) are included, matching
+    -- the regex fallback which also marks fence delimiter lines as "inside"
+    for row = start_row + 1, end_row do
+      line_set[row] = true
+    end
   end
   return line_set
 end
