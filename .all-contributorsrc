@@ -127,6 +127,15 @@
         "bug",
         "ideas"
       ]
+    },
+    {
+      "login": "bmarden",
+      "name": "Ben Marden",
+      "avatar_url": "https://avatars.githubusercontent.com/u/36089218?v=4",
+      "profile": "https://github.com/bmarden",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
