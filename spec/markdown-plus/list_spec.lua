@@ -470,6 +470,194 @@ describe("markdown-plus list management", function()
       assert.are.equal(0, groups[4].indent)
       assert.are.equal(1, #groups[4].items) -- D only
     end)
+
+    it("treats indented backtick fenced code blocks as non-breaking", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "",
+        "    ```bash",
+        "    echo hello",
+        "    ```",
+        "",
+        "3. Third",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Indented code block is nested content; list stays continuous
+      assert.are.equal(1, #groups)
+      assert.are.equal(3, #groups[1].items)
+      assert.are.equal(1, groups[1].items[1].line_num)
+      assert.are.equal(2, groups[1].items[2].line_num)
+      assert.are.equal(8, groups[1].items[3].line_num)
+    end)
+
+    it("treats indented tilde fenced code blocks as non-breaking", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "",
+        "    ~~~python",
+        "    print('hi')",
+        "    ~~~",
+        "",
+        "3. Third",
+      }
+      local groups = list.find_list_groups(lines)
+
+      assert.are.equal(1, #groups)
+      assert.are.equal(3, #groups[1].items)
+    end)
+
+    it("treats non-indented fenced code blocks as list-breaking", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "",
+        "```",
+        "code here",
+        "```",
+        "",
+        "3. Third",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Non-indented code block at column 0 breaks list into 2 groups
+      assert.are.equal(2, #groups)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal(1, #groups[2].items)
+    end)
+
+    it("treats non-indented fenced code blocks without blank lines as list-breaking", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "```",
+        "code here",
+        "```",
+        "3. Third",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Non-indented code block at column 0 breaks list even without blank lines
+      assert.are.equal(2, #groups)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal(1, #groups[2].items)
+      assert.are.equal(6, groups[2].items[1].line_num)
+    end)
+
+    it("does not close backtick fence with tilde closer", function()
+      local lines = {
+        "1. First",
+        "    ```",
+        "    ~~~",
+        "    ```",
+        "2. Second",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- ~~~ does not close a ``` block; ``` on line 4 closes it
+      assert.are.equal(1, #groups)
+      assert.are.equal(2, #groups[1].items)
+    end)
+
+    it("does not close fence with shorter closer", function()
+      local lines = {
+        "1. First",
+        "    ````",
+        "    ```",
+        "    ````",
+        "2. Second",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- ``` (3 chars) cannot close ```` (4 chars); ```` on line 4 closes it
+      assert.are.equal(1, #groups)
+      assert.are.equal(2, #groups[1].items)
+    end)
+
+    it("handles indented code block without surrounding blank lines", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "    ```",
+        "    code",
+        "    ```",
+        "3. Third",
+      }
+      local groups = list.find_list_groups(lines)
+
+      assert.are.equal(1, #groups)
+      assert.are.equal(3, #groups[1].items)
+    end)
+
+    it("handles multiple indented code blocks between items", function()
+      local lines = {
+        "1. First",
+        "",
+        "    ```",
+        "    block 1",
+        "    ```",
+        "",
+        "    ```",
+        "    block 2",
+        "    ```",
+        "",
+        "2. Second",
+      }
+      local groups = list.find_list_groups(lines)
+
+      assert.are.equal(1, #groups)
+      assert.are.equal(2, #groups[1].items)
+    end)
+
+    it("ignores list-like content inside code blocks", function()
+      local lines = {
+        "1. First",
+        "    ```",
+        "    3. fake item",
+        "    ```",
+        "2. Second",
+      }
+      local groups = list.find_list_groups(lines)
+
+      assert.are.equal(1, #groups)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal(1, groups[1].items[1].line_num)
+      assert.are.equal(5, groups[1].items[2].line_num)
+    end)
+
+    it("handles code block after last item", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "    ```",
+        "    code",
+        "    ```",
+      }
+      local groups = list.find_list_groups(lines)
+
+      assert.are.equal(1, #groups)
+      assert.are.equal(2, #groups[1].items)
+    end)
+
+    it("handles nested list with indented code block", function()
+      local lines = {
+        "1. Outer first",
+        "    1. Inner first",
+        "    ```",
+        "    code",
+        "    ```",
+        "    2. Inner second",
+        "2. Outer second",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- Should have 2 groups: outer (2 items) and inner (2 items)
+      assert.are.equal(2, #groups)
+      assert.are.equal(2, #groups[1].items) -- Outer: lines 1, 7
+      assert.are.equal(2, #groups[2].items) -- Inner: lines 2, 6
+    end)
   end)
 
   describe("renumber_list_group", function()
@@ -763,6 +951,88 @@ describe("markdown-plus list management", function()
       assert.is_not_nil(result[3]:match("^3%."))
       assert.is_not_nil(result[4]:match("^4%."))
       assert.is_not_nil(result[5]:match("^5%."))
+    end)
+
+    it("does not reset numbering across indented fenced code block", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "",
+        "    ```bash",
+        "    echo hello",
+        "    ```",
+        "",
+        "3. Third",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. First", result[1])
+      assert.are.equal("2. Second", result[2])
+      assert.are.equal("3. Third", result[8]) -- Should stay 3, not reset to 1
+    end)
+
+    it("renumbers misnumbered items across indented fenced code block", function()
+      local lines = {
+        "1. First",
+        "3. Second",
+        "",
+        "    ```bash",
+        "    echo hello",
+        "    ```",
+        "",
+        "5. Third",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. First", result[1])
+      assert.are.equal("2. Second", result[2]) -- Was 3, renumbered to 2
+      assert.are.equal("3. Third", result[8]) -- Was 5, renumbered to 3
+    end)
+
+    it("resets numbering for non-indented fenced code block", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "",
+        "```",
+        "code here",
+        "```",
+        "",
+        "3. Third",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. First", result[1])
+      assert.are.equal("2. Second", result[2])
+      assert.are.equal("1. Third", result[8]) -- Non-indented block breaks list; restart at 1
+    end)
+
+    it("resets numbering for non-indented fenced code block without blank lines", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        "```",
+        "code here",
+        "```",
+        "3. Third",
+      }
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. First", result[1])
+      assert.are.equal("2. Second", result[2])
+      assert.are.equal("1. Third", result[6]) -- Non-indented block breaks list even without blank lines
     end)
   end)
 

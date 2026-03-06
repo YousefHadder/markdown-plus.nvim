@@ -4,6 +4,117 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
+-- Recognized fence patterns — capture the fence character and its full run
+-- e.g. "    ```python" captures indent="    ", fence_char="`", fence_run="```"
+local CODE_FENCE_OPEN_PATTERN = "^(%s*)((`+)(.*))"
+local CODE_FENCE_TILDE_OPEN_PATTERN = "^(%s*)((~+)(.*))"
+
+---Parse a line as a potential code fence opener or closer.
+---Tracks fence character type and length per CommonMark §4.5:
+---a closing fence must use the same character as the opener and be at least
+---as long.
+---@param line string
+---@param active_fence {char: string, len: number}|nil Currently open fence, if any
+---@return {indent: string, char: string, len: number}|nil info Fence info, or nil if not a fence
+local function parse_fence_line(line, active_fence)
+  for _, pat in ipairs({ CODE_FENCE_OPEN_PATTERN, CODE_FENCE_TILDE_OPEN_PATTERN }) do
+    local indent, _, fence_run, _ = line:match(pat)
+    if fence_run then
+      local char = fence_run:sub(1, 1)
+      local len = #fence_run
+      if len >= 3 then
+        if active_fence then
+          -- Closing fence: must match char and length >= opener
+          if char == active_fence.char and len >= active_fence.len then
+            return { indent = indent, char = char, len = len }
+          end
+          -- Not a valid closer — treat as content inside the block
+          return nil
+        end
+        return { indent = indent, char = char, len = len }
+      end
+    end
+  end
+  return nil
+end
+
+---Build set of line numbers inside fenced code blocks using regex fence-toggle
+---scanning. Tracks fence character/length per CommonMark to avoid mismatched
+---closers. For indented fences (nested in list items), adjacent blank lines
+---are absorbed into the set so they don't independently break list group
+---continuity. Also marks non-indented code block regions so find_list_groups
+---can clear active groups when encountering them.
+---@param lines string[] All buffer lines
+---@return table<number, boolean> code_lines Set of 1-indexed line numbers inside code blocks
+---@return table<number, boolean> non_indented_regions Set of 1-indexed line numbers inside NON-indented code blocks
+local function get_fenced_code_block_lines(lines)
+  local code_lines = {}
+  local non_indented_regions = {}
+  local active_fence = nil
+  local block_start = nil
+
+  for i, line in ipairs(lines) do
+    if not active_fence then
+      local info = parse_fence_line(line, nil)
+      if info then
+        code_lines[i] = true
+        active_fence = { char = info.char, len = info.len }
+        block_start = i
+        if #info.indent == 0 then
+          non_indented_regions[i] = true
+        end
+      end
+    else
+      code_lines[i] = true
+      -- Check if opening fence was non-indented — propagate to all lines in block
+      if non_indented_regions[block_start] then
+        non_indented_regions[i] = true
+      end
+      local info = parse_fence_line(line, active_fence)
+      if info then
+        -- Valid closer found
+        active_fence = nil
+        block_start = nil
+      end
+    end
+  end
+
+  -- Absorb adjacent blank lines for INDENTED fences only.
+  -- Indented fences are nested content of a list item; blank lines between
+  -- the list item and the fence should not break group continuity.
+  -- Non-indented (column 0) fences genuinely separate lists, so their
+  -- adjacent blank lines are NOT absorbed.
+  local expanded = {}
+  for k, v in pairs(code_lines) do
+    expanded[k] = v
+  end
+
+  for i = 1, #lines do
+    if code_lines[i] and not code_lines[i - 1] then
+      -- Opening fence — absorb preceding blank lines if fence is indented
+      if not non_indented_regions[i] then
+        local j = i - 1
+        while j >= 1 and lines[j]:match("^%s*$") do
+          expanded[j] = true
+          j = j - 1
+        end
+      end
+    end
+    if code_lines[i] and not code_lines[i + 1] then
+      -- Closing fence — absorb following blank lines if fence is indented
+      if not non_indented_regions[i] then
+        local j = i + 1
+        while j <= #lines and lines[j]:match("^%s*$") do
+          expanded[j] = true
+          j = j + 1
+        end
+      end
+    end
+  end
+
+  return expanded, non_indented_regions
+end
+
 ---Check if a line breaks list continuity
 ---@param line string
 ---@param line_num number|nil The line number (1-indexed). Optional, but must be provided together with `lines` for continuation line checks.
@@ -39,8 +150,19 @@ end
 function M.find_list_groups(lines)
   local groups = {}
   local current_groups_by_indent = {} -- Track active groups by indentation level
+  local code_block_lines, non_indented_regions = get_fenced_code_block_lines(lines)
 
   for i, line in ipairs(lines) do
+    if code_block_lines[i] then
+      -- Non-indented (column 0) code blocks are structural separators per
+      -- CommonMark — they break list continuity even without surrounding
+      -- blank lines. Clear all active groups on first line of such a region.
+      if non_indented_regions[i] and not non_indented_regions[i - 1] then
+        current_groups_by_indent = {}
+      end
+      goto continue
+    end
+
     local list_info = parser.parse_list_line(line)
 
     if list_info and shared.is_orderable_type(list_info.type) then
@@ -102,6 +224,8 @@ function M.find_list_groups(lines)
         current_groups_by_indent = {}
       end
     end
+
+    ::continue::
   end
 
   return groups
