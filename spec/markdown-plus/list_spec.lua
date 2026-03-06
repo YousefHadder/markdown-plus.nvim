@@ -594,7 +594,7 @@ describe("markdown-plus list management", function()
       assert.are.equal(5, groups[1].items[2].line_num)
     end)
 
-    it("treats 1-3 space indented fenced code blocks as list-breaking", function()
+    it("treats 1-3 space indented fenced code blocks as non-breaking", function()
       local lines = {
         "1. First",
         "2. Second",
@@ -605,10 +605,27 @@ describe("markdown-plus list management", function()
       }
       local groups = list.find_list_groups(lines)
 
-      -- 1-3 spaces is still top-level per CommonMark; should break the list
-      assert.are.equal(2, #groups)
-      assert.are.equal(2, #groups[1].items)
-      assert.are.equal(1, #groups[2].items)
+      -- Fences indented 1+ spaces adjacent to list items are nested content
+      -- (list marker width determines nesting, not standalone 0-3 rule)
+      assert.are.equal(1, #groups)
+      assert.are.equal(3, #groups[1].items)
+    end)
+
+    it("treats 3-space indented code block (list continuation) as non-breaking", function()
+      -- Real-world case: "1. " = 3 chars, so continuation content is at 3 spaces
+      local lines = {
+        "1. first",
+        "2. second",
+        "   ```bash",
+        '   echo "Hello"',
+        "   ```",
+        "3. Hello",
+        "4.",
+      }
+      local groups = list.find_list_groups(lines)
+
+      assert.are.equal(1, #groups)
+      assert.are.equal(4, #groups[1].items)
     end)
 
     it("handles indented code block without surrounding blank lines", function()

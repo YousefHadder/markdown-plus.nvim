@@ -62,9 +62,11 @@ local function get_fenced_code_block_lines(lines)
         code_lines[i] = true
         active_fence = { char = info.char, len = info.len }
         block_start = i
-        -- CommonMark §4.5: fences indented 0–3 spaces are top-level;
-        -- only 4+ spaces indicates nesting inside a list item
-        if #info.indent <= 3 then
+        -- Only column-0 fences are unambiguous structural separators.
+        -- Fences indented 1+ spaces adjacent to list items are treated as
+        -- nested content (the list marker width determines nesting, not the
+        -- CommonMark standalone 0-3 rule which doesn't apply inside lists).
+        if #info.indent == 0 then
           non_indented_regions[i] = true
         end
       end
