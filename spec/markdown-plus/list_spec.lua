@@ -576,6 +576,41 @@ describe("markdown-plus list management", function()
       assert.are.equal(2, #groups[1].items)
     end)
 
+    it("does not close fence when closer has trailing non-whitespace text", function()
+      local lines = {
+        "1. First",
+        "    ```",
+        "    ```not-a-closer",
+        "    ```",
+        "2. Second",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- ```not-a-closer is not a valid closer per CommonMark §4.5;
+      -- only the ``` on line 4 closes the block
+      assert.are.equal(1, #groups)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal(1, groups[1].items[1].line_num)
+      assert.are.equal(5, groups[1].items[2].line_num)
+    end)
+
+    it("treats 1-3 space indented fenced code blocks as list-breaking", function()
+      local lines = {
+        "1. First",
+        "2. Second",
+        " ```",
+        " code",
+        " ```",
+        "3. Third",
+      }
+      local groups = list.find_list_groups(lines)
+
+      -- 1-3 spaces is still top-level per CommonMark; should break the list
+      assert.are.equal(2, #groups)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal(1, #groups[2].items)
+    end)
+
     it("handles indented code block without surrounding blank lines", function()
       local lines = {
         "1. First",

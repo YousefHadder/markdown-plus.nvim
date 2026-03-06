@@ -11,26 +11,28 @@ local CODE_FENCE_TILDE_OPEN_PATTERN = "^(%s*)((~+)(.*))"
 
 ---Parse a line as a potential code fence opener or closer.
 ---Tracks fence character type and length per CommonMark §4.5:
----a closing fence must use the same character as the opener and be at least
----as long.
+---a closing fence must use the same character as the opener, be at least
+---as long, and may only be followed by spaces/tabs.
 ---@param line string
 ---@param active_fence {char: string, len: number}|nil Currently open fence, if any
 ---@return {indent: string, char: string, len: number}|nil info Fence info, or nil if not a fence
 local function parse_fence_line(line, active_fence)
   for _, pat in ipairs({ CODE_FENCE_OPEN_PATTERN, CODE_FENCE_TILDE_OPEN_PATTERN }) do
-    local indent, _, fence_run, _ = line:match(pat)
+    local indent, _, fence_run, trailing = line:match(pat)
     if fence_run then
       local char = fence_run:sub(1, 1)
       local len = #fence_run
       if len >= 3 then
         if active_fence then
-          -- Closing fence: must match char and length >= opener
-          if char == active_fence.char and len >= active_fence.len then
+          -- Closing fence: must match char, length >= opener, and trailing
+          -- text must be whitespace-only (CommonMark §4.5)
+          if char == active_fence.char and len >= active_fence.len and trailing:match("^%s*$") then
             return { indent = indent, char = char, len = len }
           end
           -- Not a valid closer — treat as content inside the block
           return nil
         end
+        -- Opening fence: trailing info string is allowed
         return { indent = indent, char = char, len = len }
       end
     end
@@ -60,7 +62,9 @@ local function get_fenced_code_block_lines(lines)
         code_lines[i] = true
         active_fence = { char = info.char, len = info.len }
         block_start = i
-        if #info.indent == 0 then
+        -- CommonMark §4.5: fences indented 0–3 spaces are top-level;
+        -- only 4+ spaces indicates nesting inside a list item
+        if #info.indent <= 3 then
           non_indented_regions[i] = true
         end
       end
