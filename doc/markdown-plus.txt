@@ -1462,6 +1462,9 @@ The plugin can be configured through the setup function:
       toc = {                    -- TOC window configuration
         initial_depth = 2,
       },
+      code_block = {             -- Code block configuration
+        enabled = true,          -- Enable code block features
+      },
       callouts = {               -- Callouts configuration
         default_type = 'NOTE',   -- Default type: NOTE, TIP, IMPORTANT, WARNING, CAUTION
         custom_types = {},       -- Add custom types: { 'DANGER', 'SUCCESS' }
@@ -1486,6 +1489,7 @@ The plugin can be configured through the setup function:
         },
       },
       table = {                  -- Table sub-configuration
+        enabled = true,          -- Enable table features
         auto_format = true,
         default_alignment = 'left', -- 'left' | 'center' | 'right'
         confirm_destructive = true,  -- Confirm before transpose/sort operations
