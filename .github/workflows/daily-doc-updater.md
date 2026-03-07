@@ -36,10 +36,10 @@ tools:
     toolsets: [default]
   edit:
   bash:
-    - "find docs -name '*.md' -o -name '*.mdx'"
-    - "find docs -maxdepth 1 -ls"
-    - "find docs -name '*.md' -exec cat {} +"
-    - "grep -r '*' docs"
+    - "find doc -name '*.md' -o -name '*.mdx'"
+    - "find doc -maxdepth 1 -ls"
+    - "find doc -name '*.md' -exec cat {} +"
+    - "grep -r '*' doc README.md"
     - "git"
 
 timeout-minutes: 45
@@ -84,63 +84,58 @@ Create a summary of changes that should be documented.
 
 ### 3. Review Documentation Instructions
 
-**IMPORTANT**: Before making any documentation changes, you MUST read and follow the documentation guidelines:
+**IMPORTANT**: Before making any documentation changes, you MUST read the existing documentation to understand its style and structure:
 
 ```bash
-# Load the documentation instructions
-cat .github/instructions/documentation.instructions.md
+# Load the vimdoc reference
+cat doc/markdown-plus.txt
+
+# Load the README
+cat README.md
 ```
 
-The documentation follows the **Diátaxis framework** with four distinct types:
-- **Tutorials** (Learning-Oriented): Guide beginners through achieving specific outcomes
-- **How-to Guides** (Goal-Oriented): Solve specific real-world problems
-- **Reference** (Information-Oriented): Provide accurate technical descriptions
-- **Explanation** (Understanding-Oriented): Clarify and illuminate topics
+This project's documentation lives in two places:
+- `doc/markdown-plus.txt` — Neovim vimdoc help file (`:help markdown-plus`)
+- `README.md` — User-facing overview with configuration examples
 
 Pay special attention to:
-- The tone and voice guidelines (neutral, technical, not promotional)
-- Proper use of headings (markdown syntax, not bold text)
-- Code samples with appropriate language tags (use `aw` for agentic workflows)
-- Astro Starlight syntax for callouts, tabs, and cards
-- Minimal use of components (prefer standard markdown)
+- Vimdoc syntax in `doc/markdown-plus.txt` (section tags, `*tag*`, `|link|`, column alignment)
+- Keeping `README.md` and `doc/markdown-plus.txt` in sync for new features
+- Code examples using Lua syntax highlighting in README
+- Consistent formatting with the rest of the document
 
 ### 4. Identify Documentation Gaps
 
-Review the documentation in the `docs/src/content/docs/` directory:
-
-- Check if new features are already documented
-- Identify which documentation files need updates
-- Determine the appropriate documentation type (tutorial, how-to, reference, explanation)
-- Find the best location for new content
-
-Use bash commands to explore documentation structure:
+Review the existing documentation files:
 
 ```bash
-find docs/src/content/docs -name '*.md' -o -name '*.mdx'
+find doc -name '*.txt' -o -name '*.md'
+cat README.md
 ```
+
+- Check if new features are already documented in `doc/markdown-plus.txt` and `README.md`
+- Identify which sections need updates
+- Find the best location for new content within each file
 
 ### 5. Update Documentation
 
 For each missing or incomplete feature documentation:
 
-1. **Determine the correct file** based on the feature type:
-   - CLI commands → `docs/src/content/docs/setup/cli.md`
-   - Workflow reference → `docs/src/content/docs/reference/`
-   - How-to guides → `docs/src/content/docs/guides/`
-   - Samples → `docs/src/content/docs/samples/`
+1. **Determine the correct file** based on the content:
+   - Configuration options → `README.md` (Configuration section) AND `doc/markdown-plus.txt`
+   - Keymaps / commands → `README.md` (Keymaps section) AND `doc/markdown-plus.txt`
+   - API / Lua functions → `doc/markdown-plus.txt` (API section)
 
-2. **Follow documentation guidelines** from `.github/instructions/documentation.instructions.md`
-
-3. **Update the appropriate file(s)** using the edit tool:
+2. **Update the appropriate file(s)** using the edit tool:
    - Add new sections for new features
    - Update existing sections for modified features
    - Add deprecation notices for removed features
-   - Include code examples with proper syntax highlighting
-   - Use appropriate Astro Starlight components (callouts, tabs, cards) sparingly
+   - Include Lua code examples with proper syntax highlighting in README
+   - Keep vimdoc formatting valid in `doc/markdown-plus.txt`
 
-4. **Maintain consistency** with existing documentation style:
+3. **Maintain consistency** with existing documentation style:
    - Use the same tone and voice
-   - Follow the same structure
+   - Follow the same structure as adjacent sections
    - Use similar examples
    - Match the level of detail
 
@@ -176,8 +171,8 @@ This PR updates the documentation based on features merged in the last 24 hours.
 
 ### Changes Made
 
-- Updated `docs/path/to/file.md` to document Feature 1
-- Added new section in `docs/path/to/file.md` for Feature 2
+- Updated `README.md` to document Feature 1
+- Added new section in `doc/markdown-plus.txt` for Feature 2
 
 ### Merged PRs Referenced
 
@@ -202,7 +197,7 @@ This PR updates the documentation based on features merged in the last 24 hours.
 - **Follow Guidelines**: Strictly adhere to the documentation instructions
 - **Be Selective**: Only document features that affect users (skip internal refactoring unless it's significant)
 - **Be Clear**: Write clear, concise documentation that helps users
-- **Use Proper Format**: Use the correct Diátaxis category and Astro Starlight syntax
+- **Use Proper Format**: Use the correct file (`README.md` or `doc/markdown-plus.txt`) with consistent vimdoc or Markdown syntax
 - **Link References**: Include links to relevant PRs and issues where appropriate
 - **Test Understanding**: If unsure about a feature, review the code changes in detail
 
