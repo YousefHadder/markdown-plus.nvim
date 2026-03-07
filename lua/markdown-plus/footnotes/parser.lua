@@ -34,9 +34,6 @@ M.patterns = {
   continuation = "^%s%s%s%s+(.*)$",
   -- Matches the footnotes section header
   section_header = "^##%s+",
-  -- Matches fenced code block delimiter (``` or ~~~)
-  code_fence = "^%s*```",
-  code_fence_tilde = "^%s*~~~",
 }
 
 ---Returns a set of line numbers that are inside code blocks

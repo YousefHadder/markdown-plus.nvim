@@ -231,7 +231,7 @@ function M.setup_keymaps()
   })
 end
 
----Get text within a specified range.
+---Get buffer lines within a specified row range.
 ---@deprecated Use `require("markdown-plus.utils").get_lines_in_range()` instead. Will be removed in v2.0.
 ---@param start_row number Start row
 ---@param end_row number End row

@@ -596,7 +596,8 @@ end
 ---@return string link The formatted markdown link
 function M.build_markdown_link(text, url, title)
   if title and title ~= "" then
-    return string.format('[%s](%s "%s")', text, url, title)
+    local escaped_title = title:gsub('"', '\\"')
+    return string.format('[%s](%s "%s")', text, url, escaped_title)
   end
   return string.format("[%s](%s)", text, url)
 end
@@ -608,7 +609,8 @@ end
 ---@return string image The formatted markdown image
 function M.build_markdown_image(alt, url, title)
   if title and title ~= "" then
-    return string.format('![%s](%s "%s")', alt, url, title)
+    local escaped_title = title:gsub('"', '\\"')
+    return string.format('![%s](%s "%s")', alt, url, escaped_title)
   end
   return string.format("![%s](%s)", alt, url)
 end
