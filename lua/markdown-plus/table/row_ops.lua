@@ -124,10 +124,7 @@ function M.duplicate_row()
     return false
   end
 
-  local duplicate_cells = {}
-  for _, cell in ipairs(table_info.cells[cells_index]) do
-    table.insert(duplicate_cells, cell)
-  end
+  local duplicate_cells = vim.deepcopy(table_info.cells[cells_index])
 
   table.insert(table_info.cells, cells_index + 1, duplicate_cells)
   return helpers.format_reparse_and_move(table_info, pos.row + 1, 0)
