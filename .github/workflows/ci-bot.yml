@@ -13,8 +13,6 @@ on:
 permissions:
   contents: read
   pull-requests: read
-  checks: write
-  statuses: write
 
 jobs:
   find-pr:
@@ -85,7 +83,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version: latest
-          args: --check lua
+          args: --check lua/ spec/ plugin/
 
   luacheck:
     name: Luacheck
