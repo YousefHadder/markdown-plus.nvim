@@ -20,8 +20,14 @@ safe-outputs:
   create-pull-request:
     title-prefix: "[code-simplifier] "
     labels: [refactoring, code-quality, automation]
-    reviewers: [copilot]
+    reviewers: [copilot, YousefHadder]
     expires: 1d
+
+network:
+  allowed:
+    - defaults
+    - github
+    - lua
 
 tools:
   github:
@@ -171,6 +177,15 @@ Avoid over-simplification that could:
 - Prioritize "fewer lines" over readability (e.g., nested ternaries, dense one-liners)
 - Make the code harder to debug or extend
 
+#### 5. Minimum Impact Threshold
+Skip changes that only:
+- Rename local variables in small scopes (< 15 lines)
+- Reorder imports or require statements
+- Adjust whitespace or comment phrasing
+- Rephrase doc comments without fixing inaccuracies
+
+Each change should produce a **measurable improvement**: reduced duplication (DRY), lower cyclomatic complexity, or fix a previously-violated project standard. If the only benefit is "slightly clearer naming" in a small scope, skip it.
+
 ### 2.3 Perform Code Analysis
 
 For each changed file:
@@ -188,6 +203,10 @@ For each changed file:
    - How can complexity be reduced?
    - What patterns should be applied?
    - Will this maintain all functionality?
+4. **Verify type annotations** (for typed/annotated languages):
+   - Before writing or modifying type annotations (LuaCATS `---@param`/`---@return`, TypeScript types, Python type hints), **read the type definition files first** (e.g., `types.lua`, `types.ts`, `types.py`)
+   - Cross-reference parameter and return types against class/interface definitions
+   - Never infer types from runtime behavior alone (e.g., "it's used in an `if`, so it must be boolean") — always check the declared types
 
 ### 2.4 Apply Simplifications
 
@@ -208,6 +227,41 @@ Use the **edit** tool to modify files:
 - Don't refactor unrelated code unless it improves understanding of the changes
 
 ## Phase 3: Validate Changes
+
+### 3.0 Install Validation Tools
+
+Before running validation, ensure the required tools are available. Install any that are missing:
+
+For **Lua/Neovim** projects:
+```bash
+# Install Neovim (latest stable)
+if ! command -v nvim &>/dev/null; then
+  curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+  tar -xzf nvim-linux-x86_64.tar.gz
+  export PATH="$PWD/nvim-linux-x86_64/bin:$PATH"
+fi
+
+# Install plenary.nvim (test framework)
+if [ ! -d "${PLENARY_DIR:-}" ]; then
+  export PLENARY_DIR=/tmp/plenary.nvim
+  git clone --depth 1 https://github.com/nvim-lua/plenary.nvim.git "$PLENARY_DIR"
+fi
+
+# Install luacheck (linter)
+if ! command -v luacheck &>/dev/null; then
+  sudo apt-get update && sudo apt-get install -y luarocks
+  sudo luarocks install luacheck
+fi
+
+# Install stylua (formatter)
+if ! command -v stylua &>/dev/null; then
+  curl -LO https://github.com/JohnnyMorganz/StyLua/releases/latest/download/stylua-linux-x86_64.zip
+  unzip stylua-linux-x86_64.zip -d /usr/local/bin/
+  chmod +x /usr/local/bin/stylua
+fi
+```
+
+**CRITICAL**: If any tool installation fails, DO NOT proceed with creating a PR. Exit with a `missing_tool` safe output instead.
 
 ### 3.1 Run Tests
 
@@ -280,6 +334,19 @@ dotnet build
 # For Lua/Neovim projects
 # No build step; validate with: make check
 ```
+
+### 3.4 Audit Against Project Standards
+
+After making changes, re-read the project's coding standards (`CLAUDE.md`, `CONTRIBUTING.md`, or equivalent) and verify your changes comply:
+
+- No function exceeds 50 lines
+- No nesting deeper than 4 levels (count `if`/`for`/`while` depth)
+- All files remain under 800 lines
+- No mutation of input parameters (immutable patterns)
+- All new/modified functions have correct type annotations (verified against type definition files)
+- Variable and function naming follows project conventions (snake_case, is_/has_ predicates, etc.)
+
+If any standard is violated by your changes, either refactor the change to comply or revert it entirely.
 
 ## Phase 4: Create Pull Request
 
