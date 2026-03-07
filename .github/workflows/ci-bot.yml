@@ -31,6 +31,22 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            // Map triggering workflow to the title prefix it uses
+            const prefixMap = {
+              "Code Simplifier": "[code-simplifier]",
+              "Daily Documentation Updater": "[docs]",
+            };
+            const workflowName = context.payload.workflow_run?.name || "";
+            const expectedPrefix = prefixMap[workflowName];
+            if (!expectedPrefix) {
+              core.info(`Unknown workflow "${workflowName}" — skipping CI.`);
+              return;
+            }
+
+            const runCreatedAt = new Date(
+              context.payload.workflow_run?.created_at || Date.now()
+            );
+
             const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -43,16 +59,17 @@ jobs:
             const botPr = prs.find(
               (pr) =>
                 pr.user.login === "github-actions[bot]" &&
-                new Date(pr.created_at) > new Date(Date.now() - 2 * 3600000)
+                pr.title.startsWith(expectedPrefix) &&
+                new Date(pr.created_at) > new Date(runCreatedAt - 3600000)
             );
 
             if (botPr) {
               core.setOutput("pr_number", botPr.number);
               core.setOutput("head_ref", botPr.head.ref);
               core.setOutput("head_sha", botPr.head.sha);
-              core.info(`Found bot PR #${botPr.number} on branch ${botPr.head.ref}`);
+              core.info(`Found bot PR #${botPr.number} (${expectedPrefix}) on branch ${botPr.head.ref}`);
             } else {
-              core.info("No recent bot PR found — skipping CI.");
+              core.info(`No recent bot PR with prefix "${expectedPrefix}" found — skipping CI.`);
             }
 
   stylua:

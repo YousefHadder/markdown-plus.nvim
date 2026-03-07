@@ -242,8 +242,9 @@ if ! command -v nvim &>/dev/null; then
 fi
 
 # Install plenary.nvim (test framework)
-if [ ! -d "${PLENARY_DIR:-}" ]; then
-  export PLENARY_DIR=/tmp/plenary.nvim
+PLENARY_DIR="${PLENARY_DIR:-/tmp/plenary.nvim}"
+export PLENARY_DIR
+if [ ! -d "$PLENARY_DIR" ]; then
   git clone --depth 1 https://github.com/nvim-lua/plenary.nvim.git "$PLENARY_DIR"
 fi
 
@@ -255,9 +256,12 @@ fi
 
 # Install stylua (formatter)
 if ! command -v stylua &>/dev/null; then
-  curl -LO https://github.com/JohnnyMorganz/StyLua/releases/latest/download/stylua-linux-x86_64.zip
-  unzip stylua-linux-x86_64.zip -d /usr/local/bin/
-  chmod +x /usr/local/bin/stylua
+  STYLUA_BIN_DIR="${HOME}/.local/bin"
+  mkdir -p "${STYLUA_BIN_DIR}"
+  curl -L https://github.com/JohnnyMorganz/StyLua/releases/latest/download/stylua-linux-x86_64.tar.gz -o /tmp/stylua-linux-x86_64.tar.gz
+  tar -xzf /tmp/stylua-linux-x86_64.tar.gz -C "${STYLUA_BIN_DIR}"
+  chmod +x "${STYLUA_BIN_DIR}/stylua"
+  export PATH="${STYLUA_BIN_DIR}:${PATH}"
 fi
 ```
 
