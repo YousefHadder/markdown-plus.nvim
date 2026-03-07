@@ -297,13 +297,13 @@ function M.get_text_in_range(start_row, start_col, end_row, end_col)
   if #lines == 1 then
     return lines[1]:sub(start_col, end_col)
   else
-    local text = {}
-    table.insert(text, lines[1]:sub(start_col))
+    local text_parts = {}
+    table.insert(text_parts, lines[1]:sub(start_col))
     for i = 2, #lines - 1 do
-      table.insert(text, lines[i])
+      table.insert(text_parts, lines[i])
     end
-    table.insert(text, lines[#lines]:sub(1, end_col))
-    return table.concat(text, "\n")
+    table.insert(text_parts, lines[#lines]:sub(1, end_col))
+    return table.concat(text_parts, "\n")
   end
 end
 

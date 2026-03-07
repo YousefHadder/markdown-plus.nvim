@@ -4,6 +4,19 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
+---Build the prefix string for a new list item (indent + marker + optional checkbox)
+---@param indent string Indentation string
+---@param marker string List marker (e.g., "-", "1.", "a)")
+---@param checkbox boolean|nil Whether to include an unchecked checkbox
+---@return string prefix The constructed list item prefix
+local function build_list_prefix(indent, marker, checkbox)
+  local prefix = indent .. marker .. " "
+  if checkbox then
+    prefix = prefix .. "[ ] "
+  end
+  return prefix
+end
+
 ---Create a wrapper that skips the handler when inside a code block
 ---Falls through to default key behavior when in a code block
 ---@param handler function The original handler function
@@ -51,12 +64,7 @@ function M.create_next_list_item(list_info)
   local row = cursor[1]
 
   local next_marker = parser.get_next_marker(list_info)
-
-  -- Build next line
-  local next_line = list_info.indent .. next_marker .. " "
-  if list_info.checkbox then
-    next_line = next_line .. "[ ] "
-  end
+  local next_line = build_list_prefix(list_info.indent, next_marker, list_info.checkbox)
 
   -- Insert new line
   utils.insert_line(row + 1, next_line)
@@ -127,11 +135,8 @@ function M.handle_enter()
 
     -- Create next list item with content after cursor
     local next_marker = parser.get_next_marker(list_info)
-    local next_line = list_info.indent .. next_marker .. " "
-    if list_info.checkbox then
-      next_line = next_line .. "[ ] "
-    end
-    next_line = next_line .. content_after:match("^%s*(.*)")
+    local next_line = build_list_prefix(list_info.indent, next_marker, list_info.checkbox)
+      .. content_after:match("^%s*(.*)")
 
     utils.insert_line(row + 1, next_line)
     -- Calculate cursor position on new line (after marker and optional checkbox)
@@ -317,10 +322,7 @@ function M.handle_normal_o()
 
   -- Create next list item below
   local next_marker = parser.get_next_marker(list_info)
-  local next_line = list_info.indent .. next_marker .. " "
-  if list_info.checkbox then
-    next_line = next_line .. "[ ] "
-  end
+  local next_line = build_list_prefix(list_info.indent, next_marker, list_info.checkbox)
 
   utils.insert_line(row + 1, next_line)
   utils.set_cursor(row + 1, #next_line)
@@ -346,10 +348,7 @@ function M.handle_normal_O()
 
   -- Insert list item above with previous marker
   local prev_marker = parser.get_previous_marker(list_info, row)
-  local prev_line = list_info.indent .. prev_marker .. " "
-  if list_info.checkbox then
-    prev_line = prev_line .. "[ ] "
-  end
+  local prev_line = build_list_prefix(list_info.indent, prev_marker, list_info.checkbox)
 
   utils.insert_line(row, prev_line)
   utils.set_cursor(row, #prev_line)

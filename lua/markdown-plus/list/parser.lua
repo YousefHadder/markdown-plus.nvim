@@ -320,26 +320,17 @@ end
 ---@param list_info markdown-plus.ListInfo Table containing list item information
 ---@return string next_marker The next marker string for the list item (e.g., "2.", "b)", "-")
 function M.get_next_marker(list_info)
-  if list_info.type == "ordered" then
+  local delimiter = list_info.marker:match("[%.%)]$") or ""
+  if list_info.type == "ordered" or list_info.type == "ordered_paren" then
     local current_num = tonumber(list_info.marker:match("(%d+)"))
-    return (current_num + 1) .. DELIMITER_DOT
-  elseif list_info.type == "ordered_paren" then
-    local current_num = tonumber(list_info.marker:match("(%d+)"))
-    return (current_num + 1) .. DELIMITER_PAREN
-  elseif list_info.type == "letter_lower" then
+    return (current_num + 1) .. delimiter
+  elseif list_info.type == "letter_lower" or list_info.type == "letter_lower_paren" then
     local current_letter = list_info.marker:match("([a-z])")
-    return M.next_letter(current_letter, false) .. DELIMITER_DOT
-  elseif list_info.type == "letter_lower_paren" then
-    local current_letter = list_info.marker:match("([a-z])")
-    return M.next_letter(current_letter, false) .. DELIMITER_PAREN
-  elseif list_info.type == "letter_upper" then
+    return M.next_letter(current_letter, false) .. delimiter
+  elseif list_info.type == "letter_upper" or list_info.type == "letter_upper_paren" then
     local current_letter = list_info.marker:match("([A-Z])")
-    return M.next_letter(current_letter, true) .. DELIMITER_DOT
-  elseif list_info.type == "letter_upper_paren" then
-    local current_letter = list_info.marker:match("([A-Z])")
-    return M.next_letter(current_letter, true) .. DELIMITER_PAREN
+    return M.next_letter(current_letter, true) .. delimiter
   else
-    -- Keep same bullet for unordered lists
     return list_info.marker
   end
 end
@@ -356,37 +347,32 @@ function M.get_previous_marker(list_info, row)
   local is_letter_upper = list_info.type == "letter_upper" or list_info.type == "letter_upper_paren"
   local delimiter = list_info.marker:match("[%.%)]$")
 
-  if is_ordered then
+  if is_ordered or is_letter_lower or is_letter_upper then
     -- Check for previous list item at same indent
     if row > 1 then
       local prev_line = utils.get_line(row - 1)
       local prev_list_info = M.parse_list_line(prev_line, row - 1)
       if prev_list_info and prev_list_info.type == list_info.type and #prev_list_info.indent == #list_info.indent then
-        local prev_num = tonumber(prev_list_info.marker:match("(%d+)"))
-        return (prev_num + 1) .. delimiter
+        if is_ordered then
+          local prev_num = tonumber(prev_list_info.marker:match("(%d+)"))
+          return (prev_num + 1) .. delimiter
+        elseif is_letter_lower then
+          local prev_letter = prev_list_info.marker:match("([a-z])")
+          return M.next_letter(prev_letter, false) .. delimiter
+        else
+          local prev_letter = prev_list_info.marker:match("([A-Z])")
+          return M.next_letter(prev_letter, true) .. delimiter
+        end
       end
     end
-    return "1" .. delimiter
-  elseif is_letter_lower then
-    if row > 1 then
-      local prev_line = utils.get_line(row - 1)
-      local prev_list_info = M.parse_list_line(prev_line, row - 1)
-      if prev_list_info and prev_list_info.type == list_info.type and #prev_list_info.indent == #list_info.indent then
-        local prev_letter = prev_list_info.marker:match("([a-z])")
-        return M.next_letter(prev_letter, false) .. delimiter
-      end
+    -- No previous item found - return initial marker
+    if is_ordered then
+      return "1" .. delimiter
+    elseif is_letter_lower then
+      return "a" .. delimiter
+    else
+      return "A" .. delimiter
     end
-    return "a" .. delimiter
-  elseif is_letter_upper then
-    if row > 1 then
-      local prev_line = utils.get_line(row - 1)
-      local prev_list_info = M.parse_list_line(prev_line, row - 1)
-      if prev_list_info and prev_list_info.type == list_info.type and #prev_list_info.indent == #list_info.indent then
-        local prev_letter = prev_list_info.marker:match("([A-Z])")
-        return M.next_letter(prev_letter, true) .. delimiter
-      end
-    end
-    return "A" .. delimiter
   else
     -- Keep same bullet for unordered lists
     return list_info.marker
