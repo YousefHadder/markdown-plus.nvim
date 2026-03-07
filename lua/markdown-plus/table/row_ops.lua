@@ -126,8 +126,10 @@ function M.duplicate_row()
 
   local duplicate_cells = vim.deepcopy(table_info.cells[cells_index])
 
-  table.insert(table_info.cells, cells_index + 1, duplicate_cells)
-  return helpers.format_reparse_and_move(table_info, pos.row + 1, 0)
+  local target_cells_index = cells_index + 1
+  table.insert(table_info.cells, target_cells_index, duplicate_cells)
+  local target_row = row_mapper.cells_index_to_pos_row(target_cells_index)
+  return helpers.format_reparse_and_move(table_info, target_row, 0)
 end
 
 ---Move current row up (swap with row above)

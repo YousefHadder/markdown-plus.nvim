@@ -43,8 +43,7 @@ function M.format_reparse_and_move(table_info, row, col)
     return false
   end
   local navigation = require("markdown-plus.table.navigation")
-  navigation.move_to_cell(updated, row, col)
-  return true
+  return navigation.move_to_cell(updated, row, col)
 end
 
 return M
