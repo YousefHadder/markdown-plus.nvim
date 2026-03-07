@@ -232,11 +232,12 @@ function M.setup_keymaps()
 end
 
 ---Get text within a specified range.
+---@deprecated Use `require("markdown-plus.utils").get_lines_in_range()` instead. Will be removed in v2.0.
 ---@param start_row number Start row
 ---@param end_row number End row
 ---@return string[] Lines in the specified range
 function M.get_lines_in_range(start_row, end_row)
-  return vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
+  return utils.get_lines_in_range(start_row, end_row)
 end
 
 -- Re-export detection functions for backward compatibility

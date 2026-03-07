@@ -1,6 +1,8 @@
 -- Footnote parsing module for markdown-plus.nvim
 -- Handles pattern matching and detection of footnote references and definitions
 
+local utils = require("markdown-plus.utils")
+
 local M = {}
 
 ---@class markdown-plus.footnotes.Reference
@@ -37,45 +39,12 @@ M.patterns = {
   code_fence_tilde = "^%s*~~~",
 }
 
----Check if a line is a code fence (``` or ~~~)
----@param line string The line content
----@return boolean is_fence True if line is a code fence
-local function is_code_fence(line)
-  return line:match(M.patterns.code_fence) ~= nil or line:match(M.patterns.code_fence_tilde) ~= nil
-end
-
----Build a set of line numbers that are inside code blocks using regex (fallback)
----@param lines string[] All lines in buffer
----@return table<number, boolean> Set of line numbers inside code blocks
-local function get_code_block_lines_regex(lines)
-  local in_code_block = false
-  local code_lines = {}
-
-  for line_num, line in ipairs(lines) do
-    if is_code_fence(line) then
-      if in_code_block then
-        -- Closing fence - this line is still part of code block
-        code_lines[line_num] = true
-        in_code_block = false
-      else
-        -- Opening fence
-        code_lines[line_num] = true
-        in_code_block = true
-      end
-    elseif in_code_block then
-      code_lines[line_num] = true
-    end
-  end
-
-  return code_lines
-end
-
 ---Returns a set of line numbers that are inside code blocks
 ---Uses regex for full-buffer scanning (faster than TS tree walk in testing)
 ---@param lines string[] All lines in buffer
 ---@return table<number, boolean> Set of line numbers inside code blocks
 local function get_code_block_lines(lines)
-  return get_code_block_lines_regex(lines)
+  return utils.get_code_block_lines(lines)
 end
 
 ---Parse a footnote reference at a specific position in a line

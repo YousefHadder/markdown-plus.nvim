@@ -127,31 +127,9 @@ function M.get_image_at_cursor()
   })
 end
 
----Build an image markdown string
----@param alt string Alt text
----@param url string Image URL
----@param title? string Optional title
----@return string image The formatted image
-local function build_image(alt, url, title)
-  if title and title ~= "" then
-    return string.format('![%s](%s "%s")', alt, url, title)
-  else
-    return string.format("![%s](%s)", alt, url)
-  end
-end
-
----Build a regular link markdown string
----@param text string Link text
----@param url string Link URL
----@param title? string Optional title
----@return string link The formatted link
-local function build_link(text, url, title)
-  if title and title ~= "" then
-    return string.format('[%s](%s "%s")', text, url, title)
-  else
-    return string.format("[%s](%s)", text, url)
-  end
-end
+-- Use shared utility builders
+local build_image = utils.build_markdown_image
+local build_link = utils.build_markdown_link
 
 ---Insert a new image link
 ---@return nil

@@ -122,13 +122,8 @@ function M.get_link_at_cursor()
   })
 end
 
----Build a markdown link string
----@param text string Link text
----@param url string Link URL
----@return string link The formatted link
-local function build_link(text, url)
-  return "[" .. text .. "](" .. url .. ")"
-end
+-- Use shared utility builder
+local build_link = utils.build_markdown_link
 
 ---Build a reference link string
 ---@param text string Link text

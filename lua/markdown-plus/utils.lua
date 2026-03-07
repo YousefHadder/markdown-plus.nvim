@@ -281,6 +281,14 @@ function M.get_visual_selection(include_col)
   end
 end
 
+---Get lines within a specified row range (1-indexed)
+---@param start_row number Start row (1-indexed)
+---@param end_row number End row (1-indexed, inclusive)
+---@return string[] Lines in the specified range
+function M.get_lines_in_range(start_row, end_row)
+  return vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
+end
+
 ---Get text in a line range
 ---@param start_row number Start row (1-indexed)
 ---@param start_col number Start column (1-indexed)
@@ -558,6 +566,51 @@ function M.insert_after_cursor(content)
 
   -- Move cursor after the inserted content
   M.set_cursor(cursor[1], #before + #content)
+end
+
+---Build a set of line numbers that are inside fenced code blocks using regex
+---Scans all provided lines and returns a table where keys are 1-indexed line
+---numbers that fall inside (or on the boundary of) a fenced code block.
+---@param lines string[] All lines to scan
+---@return table<number, boolean> Set of line numbers inside code blocks
+function M.get_code_block_lines(lines)
+  local code_lines = {}
+  local in_code_block = false
+
+  for i, line in ipairs(lines) do
+    if line:match("^%s*```") or line:match("^%s*~~~") then
+      code_lines[i] = true
+      in_code_block = not in_code_block
+    elseif in_code_block then
+      code_lines[i] = true
+    end
+  end
+
+  return code_lines
+end
+
+---Build a markdown link string: [text](url) or [text](url "title")
+---@param text string Link text
+---@param url string Link URL
+---@param title? string Optional title
+---@return string link The formatted markdown link
+function M.build_markdown_link(text, url, title)
+  if title and title ~= "" then
+    return string.format('[%s](%s "%s")', text, url, title)
+  end
+  return string.format("[%s](%s)", text, url)
+end
+
+---Build a markdown image string: ![alt](url) or ![alt](url "title")
+---@param alt string Alt text
+---@param url string Image URL
+---@param title? string Optional title
+---@return string image The formatted markdown image
+function M.build_markdown_image(alt, url, title)
+  if title and title ~= "" then
+    return string.format('![%s](%s "%s")', alt, url, title)
+  end
+  return string.format("![%s](%s)", alt, url)
 end
 
 return M

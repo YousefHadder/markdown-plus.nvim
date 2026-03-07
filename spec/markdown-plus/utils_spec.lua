@@ -860,4 +860,204 @@ describe("markdown-plus utils", function()
       assert.is_true(utils.is_in_code_block())
     end)
   end)
+
+  describe("get_lines_in_range", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
+    it("returns the correct lines for a valid range", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "First line",
+        "Second line",
+        "Third line",
+      })
+      local lines = utils.get_lines_in_range(1, 2)
+      assert.are.same({ "First line", "Second line" }, lines)
+    end)
+
+    it("returns all lines when range covers full buffer", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "Line 1",
+        "Line 2",
+        "Line 3",
+      })
+      local lines = utils.get_lines_in_range(1, 3)
+      assert.are.same({ "Line 1", "Line 2", "Line 3" }, lines)
+    end)
+
+    it("returns single line for equal start and end", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "Only line",
+      })
+      local lines = utils.get_lines_in_range(1, 1)
+      assert.are.same({ "Only line" }, lines)
+    end)
+
+    it("returns an empty list for an out-of-bounds range", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "First line" })
+      local lines = utils.get_lines_in_range(2, 3)
+      assert.are.same({}, lines)
+    end)
+  end)
+
+  describe("get_code_block_lines", function()
+    it("returns empty table for lines without code blocks", function()
+      local lines = {
+        "# Header",
+        "Some text",
+        "More text",
+      }
+      local result = utils.get_code_block_lines(lines)
+      assert.are.same({}, result)
+    end)
+
+    it("marks backtick code block lines", function()
+      local lines = {
+        "Before",
+        "```",
+        "code line 1",
+        "code line 2",
+        "```",
+        "After",
+      }
+      local result = utils.get_code_block_lines(lines)
+      assert.is_nil(result[1])
+      assert.is_true(result[2]) -- opening fence
+      assert.is_true(result[3])
+      assert.is_true(result[4])
+      assert.is_true(result[5]) -- closing fence
+      assert.is_nil(result[6])
+    end)
+
+    it("marks tilde code block lines", function()
+      local lines = {
+        "Before",
+        "~~~",
+        "code",
+        "~~~",
+        "After",
+      }
+      local result = utils.get_code_block_lines(lines)
+      assert.is_nil(result[1])
+      assert.is_true(result[2])
+      assert.is_true(result[3])
+      assert.is_true(result[4])
+      assert.is_nil(result[5])
+    end)
+
+    it("handles indented code fences", function()
+      local lines = {
+        "  ```lua",
+        "  local x = 1",
+        "  ```",
+      }
+      local result = utils.get_code_block_lines(lines)
+      assert.is_true(result[1])
+      assert.is_true(result[2])
+      assert.is_true(result[3])
+    end)
+
+    it("handles unclosed code block", function()
+      local lines = {
+        "```",
+        "unclosed code",
+        "still code",
+      }
+      local result = utils.get_code_block_lines(lines)
+      assert.is_true(result[1])
+      assert.is_true(result[2])
+      assert.is_true(result[3])
+    end)
+
+    it("handles multiple code blocks", function()
+      local lines = {
+        "Text",
+        "```",
+        "block 1",
+        "```",
+        "Between",
+        "~~~",
+        "block 2",
+        "~~~",
+        "End",
+      }
+      local result = utils.get_code_block_lines(lines)
+      assert.is_nil(result[1])
+      assert.is_true(result[2])
+      assert.is_true(result[3])
+      assert.is_true(result[4])
+      assert.is_nil(result[5])
+      assert.is_true(result[6])
+      assert.is_true(result[7])
+      assert.is_true(result[8])
+      assert.is_nil(result[9])
+    end)
+
+    it("handles empty input", function()
+      local result = utils.get_code_block_lines({})
+      assert.are.same({}, result)
+    end)
+  end)
+
+  describe("build_markdown_link", function()
+    it("builds simple link without title", function()
+      assert.are.equal("[text](https://example.com)", utils.build_markdown_link("text", "https://example.com"))
+    end)
+
+    it("builds link with title", function()
+      assert.are.equal(
+        '[text](https://example.com "My Title")',
+        utils.build_markdown_link("text", "https://example.com", "My Title")
+      )
+    end)
+
+    it("omits title when nil", function()
+      assert.are.equal("[text](url)", utils.build_markdown_link("text", "url", nil))
+    end)
+
+    it("omits title when empty string", function()
+      assert.are.equal("[text](url)", utils.build_markdown_link("text", "url", ""))
+    end)
+
+    it("handles empty text", function()
+      assert.are.equal("[](url)", utils.build_markdown_link("", "url"))
+    end)
+
+    it("handles special characters in text and url", function()
+      assert.are.equal(
+        "[hello world](https://example.com/path?q=1&r=2)",
+        utils.build_markdown_link("hello world", "https://example.com/path?q=1&r=2")
+      )
+    end)
+  end)
+
+  describe("build_markdown_image", function()
+    it("builds simple image without title", function()
+      assert.are.equal("![alt](image.png)", utils.build_markdown_image("alt", "image.png"))
+    end)
+
+    it("builds image with title", function()
+      assert.are.equal('![alt](image.png "Photo")', utils.build_markdown_image("alt", "image.png", "Photo"))
+    end)
+
+    it("omits title when nil", function()
+      assert.are.equal("![alt](url)", utils.build_markdown_image("alt", "url", nil))
+    end)
+
+    it("omits title when empty string", function()
+      assert.are.equal("![alt](url)", utils.build_markdown_image("alt", "url", ""))
+    end)
+
+    it("handles empty alt text", function()
+      assert.are.equal("![](url)", utils.build_markdown_image("", "url"))
+    end)
+  end)
 end)
