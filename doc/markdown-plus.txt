@@ -429,6 +429,9 @@ The renumbering system intelligently handles:
 - Nested lists: Each nesting level maintains independent numbering
 - Blank lines: Lists separated by blank lines restart numbering from 1/a/A
 - Mixed depths: Works correctly at any nesting depth
+- Fenced code blocks: Indented fenced code blocks (nested inside list items) are
+  treated as part of the list and do not break numbering continuity; non-indented
+  fences at column 0 are structural separators and restart numbering (per CommonMark)
 
 Example of nested list renumbering:
 >markdown
@@ -447,6 +450,28 @@ Example of blank line separation:
 
     1. New list    <- Restarts at 1 after blank line
     2. Second item
+<
+
+Example of fenced code block handling:
+>markdown
+    1. First
+    2. Second
+
+        ```bash
+        echo hello     <- Indented: treated as list item content
+        ```
+
+    3. Third          <- Continues at 3 (not reset to 1)
+<
+>markdown
+    1. First
+    2. Second
+
+    ```
+    standalone block   <- Non-indented (column 0): breaks list
+    ```
+
+    1. Third          <- Restarts at 1 (new list group)
 <
 
 
