@@ -16,9 +16,6 @@ end
 --- Enable quote features for current buffer
 ---@return nil
 function M.enable()
-  if not utils.is_markdown_buffer() then
-    return
-  end
   M.setup_keymaps()
 end
 

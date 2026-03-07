@@ -1,5 +1,4 @@
 -- List management module for markdown-plus.nvim
-local utils = require("markdown-plus.utils")
 local keymap_helper = require("markdown-plus.keymap_helper")
 
 -- Load sub-modules
@@ -26,10 +25,6 @@ end
 
 ---Enable list features for current buffer
 function M.enable()
-  if not utils.is_markdown_buffer() then
-    return
-  end
-
   -- Set up keymaps
   M.setup_keymaps()
 end
