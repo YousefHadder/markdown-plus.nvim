@@ -5,6 +5,13 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - Unreleased
+
+### Breaking Changes
+
+- Require explicit `require("markdown-plus").setup(opts)` configuration (deprecated auto-setup path removed).
+- Default keymap leader namespace migrates from `<Leader>` to `<LocalLeader>`.
+
 ## [1.11.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.10.0...v1.11.0) (2026-02-24)
 
 
