@@ -62,6 +62,17 @@ https://github.com/user-attachments/assets/5ddbc02c-68ba-44f0-8cc0-41807a23e788
 
 That's it! The plugin will automatically activate with default keymaps when you open a markdown file.
 
+### v2.0 migration notes
+
+- `vim.g.markdown_plus` configuration was removed; use `setup(opts)`/`opts = {}` only.
+- Default mappings now use `<localleader>` instead of `<leader>`.
+- New toggle: `features.html_block_awareness = true` skips formatting/list/header operations inside HTML blocks.
+- New heading toggle: `<localleader>ms` switches ATX/setext heading style (H1/H2).
+- New thematic-break commands: `<localleader>mh` (insert) and `<localleader>mH` (cycle style).
+- Smart list outdent is enabled by default (`list.smart_outdent = true`) for parent-aware marker continuation.
+- Formatting defaults moved to avoid key collisions: strikethrough `<localleader>mS`, highlight `<localleader>m=`.
+- If needed, set `vim.g.maplocalleader = "\\"` (or your preferred key) before plugin setup.
+
 **Want to customize?**
 
 ```lua

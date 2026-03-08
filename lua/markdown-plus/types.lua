@@ -1,12 +1,13 @@
 ---@meta
 
 ---User configuration for markdown-plus.nvim
----Can be provided via setup() or vim.g.markdown_plus (table or function)
+---Provided via setup(opts)
 ---@class markdown-plus.Config
 ---@field enabled? boolean Enable the plugin (default: true)
 ---@field features? markdown-plus.FeatureConfig Feature toggles
 ---@field keymaps? markdown-plus.KeymapConfig Keymap configuration
 ---@field filetypes? string[] Filetypes to enable plugin for (default: {"markdown"})
+---@field thematic_break? markdown-plus.ThematicBreakConfig Thematic break configuration
 ---@field code_block? markdown-plus.CodeBlockConfig Code block configuration
 ---@field toc? markdown-plus.TocConfig TOC window configuration
 ---@field table? markdown-plus.TableConfig Table configuration
@@ -19,12 +20,14 @@
 ---@class markdown-plus.FeatureConfig
 ---@field list_management? boolean Enable list management (default: true)
 ---@field text_formatting? boolean Enable text formatting (default: true)
+---@field thematic_break? boolean Enable thematic break insertion/cycling (default: true)
 ---@field headers_toc? boolean Enable headers and TOC (default: true)
 ---@field links? boolean Enable link management (default: true)
 ---@field images? boolean Enable image link management (default: true)
 ---@field quotes? boolean Enable quote management (default: true)
 ---@field callouts? boolean Enable callout management (default: true)
 ---@field code_block? boolean Enable code block management (default: true)
+---@field html_block_awareness? boolean Skip markdown operations inside GFM HTML blocks (default: true)
 ---@field table? boolean Enable table management (default: true)
 ---@field footnotes? boolean Enable footnotes management (default: true)
 
@@ -39,7 +42,7 @@
 ---Table keymap configuration
 ---@class markdown-plus.TableKeymapConfig
 ---@field enabled? boolean Enable default table keymaps (default: true)
----@field prefix? string Keymap prefix (default: '<leader>t')
+---@field prefix? string Keymap prefix (default: '<localleader>t')
 ---@field insert_mode_navigation? boolean Enable insert mode cell navigation with Alt+hjkl (default: true)
 
 ---Callouts configuration
@@ -55,6 +58,11 @@
 ---List configuration
 ---@class markdown-plus.ListConfig
 ---@field checkbox_completion? markdown-plus.CheckboxCompletionConfig Checkbox completion timestamp configuration
+---@field smart_outdent? boolean Enable parent-aware smart outdent/continuation (default: true)
+
+---Thematic break configuration
+---@class markdown-plus.ThematicBreakConfig
+---@field style? "---"|"***"|"___" Default thematic break style for insertion (default: "---")
 
 ---Links configuration
 ---@class markdown-plus.LinksConfig
@@ -91,6 +99,7 @@
 ---@field features markdown-plus.InternalFeatureConfig
 ---@field keymaps markdown-plus.InternalKeymapConfig
 ---@field filetypes string[]
+---@field thematic_break markdown-plus.InternalThematicBreakConfig
 ---@field toc markdown-plus.InternalTocConfig
 ---@field table markdown-plus.InternalTableConfig
 ---@field callouts markdown-plus.InternalCalloutsConfig
@@ -103,12 +112,14 @@
 ---@class markdown-plus.InternalFeatureConfig
 ---@field list_management boolean
 ---@field text_formatting boolean
+---@field thematic_break boolean
 ---@field headers_toc boolean
 ---@field links boolean
 ---@field images boolean
 ---@field quotes boolean
 ---@field callouts boolean
 ---@field code_block boolean
+---@field html_block_awareness boolean
 ---@field table boolean
 ---@field footnotes boolean
 
@@ -129,6 +140,10 @@
 ---Internal code block configuration
 ---@class markdown-plus.InternalCodeBlockConfig
 ---@field enabled boolean
+
+---Internal thematic break configuration
+---@class markdown-plus.InternalThematicBreakConfig
+---@field style "---"|"***"|"___"
 
 ---Internal keymap configuration
 ---@class markdown-plus.InternalKeymapConfig
@@ -151,6 +166,7 @@
 ---Internal list configuration
 ---@class markdown-plus.InternalListConfig
 ---@field checkbox_completion markdown-plus.InternalCheckboxCompletionConfig
+---@field smart_outdent boolean
 
 ---Internal links configuration
 ---@class markdown-plus.InternalLinksConfig

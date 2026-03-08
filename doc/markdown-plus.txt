@@ -167,6 +167,7 @@ Basic configuration with custom keymaps:
             links = true,
             quotes = true,
             code_block = true,
+            html_block_awareness = true,
             table = true,
           },
         })
@@ -181,28 +182,50 @@ Basic configuration with custom keymaps:
 
 HEADERS                                            *markdown-plus-usage-headers*
 
-Headers are lines starting with one or more `#` symbols.
+Headers support both ATX (`# Heading`) and setext styles:
+>markdown
+    ATX:     ## Heading
+    setext:  Heading
+             -------
+<
 
 
 PROMOTE/DEMOTE ~
 
 Place your cursor on a header line and use:
-- `<leader>h+` to promote (decrease level, add `#`)
-- `<leader>h-` to demote (increase level, remove `#`)
+- `<localleader>h+` to promote (decrease level, add `#`)
+- `<localleader>h-` to demote (increase level, remove `#`)
 
 Example:
 >
-    ### Header              ->   ## Header     (promoted with <leader>h+)
-    ## Another Header       ->   ### Another   (demoted with <leader>h-)
+    ### Header              ->   ## Header     (promoted with <localleader>h+)
+    ## Another Header       ->   ### Another   (demoted with <localleader>h-)
 <
 
 You can also set a specific header level directly:
-- `<leader>h1` to convert to H1 (# Header)
-- `<leader>h2` to convert to H2 (## Header)
-- `<leader>h3` to convert to H3 (### Header)
-- `<leader>h4` to convert to H4 (#### Header)
-- `<leader>h5` to convert to H5 (##### Header)
-- `<leader>h6` to convert to H6 (###### Header)
+- `<localleader>h1` to convert to H1 (# Header)
+- `<localleader>h2` to convert to H2 (## Header)
+- `<localleader>h3` to convert to H3 (### Header)
+- `<localleader>h4` to convert to H4 (#### Header)
+- `<localleader>h5` to convert to H5 (##### Header)
+- `<localleader>h6` to convert to H6 (###### Header)
+
+ATX/SETEXT TOGGLE ~
+
+Toggle the current heading between ATX and setext with `<localleader>ms`.
+
+Rules:
+  - H1/H2 ATX headings convert to setext
+  - setext H1/H2 headings convert back to ATX
+  - H3-H6 ATX headings stay ATX (setext only supports levels 1-2)
+
+>markdown
+    # Project Plan        ->   Project Plan
+                              ============
+
+    ## Tasks              ->   Tasks
+                              -----
+<
 
 
 NAVIGATE HEADERS ~
@@ -215,7 +238,7 @@ Jump between headers quickly:
 
 TABLE OF CONTENTS ~
 
-Generate a TOC with `<leader>ht`. The TOC will be wrapped in HTML comment
+Generate a TOC with `<localleader>ht`. The TOC will be wrapped in HTML comment
 markers to prevent duplicates:
 
 >markdown
@@ -233,10 +256,10 @@ markers to prevent duplicates:
 
 The HTML markers (`<!-- TOC -->` and `<!-- /TOC -->`) are invisible in
 rendered Markdown but provide clear boundaries. If you try to generate a TOC
-when one already exists, you'll see: "TOC already exists. Use <leader>hu to
+when one already exists, you'll see: "TOC already exists. Use <localleader>hu to
 update it."
 
-Update the TOC with `<leader>hu` when you've added or modified headers.
+Update the TOC with `<localleader>hu` when you've added or modified headers.
 
 Follow TOC links with `gd` when cursor is on a link to jump to that header.
 
@@ -250,7 +273,7 @@ document structure:
     :Toc          " Open TOC in vertical split
     :Toch         " Open TOC in horizontal split
     :Toct         " Open TOC in new tab
-    <leader>hT    " Default keymap to toggle TOC
+    <localleader>hT    " Default keymap to toggle TOC
 <
 
 Features:
@@ -280,6 +303,19 @@ Configuration:
     })
 <
 
+ 
+THEMATIC BREAKS                              *markdown-plus-usage-thematic-breaks*
+
+Insert and cycle thematic breaks (horizontal rules):
+  - `<localleader>mh` inserts a thematic break below the cursor
+  - `<localleader>mH` cycles style on the current thematic break line
+
+Cycle order:
+  `---` -> `***` -> `___` -> `---`
+
+Inserted breaks are surrounded with blank lines when needed for clean markdown
+structure.
+
 
 LISTS                                                *markdown-plus-usage-lists*
 
@@ -295,19 +331,19 @@ All list types support checkboxes (e.g., `- [ ]`, `1. [x]`, `a. [ ]`).
 
 CHECKBOX TOGGLING ~
 
-Toggle checkboxes with `<leader>mx` in normal/visual mode or `<C-t>` in insert
+Toggle checkboxes with `<localleader>mx` in normal/visual mode or `<C-t>` in insert
 mode:
 
 >markdown
-    - Regular item         Press <leader>mx    →  - [ ] Regular item
-    - [ ] Unchecked        Press <leader>mx    →  - [x] Unchecked
-    - [x] Checked          Press <leader>mx    →  - [ ] Checked
+    - Regular item         Press <localleader>mx    →  - [ ] Regular item
+    - [ ] Unchecked        Press <localleader>mx    →  - [x] Unchecked
+    - [x] Checked          Press <localleader>mx    →  - [ ] Checked
 
     Works with all list types:
     1. Item                →  1. [ ] Item       →  1. [x] Item
     a. Task                →  a. [ ] Task       →  a. [x] Task
 
-    Visual mode - select lines and press <leader>mx to toggle multiple items
+    Visual mode - select lines and press <localleader>mx to toggle multiple items
     Insert mode - press <C-t> to toggle without leaving insert mode
 <
 
@@ -419,11 +455,33 @@ All list types maintain their marker style when indented:
 
 Outside of lists, `<Tab>` and `<S-Tab>` insert/remove indentation normally.
 
+SMART OUTDENT ~
+
+When outdenting nested list items with `<S-Tab>`, markdown-plus can adopt the
+parent ordered marker automatically:
+
+>markdown
+    1. Buy groceries
+      - [x] Eggs|          <S-Tab>   2. [x] Eggs
+<
+
+When pressing `o` on the last nested child, markdown-plus also continues the
+parent ordered list instead of creating another child.
+
+Disable this behavior to keep v1-style marker preservation:
+>lua
+    require('markdown-plus').setup({
+      list = {
+        smart_outdent = false,
+      },
+    })
+<
+
 
 RENUMBERING ~
 
 Ordered and letter-based lists are automatically renumbered as you edit.
-Manual renumbering is available with `<leader>mr`.
+Manual renumbering is available with `<localleader>mr`.
 
 The renumbering system intelligently handles:
 - Nested lists: Each nesting level maintains independent numbering
@@ -484,17 +542,17 @@ The `<BS>` key in insert mode is context-aware:
 
 FORMATTING                                      *markdown-plus-usage-formatting*
 
-All formatting commands work in both normal and visual mode. Use `<leader>m`
+All formatting commands work in both normal and visual mode. Use `<localleader>m`
 prefix for formatting operations.
 
 In normal mode, formatting actions are dot-repeatable - after running a
-formatter once (e.g. `<leader>mb` to make a word bold), press `.` to apply
+formatter once (e.g. `<localleader>mb` to make a word bold), press `.` to apply
 the same format to the next word without reselecting.
 
 
 BOLD ~
 
-Toggle bold with `<leader>mb`:
+Toggle bold with `<localleader>mb`:
 
 >markdown
     This is text           ->    This is **text**
@@ -506,7 +564,7 @@ Dot-repeat example (normal mode only):
     word1 word2 word3
     
     1. Position cursor on "word1"
-    2. Press <leader>mb  ->  **word1** word2 word3
+    2. Press <localleader>mb  ->  **word1** word2 word3
     3. Move cursor to "word2"
     4. Press .           ->  **word1** **word2** word3
     5. Move to "word3", press .  ->  **word1** **word2** **word3**
@@ -558,7 +616,7 @@ With Treesitter, formatting becomes even smarter:
 
 ITALIC ~
 
-Toggle italic with `<leader>mi`:
+Toggle italic with `<localleader>mi`:
 
 >markdown
     This is text           ->    This is *italic text*
@@ -568,7 +626,7 @@ Toggle italic with `<leader>mi`:
 
 STRIKETHROUGH ~
 
-Toggle strikethrough with `<leader>ms`:
+Toggle strikethrough with `<localleader>mS`:
 
 >markdown
     This is text           ->    This is ~~text~~
@@ -578,7 +636,7 @@ Toggle strikethrough with `<leader>ms`:
 
 CODE ~
 
-Toggle inline code with `<leader>mc`:
+Toggle inline code with `<localleader>mc`:
 
 >markdown
     This is code           ->    This is `code`
@@ -587,7 +645,7 @@ Toggle inline code with `<leader>mc`:
 
 HIGHLIGHT ~
 
-Toggle highlight (Obsidian-style) with `<leader>mh`:
+Toggle highlight (Obsidian-style) with `<localleader>m=`:
 
 >markdown
     This is text           ->    This is ==text==
@@ -600,7 +658,7 @@ Markdown extensions. It may not render in standard GitHub Markdown.
 
 UNDERLINE ~
 
-Toggle underline with `<leader>mu`:
+Toggle underline with `<localleader>mu`:
 
 >markdown
     This is text           ->    This is ++text++
@@ -632,10 +690,10 @@ Use:
 
 CODE BLOCK ~
 
-Convert selected rows to a code block with `<leader>mw`:
+Convert selected rows to a code block with `<localleader>mw`:
 1. Enter visual block mode with `V`.
 2. Select the rows you want to convert.
-3. Press `<leader>mw`.
+3. Press `<localleader>mw`.
 4. Enter the language for the code block when prompted (e.g., txt).
 
 >markdown
@@ -654,7 +712,7 @@ After following the steps above, the selected text will become:
 
 CLEAR FORMATTING ~
 
-Remove all formatting with `<leader>mC`:
+Remove all formatting with `<localleader>mC`:
 
 >markdown
     Formatted text         ->    This is some text
@@ -669,7 +727,7 @@ both inline and reference-style links.
 
 INSERT NEW LINK ~
 
-Press `<leader>ml` in normal mode to insert a new link:
+Press `<localleader>ml` in normal mode to insert a new link:
 
 >markdown
     Cursor here|          ->    [GitHub](https://github.com)|
@@ -682,7 +740,7 @@ You'll be prompted for:
 
 CONVERT SELECTION TO LINK ~
 
-Select text in visual mode and press `<leader>ml`:
+Select text in visual mode and press `<localleader>ml`:
 
 >markdown
     Visit my website      ->    Visit [my website](https://example.com)
@@ -695,12 +753,12 @@ You'll be prompted for the URL only.
 
 EDIT EXISTING LINK ~
 
-Place cursor anywhere on a link and press `<leader>me`:
+Place cursor anywhere on a link and press `<localleader>me`:
 
 >markdown
     [Old Text](https://old-url.com)
 
-    Press <leader>me:
+    Press <localleader>me:
     1. Link text: Old Text (edit or press Enter)
     2. URL: https://old-url.com (edit or press Enter)
 
@@ -724,12 +782,12 @@ The `gx` command will open the URL in your default browser.
 
 AUTO-CONVERT URL TO LINK ~
 
-Place cursor on a bare URL and press `<leader>ma`:
+Place cursor on a bare URL and press `<localleader>ma`:
 
 >markdown
     https://github.com/user/repo
 
-    Press <leader>ma:
+    Press <localleader>ma:
     Link text (empty for URL): GitHub Repo
 
     Result: [GitHub Repo](https://github.com/user/repo)
@@ -740,12 +798,12 @@ Leave the text prompt empty to use the URL as link text.
 
 REFERENCE-STYLE LINKS ~
 
-Convert inline link to reference-style with `<leader>mR`:
+Convert inline link to reference-style with `<localleader>mR`:
 
 >markdown
     [Documentation](https://docs.example.com)
 
-    Press <leader>mR:
+    Press <localleader>mR:
 
     Result:
     [Documentation][documentation]
@@ -757,14 +815,14 @@ Convert inline link to reference-style with `<leader>mR`:
 The reference ID is auto-generated from the link text (lowercase, hyphens,
 alphanumeric only).
 
-Convert reference link to inline with `<leader>mI`:
+Convert reference link to inline with `<localleader>mI`:
 
 >markdown
     [My Link][myref]
 
     [myref]: https://myref.com
 
-    Press <leader>mI on the link:
+    Press <localleader>mI on the link:
 
     Result: [My Link](https://myref.com)
 <
@@ -779,7 +837,7 @@ plugin automatically reuses the existing reference:
     Check out [GitHub](https://github.com) for code.
     Visit [GitHub](https://github.com) to see projects.
 
-    Press <leader>mR on both:
+    Press <localleader>mR on both:
 
     Result:
     Check out [GitHub][github] for code.
@@ -794,7 +852,7 @@ Links with different text create separate references even with same URL:
     [dotfiles](https://github.com/yousefhadder/dotfiles)
     [My Dotfiles](https://github.com/yousefhadder/dotfiles)
 
-    Press <leader>mR on both:
+    Press <localleader>mR on both:
 
     Result:
     [dotfiles][dotfiles]
@@ -825,14 +883,14 @@ Enable in configuration:
 
 Usage:
 1. Copy a URL to your system clipboard
-2. Press `<leader>mp` (or use `<Plug>(MarkdownPlusSmartPaste)`)
+2. Press `<localleader>mp` (or use `<Plug>(MarkdownPlusSmartPaste)`)
 3. A placeholder `[⏳ Loading...](url)` appears at cursor
 4. After fetch completes, it updates to `[Page Title](url)`
 
 >markdown
     Cursor here|
 
-    Press <leader>mp with https://github.com in clipboard:
+    Press <localleader>mp with https://github.com in clipboard:
 
     Step 1 (immediate): [⏳ Loading...](https://github.com)|
     Step 2 (async):     [GitHub](https://github.com)|
@@ -855,7 +913,7 @@ for alt text, URLs, and optional title attributes.
 
 INSERT NEW IMAGE LINK ~
 
-Press `<leader>mL` in normal mode to insert a new image:
+Press `<localleader>mL` in normal mode to insert a new image:
 
 >markdown
     Cursor here|          ->    ![Screenshot](images/screenshot.png)|
@@ -871,7 +929,7 @@ Result with title: `![Screenshot](images/screenshot.png "My Screenshot")`
 
 CONVERT SELECTION TO IMAGE ~
 
-Select text in visual mode and press `<leader>mL`:
+Select text in visual mode and press `<localleader>mL`:
 
 >markdown
     A beautiful sunset      ->    ![A beautiful sunset](photos/sunset.jpg)
@@ -884,12 +942,12 @@ You'll be prompted for the URL and optional title.
 
 EDIT EXISTING IMAGE ~
 
-Place cursor anywhere on an image and press `<leader>mE`:
+Place cursor anywhere on an image and press `<localleader>mE`:
 
 >markdown
     ![Old Alt](old-image.png)
 
-    Press <leader>mE:
+    Press <localleader>mE:
     1. Alt text: Old Alt (edit or press Enter)
     2. URL: old-image.png (edit or press Enter)
     3. Title (optional): (edit, add, or press Enter)
@@ -902,12 +960,12 @@ You can add, modify, or remove the title attribute during editing.
 
 TOGGLE BETWEEN LINK AND IMAGE ~
 
-Convert a regular link to an image with `<leader>mA`:
+Convert a regular link to an image with `<localleader>mA`:
 
 >markdown
     [My Photo](photo.jpg)
 
-    Press <leader>mA:
+    Press <localleader>mA:
 
     Result: ![My Photo](photo.jpg)
 <
@@ -917,7 +975,7 @@ Convert an image back to a regular link:
 >markdown
     ![My Photo](photo.jpg)
 
-    Press <leader>mA:
+    Press <localleader>mA:
 
     Result: [My Photo](photo.jpg)
 <
@@ -933,7 +991,7 @@ Images can have optional title attributes that appear as tooltips:
     ![Diagram](diagrams/flow.svg "System Architecture Diagram")
 <
 
-When editing images with `<leader>mE`, you can:
+When editing images with `<localleader>mE`, you can:
 - Add a title to an image that doesn't have one
 - Modify an existing title
 - Remove a title by leaving the prompt empty
@@ -957,18 +1015,18 @@ COMMON USE CASES ~
 ==============================================================================
 QUOTES                                            *markdown-plus-usage-quotes*
 
-Toggle blockquote on current line or visual selection with `<leader>mq`.
+Toggle blockquote on current line or visual selection with `<localleader>mq`.
 
 NORMAL MODE ~
 
-Place cursor on a line and press `<leader>mq`:
+Place cursor on a line and press `<localleader>mq`:
 >markdown
     This is a normal line -> > This is a normal line
     > This is a quoted line -> This is a normal line
 <
 VISUAL MODE ~
 
-Select multiple lines in visual mode and press `<leader>mq`:
+Select multiple lines in visual mode and press `<localleader>mq`:
 >markdown
     Normal line 1
     Normal line 2
@@ -984,8 +1042,8 @@ distinct blocks for notes, warnings, tips, and other special content.
 
 INSERT CALLOUT ~
 
-Insert a callout with `<leader>mQi` in normal mode:
-1. Press `<leader>mQi`
+Insert a callout with `<localleader>mQi` in normal mode:
+1. Press `<localleader>mQi`
 2. Select callout type (NOTE, TIP, IMPORTANT, WARNING, CAUTION)
 3. Callout is inserted and insert mode is activated
 
@@ -995,7 +1053,7 @@ Insert a callout with `<leader>mQi` in normal mode:
 <
 WRAP SELECTION ~
 
-Wrap selected text in a callout with `<leader>mQi` in visual mode:
+Wrap selected text in a callout with `<localleader>mQi` in visual mode:
 >markdown
     This is important
     Users should know this
@@ -1005,7 +1063,7 @@ Wrap selected text in a callout with `<leader>mQi` in visual mode:
 <
 TOGGLE CALLOUT TYPE ~
 
-Cycle through callout types with `<leader>mQt`:
+Cycle through callout types with `<localleader>mQt`:
 >markdown
     > [!NOTE]           > [!TIP]           > [!IMPORTANT]
     > Content    ->     > Content    ->    > Content
@@ -1014,14 +1072,14 @@ Cycle order: NOTE → TIP → IMPORTANT → WARNING → CAUTION → NOTE
 
 CONVERT BLOCKQUOTE ~
 
-Convert a blockquote to callout with `<leader>mQc`:
+Convert a blockquote to callout with `<localleader>mQc`:
 >markdown
     > Regular blockquote        > [!WARNING] Regular blockquote
     > More content        ->    > More content
 <
 CONVERT TO BLOCKQUOTE ~
 
-Remove callout markers with `<leader>mQb`:
+Remove callout markers with `<localleader>mQb`:
 >markdown
     > [!CAUTION]        >
     > Content     ->    > Content
@@ -1046,7 +1104,7 @@ manipulating markdown tables.
 
 CREATE TABLES ~
 
-Create a new table interactively with `<leader>tc`. You'll be prompted for:
+Create a new table interactively with `<localleader>tc`. You'll be prompted for:
 1. Number of rows (excluding header)
 2. Number of columns
 
@@ -1060,7 +1118,7 @@ Example result:
 
 FORMAT AND NORMALIZE ~
 
-Format tables with `<leader>tf` to auto-align columns:
+Format tables with `<localleader>tf` to auto-align columns:
 >markdown
     | Name | Age | City |          | Name  | Age | City |
     |---|---|---|            ->     |-------|-----|------|
@@ -1068,7 +1126,7 @@ Format tables with `<leader>tf` to auto-align columns:
     | Bob | 30 | LA |               | Bob   | 30  | LA   |
 <
 
-Normalize malformed tables with `<leader>tn`:
+Normalize malformed tables with `<localleader>tn`:
 >markdown
     | Header 1 | Header 2          | Header 1 | Header 2 |
     |---|---                  ->    |----------|----------|
@@ -1078,20 +1136,20 @@ Normalize malformed tables with `<leader>tn`:
 ROW OPERATIONS ~
 
 Insert rows:
-- `<leader>tir` - Insert row below current row
-- `<leader>tiR` - Insert row above current row
+- `<localleader>tir` - Insert row below current row
+- `<localleader>tiR` - Insert row above current row
 
 Delete rows:
-- `<leader>tdr` - Delete current row (protects header/separator)
+- `<localleader>tdr` - Delete current row (protects header/separator)
 
 Duplicate rows:
-- `<leader>tyr` - Duplicate current row below
+- `<localleader>tyr` - Duplicate current row below
 
 Example:
 >markdown
     | Name  | Age |
     |-------|-----|
-    | Alice | 25  |  <- Press <leader>tir
+    | Alice | 25  |  <- Press <localleader>tir
     | Bob   | 30  |
 
     Result:
@@ -1105,21 +1163,21 @@ Example:
 COLUMN OPERATIONS ~
 
 Insert columns:
-- `<leader>tic` - Insert column to the right
-- `<leader>tiC` - Insert column to the left
+- `<localleader>tic` - Insert column to the right
+- `<localleader>tiC` - Insert column to the left
 
 Delete columns:
-- `<leader>tdc` - Delete current column (protects last column)
+- `<localleader>tdc` - Delete current column (protects last column)
 
 Duplicate columns:
-- `<leader>tyc` - Duplicate current column to the right
+- `<localleader>tyc` - Duplicate current column to the right
 
 Example:
 >markdown
     | Name  | Age |         | Name  | Age |     |
     |-------|-----|   ->    |-------|-----|-----|
     | Alice | 25  |         | Alice | 25  |     |
-           ^ <leader>tic pressed here
+           ^ <localleader>tic pressed here
 <
 
 ALIGNMENT SUPPORT ~
@@ -1196,9 +1254,9 @@ documents, including insertion, navigation, editing, and listing.
 
 INSERT FOOTNOTE ~
 
-Insert a new footnote with `<leader>mfi`:
+Insert a new footnote with `<localleader>mfi`:
 
-1. Press `<leader>mfi` to start inserting a footnote
+1. Press `<localleader>mfi` to start inserting a footnote
 2. Enter an ID when prompted (defaults to next numeric ID)
 3. Reference is inserted at cursor: `[^1]`
 4. Definition is created in the Footnotes section
@@ -1219,18 +1277,18 @@ Footnote IDs can be:
 
 EDIT FOOTNOTE ~
 
-Edit a footnote definition with `<leader>mfe`:
+Edit a footnote definition with `<localleader>mfe`:
 
 Position cursor on any footnote reference or definition and press
-`<leader>mfe`. Cursor jumps to the definition and enters insert mode.
+`<localleader>mfe`. Cursor jumps to the definition and enters insert mode.
 
 
 DELETE FOOTNOTE ~
 
-Delete a footnote with `<leader>mfd`:
+Delete a footnote with `<localleader>mfd`:
 
 1. Position cursor on any footnote reference or definition
-2. Press `<leader>mfd`
+2. Press `<localleader>mfd`
 3. Confirm deletion (if `confirm_delete` is enabled)
 4. Both reference(s) and definition are removed
 
@@ -1241,25 +1299,25 @@ NAVIGATION ~
 
 Navigate between footnotes:
 
-Go to definition: `<leader>mfg`
+Go to definition: `<localleader>mfg`
     From a reference, jump to its definition.
 
-Go to reference: `<leader>mfr`
+Go to reference: `<localleader>mfr`
     From a definition, jump to its reference(s).
     If multiple references exist, shows a selection menu.
 
-Next footnote: `<leader>mfn`
+Next footnote: `<localleader>mfn`
     Jump to the next footnote reference in the document.
     Wraps around at end of document.
 
-Previous footnote: `<leader>mfp`
+Previous footnote: `<localleader>mfp`
     Jump to the previous footnote reference.
     Wraps around at beginning of document.
 
 
 LIST FOOTNOTES ~
 
-List all footnotes with `<leader>mfl`:
+List all footnotes with `<localleader>mfl`:
 
 Opens a picker showing all footnotes with status indicators:
 
@@ -1337,19 +1395,20 @@ Default keymaps:
     {
       keymaps = {
         -- Header operations
-        promote_header = '<leader>h+',      -- Promote (increase level)
-        demote_header = '<leader>h-',       -- Demote (decrease level)
-        generate_toc = '<leader>ht',        -- Generate TOC
-        update_toc = '<leader>hu',          -- Update TOC
-        open_toc_window = '<leader>hT',     -- Toggle TOC window
+        promote_header = '<localleader>h+',      -- Promote (increase level)
+        demote_header = '<localleader>h-',       -- Demote (decrease level)
+        toggle_heading_style = '<localleader>ms',-- Toggle ATX <-> setext
+        generate_toc = '<localleader>ht',        -- Generate TOC
+        update_toc = '<localleader>hu',          -- Update TOC
+        open_toc_window = '<localleader>hT',     -- Toggle TOC window
         next_header = ']]',                 -- Jump to next header
         prev_header = '[[',                 -- Jump to previous header
-        set_h1 = '<leader>h1',              -- Convert to H1
-        set_h2 = '<leader>h2',              -- Convert to H2
-        set_h3 = '<leader>h3',              -- Convert to H3
-        set_h4 = '<leader>h4',              -- Convert to H4
-        set_h5 = '<leader>h5',              -- Convert to H5
-        set_h6 = '<leader>h6',              -- Convert to H6
+        set_h1 = '<localleader>h1',              -- Convert to H1
+        set_h2 = '<localleader>h2',              -- Convert to H2
+        set_h3 = '<localleader>h3',              -- Convert to H3
+        set_h4 = '<localleader>h4',              -- Convert to H4
+        set_h5 = '<localleader>h5',              -- Convert to H5
+        set_h6 = '<localleader>h6',              -- Convert to H6
 
         -- List operations (Insert mode)
         auto_continue = '<CR>',             -- Auto-continue lists or split content
@@ -1361,64 +1420,68 @@ Default keymaps:
         -- List operations (Normal mode)
         new_item_below = 'o',               -- New list item below
         new_item_above = 'O',               -- New list item above
-        renumber_lists = '<leader>mr',      -- Manual renumber
-        toggle_checkbox = '<leader>mx',     -- Toggle checkbox (normal/visual)
-        debug_lists = '<leader>md',         -- Debug: show list groups
+        renumber_lists = '<localleader>mr',      -- Manual renumber
+        toggle_checkbox = '<localleader>mx',     -- Toggle checkbox (normal/visual)
+        debug_lists = '<localleader>md',         -- Debug: show list groups
 
         -- List operations (Insert mode - checkbox)
         toggle_checkbox_insert = '<C-t>',   -- Toggle checkbox in insert mode
 
         -- Formatting operations (normal + visual)
-        toggle_bold = '<leader>mb',
-        toggle_italic = '<leader>mi',
-        toggle_strikethrough = '<leader>ms',
-        toggle_code = '<leader>mc',
-        toggle_highlight = '<leader>mh',
-        toggle_underline = '<leader>mu',
-        convert_to_code_block = '<leader>mw', -- Convert selection to code block
-        clear_formatting = '<leader>mC',
+        toggle_bold = '<localleader>mb',
+        toggle_italic = '<localleader>mi',
+        toggle_strikethrough = '<localleader>mS',
+        toggle_code = '<localleader>mc',
+        toggle_highlight = '<localleader>m=',
+        toggle_underline = '<localleader>mu',
+        convert_to_code_block = '<localleader>mw', -- Convert selection to code block
+        clear_formatting = '<localleader>mC',
+
+        -- Thematic breaks
+        insert_thematic_break = '<localleader>mh', -- Insert horizontal rule below cursor
+        cycle_thematic_break = '<localleader>mH',  -- Cycle --- / *** / ___
 
         -- Link operations
-        insert_link = '<leader>ml',        -- Insert/convert to link
-        edit_link = '<leader>me',          -- Edit link under cursor
-        auto_link_url = '<leader>ma',      -- Convert URL to link
-        to_reference = '<leader>mR',       -- Convert to reference-style
-        to_inline = '<leader>mI',          -- Convert to inline
-        smart_paste = '<leader>mp',        -- Smart paste URL from clipboard
+        insert_link = '<localleader>ml',        -- Insert/convert to link
+        edit_link = '<localleader>me',          -- Edit link under cursor
+        auto_link_url = '<localleader>ma',      -- Convert URL to link
+        to_reference = '<localleader>mR',       -- Convert to reference-style
+        to_inline = '<localleader>mI',          -- Convert to inline
+        smart_paste = '<localleader>mp',        -- Smart paste URL from clipboard
         follow_link = 'gd',                -- Follow TOC link
         open_link = 'gx',                  -- Open link in browser (native)
 
         -- Image operations
-        insert_image = '<leader>mL',       -- Insert/convert to image
-        edit_image = '<leader>mE',         -- Edit image under cursor
-        toggle_image_link = '<leader>mA',  -- Toggle link/image
+        insert_image = '<localleader>mL',       -- Insert/convert to image
+        edit_image = '<localleader>mE',         -- Edit image under cursor
+        toggle_image_link = '<localleader>mA',  -- Toggle link/image
 
         -- Quotes operations
-        toggle_quote = '<leader>mq',       -- Toggle blockquote
+        toggle_quote = '<localleader>mq',       -- Toggle blockquote
 
         -- Table operations (Normal mode)
-        table_create = '<leader>tc',       -- Create table interactively
-        table_format = '<leader>tf',       -- Format table
-        table_normalize = '<leader>tn',    -- Normalize malformed table
-        table_insert_row_below = '<leader>tir',    -- Insert row below
-        table_insert_row_above = '<leader>tiR',    -- Insert row above
-        table_delete_row = '<leader>tdr',          -- Delete current row
-        table_duplicate_row = '<leader>tyr',       -- Duplicate current row
-        table_insert_column_right = '<leader>tic', -- Insert column right
-        table_insert_column_left = '<leader>tiC',  -- Insert column left
-        table_delete_column = '<leader>tdc',       -- Delete current column
-        table_duplicate_column = '<leader>tyc',    -- Duplicate current column
-        table_toggle_alignment = '<leader>ta',     -- Toggle cell alignment
-        table_clear_cell = '<leader>tx',           -- Clear cell content
-        table_move_column_left = '<leader>tmh',    -- Move column left
-        table_move_column_right = '<leader>tml',   -- Move column right
-        table_move_row_up = '<leader>tmk',         -- Move row up
-        table_move_row_down = '<leader>tmj',       -- Move row down
-        table_transpose = '<leader>tt',            -- Transpose table
-        table_sort_ascending = '<leader>tsa',      -- Sort by column (ascending)
-        table_sort_descending = '<leader>tsd',     -- Sort by column (descending)
-        table_to_csv = '<leader>tvx',              -- Convert table to CSV
-        csv_to_table = '<leader>tvi',              -- Convert CSV to table
+        table_create = '<localleader>tc',       -- Create table interactively
+        table_format = '<localleader>tf',       -- Format table
+        table_normalize = '<localleader>tn',    -- Normalize malformed table
+        table_insert_row_below = '<localleader>tir',    -- Insert row below
+        table_insert_row_above = '<localleader>tiR',    -- Insert row above
+        table_delete_row = '<localleader>tdr',          -- Delete current row
+        table_duplicate_row = '<localleader>tyr',       -- Duplicate current row
+        table_insert_column_right = '<localleader>tic', -- Insert column right
+        table_insert_column_left = '<localleader>tiC',  -- Insert column left
+        table_delete_column = '<localleader>tdc',       -- Delete current column
+        table_duplicate_column = '<localleader>tyc',    -- Duplicate current column
+        table_toggle_alignment = '<localleader>ta',     -- Toggle cell alignment
+        table_clear_cell = '<localleader>tx',           -- Clear cell content
+        table_move_column_left = '<localleader>tmh',    -- Move column left
+        table_move_column_right = '<localleader>tml',   -- Move column right
+        table_move_row_up = '<localleader>tmk',         -- Move row up
+        table_move_row_down = '<localleader>tmj',       -- Move row down
+        table_transpose = '<localleader>tt',            -- Transpose table
+        table_sort_ascending = '<localleader>tsa',      -- Sort by column (ascending)
+        table_sort_descending = '<localleader>tsd',     -- Sort by column (descending)
+        table_to_csv = '<localleader>tvx',              -- Convert table to CSV
+        csv_to_table = '<localleader>tvi',              -- Convert CSV to table
 
         -- Table operations (Insert mode)
         table_move_left = '<A-h>',         -- Move to cell left (wraps)
@@ -1427,14 +1490,14 @@ Default keymaps:
         table_move_up = '<A-k>',           -- Move to cell up (wraps)
 
         -- Footnotes operations (Normal mode)
-        footnote_insert = '<leader>mfi',           -- Insert new footnote
-        footnote_edit = '<leader>mfe',             -- Edit footnote definition
-        footnote_delete = '<leader>mfd',           -- Delete footnote
-        footnote_goto_definition = '<leader>mfg',  -- Go to footnote definition
-        footnote_goto_reference = '<leader>mfr',   -- Go to footnote reference(s)
-        footnote_next = '<leader>mfn',             -- Next footnote
-        footnote_prev = '<leader>mfp',             -- Previous footnote
-        footnote_list = '<leader>mfl',             -- List all footnotes
+        footnote_insert = '<localleader>mfi',           -- Insert new footnote
+        footnote_edit = '<localleader>mfe',             -- Edit footnote definition
+        footnote_delete = '<localleader>mfd',           -- Delete footnote
+        footnote_goto_definition = '<localleader>mfg',  -- Go to footnote definition
+        footnote_goto_reference = '<localleader>mfr',   -- Go to footnote reference(s)
+        footnote_next = '<localleader>mfn',             -- Next footnote
+        footnote_prev = '<localleader>mfp',             -- Previous footnote
+        footnote_list = '<localleader>mfl',             -- List all footnotes
       }
     }
 <
@@ -1451,12 +1514,14 @@ The plugin can be configured through the setup function:
         list_management = true,  -- List auto-continuation, indentation, etc.
         table = true,            -- Table support features
         text_formatting = true,  -- Bold, italic, strikethrough, code
+        thematic_break = true,   -- Insert/cycle thematic breaks
         headers_toc = true,      -- Header manipulation and TOC generation
         links = true,            -- Link management and references
         images = true,           -- Image link insertion and editing
         quotes = true,           -- Blockquote (>) management
         callouts = true,         -- GitHub Flavored Markdown callouts/admonitions
         code_block = true,       -- Convert selected text to code blocks
+        html_block_awareness = true, -- Skip markdown ops inside GFM HTML blocks
         footnotes = true,        -- Footnote insertion, navigation, and listing
       },
       toc = {                    -- TOC window configuration
@@ -1464,6 +1529,9 @@ The plugin can be configured through the setup function:
       },
       code_block = {             -- Code block configuration
         enabled = true,          -- Enable code block features
+      },
+      thematic_break = {         -- Thematic break configuration
+        style = '---',           -- '---' | '***' | '___'
       },
       callouts = {               -- Callouts configuration
         default_type = 'NOTE',   -- Default type: NOTE, TIP, IMPORTANT, WARNING, CAUTION
@@ -1474,6 +1542,7 @@ The plugin can be configured through the setup function:
         confirm_delete = true,         -- Confirm before deleting footnotes
       },
       list = {                   -- List configuration
+        smart_outdent = true,         -- Parent-aware outdent and parent continuation on `o`
         checkbox_completion = {
           enabled = false,            -- Add timestamps when checking tasks
           format = 'emoji',           -- 'emoji', 'comment', 'dataview', 'parenthetical'
@@ -1495,7 +1564,7 @@ The plugin can be configured through the setup function:
         confirm_destructive = true,  -- Confirm before transpose/sort operations
         keymaps = {
           enabled = true,
-          prefix = '<leader>t',
+          prefix = '<localleader>t',
           insert_mode_navigation = true,  -- Alt+hjkl navigation in insert mode
         },
       },
@@ -1506,79 +1575,15 @@ The plugin can be configured through the setup function:
     })
 <
 
-Alternative: vim.g Configuration           *markdown-plus-configuration-vim-g*
+Legacy vim.g Configuration (removed in v2.0) *markdown-plus-configuration-vim-g*
 
-For Vimscript compatibility or if you prefer not to call setup(), you can
-configure the plugin using |vim.g.markdown_plus|:
+v2.0 removes |vim.g.markdown_plus| support. Configure the plugin with
+`require('markdown-plus').setup(opts)` only.
 
-Using a table (Lua): ~
->lua?
-    vim.g.markdown_plus = {
-      enabled = true,
-      features = {
-        list_management = true,
-        text_formatting = false,
-        quotes = true,
-      },
-      keymaps = {
-        enabled = false,
-      },
-      filetypes = { 'markdown', 'text' },
-    }
-<
-
-Using a table (Vimscript): ~
->vim
-    let g:markdown_plus = #{
-      \ enabled: v:true,
-      \ features: #{
-      \   list_management: v:true,
-      \   text_formatting: v:false,
-      \   quotes: v:true
-      \ },
-      \ keymaps: #{
-      \   enabled: v:false
-      \ },
-      \ filetypes: ['markdown', 'text']
-      \ }
-<
-
-Using a function (dynamic configuration): ~
->lua
-    vim.g.markdown_plus = function()
-      return {
-        enabled = vim.fn.has('nvim-0.10') == 1,
-        features = {
-          text_formatting = not vim.g.vscode,  -- Disable in VSCode
-          quotes = true,
-        },
-      }
-    end
-<
-
-Configuration Priority ~
-
-When both |vim.g.markdown_plus| and setup() are used, they are merged with
-the following priority:
-
-  1. Default configuration (lowest priority)
-  2. vim.g.markdown_plus configuration
-  3. setup(opts) parameter (highest priority)
-
-Example:
->lua
-    vim.g.markdown_plus = {
-      features = { list_management = false },
-    }
-    
-    require('markdown-plus').setup({
-      features = { list_management = true },  -- Overrides vim.g
-    })
-    -- Result: list_management will be true
-<
-
-This allows you to set global defaults with vim.g and override specific
-settings with setup() for certain filetypes or conditions.
+Migration:
+  1. Remove any `vim.g.markdown_plus = ...` assignments.
+  2. Move that configuration into `setup({ ... })`.
+  3. For lazy.nvim, use `opts = {}` (or your custom opts table).
 
                                         *markdown-plus-configuration-filetypes*
 
@@ -1685,6 +1690,7 @@ HEADERS & TOC ~
     <Plug>(MarkdownPlusPrevHeader)         - Jump to previous header (n)
     <Plug>(MarkdownPlusPromoteHeader)      - Promote header (n)
     <Plug>(MarkdownPlusDemoteHeader)       - Demote header (n)
+    <Plug>(MarkdownPlusToggleAtxSetext)    - Toggle ATX/setext heading style (n)
     <Plug>(MarkdownPlusGenerateTOC)        - Generate TOC (n)
     <Plug>(MarkdownPlusUpdateTOC)          - Update TOC (n)
     <Plug>(MarkdownPlusFollowLink)         - Follow TOC link (n)
@@ -1725,6 +1731,11 @@ LIST MANAGEMENT ~
     <Plug>(MarkdownPlusNewListItemBelow)   - New item below (n)
     <Plug>(MarkdownPlusNewListItemAbove)   - New item above (n)
     <Plug>(MarkdownPlusToggleCheckbox)     - Toggle checkbox (n, x, i)
+
+THEMATIC BREAKS ~
+
+    <Plug>(MarkdownPlusInsertThematicBreak) - Insert thematic break below cursor (n)
+    <Plug>(MarkdownPlusCycleThematicBreak)  - Cycle thematic break style on line (n)
 
 QUOTES ~
 
@@ -1797,7 +1808,7 @@ Example custom mapping: ~
 
     -- Create custom keymaps
     vim.keymap.set('n', '<C-b>', '<Plug>(MarkdownPlusBold)')
-    vim.keymap.set('n', '<leader>tt', '<Plug>(markdown-plus-table-transpose)')
+    vim.keymap.set('n', '<localleader>tt', '<Plug>(markdown-plus-table-transpose)')
 <
 
 
@@ -1871,11 +1882,33 @@ markdown-plus.headers.next_header()
 markdown-plus.headers.prev_header()
     Jumps to the previous header in the document.
 
-                                          *markdown-plus.headers.set_header_level*
+                                           *markdown-plus.headers.set_header_level*
 markdown-plus.headers.set_header_level(level)
     Sets the current line to a specific header level (1-6).
     Parameters: ~
         {level}  (number) The header level (1 = #, 2 = ##, etc.)
+
+                                          *markdown-plus.headers.toggle_atx_setext*
+markdown-plus.headers.toggle_atx_setext()
+    Toggles the current heading between ATX and setext style.
+    ATX H1/H2 are converted to setext; setext H1/H2 are converted to ATX.
+
+                                               *markdown-plus.headers.parse_header*
+markdown-plus.headers.parse_header(line, next_line)
+    Parses a heading from `line` and optional `next_line`.
+    Supports ATX (`#`) and setext (`===`/`---`) headings.
+
+THEMATIC BREAK MODULE                          *markdown-plus.thematic_break*
+
+                                          *markdown-plus.thematic_break.insert*
+markdown-plus.thematic_break.insert()
+    Inserts a thematic break below the cursor, adding surrounding blank lines
+    when needed for clean Markdown structure.
+
+                                     *markdown-plus.thematic_break.cycle_style*
+markdown-plus.thematic_break.cycle_style()
+    Cycles thematic break style on current line:
+    `---` -> `***` -> `___` -> `---`
 
 
 LIST MODULE                                              *markdown-plus.list*
@@ -1896,17 +1929,21 @@ markdown-plus.list.continue_list_content()
 markdown-plus.list.handle_tab()
     Handles Tab key in insert mode for indenting list items.
 
-                                          *markdown-plus.list.handle_shift_tab*
+                                           *markdown-plus.list.handle_shift_tab*
 markdown-plus.list.handle_shift_tab()
     Handles Shift-Tab key in insert mode for dedenting list items.
+    With `list.smart_outdent = true`, nested children that outdent to a parent
+    ordered list adopt the parent continuation marker.
 
                                           *markdown-plus.list.handle_backspace*
 markdown-plus.list.handle_backspace()
     Handles Backspace key in insert mode with smart list removal.
 
-                                         *markdown-plus.list.handle_normal_o*
+                                          *markdown-plus.list.handle_normal_o*
 markdown-plus.list.handle_normal_o()
     Handles 'o' key in normal mode for creating new list items below.
+    With `list.smart_outdent = true`, pressing `o` on the last nested child can
+    continue the parent ordered list item instead of creating another child.
 
                                          *markdown-plus.list.handle_normal_O*
 markdown-plus.list.handle_normal_O()
@@ -2225,21 +2262,21 @@ If you suspect Treesitter parsing is not working correctly:
 ISSUE: FORMATTING TOGGLE NOT WORKING ~
 
 Ensure you're using the correct keymap. By default:
-- `<leader>mb` for bold
-- `<leader>mi` for italic
-- `<leader>ms` for strikethrough
-- `<leader>mc` for inline code
-- `<leader>mh` for highlight (==text==)
-- `<leader>mu` for underline (++text++)
-- `<leader>mC` for clearing formatting
-- `<leader>mq` for toggling blockquote
+- `<localleader>mb` for bold
+- `<localleader>mi` for italic
+- `<localleader>mS` for strikethrough
+- `<localleader>mc` for inline code
+- `<localleader>m=` for highlight (==text==)
+- `<localleader>mu` for underline (++text++)
+- `<localleader>mC` for clearing formatting
+- `<localleader>mq` for toggling blockquote
 
 These work in both normal mode (on word under cursor) and visual mode
 (on selection).
 
-Check your leader key with:
+Check your localleader key with:
 >vim
-    :echo mapleader
+    :echo maplocalleader
 <
 
 

@@ -23,12 +23,14 @@ local SCHEMA = {
     fields = {
       list_management = { type = "boolean" },
       text_formatting = { type = "boolean" },
+      thematic_break = { type = "boolean" },
       headers_toc = { type = "boolean" },
       links = { type = "boolean" },
       images = { type = "boolean" },
       quotes = { type = "boolean" },
       callouts = { type = "boolean" },
       code_block = { type = "boolean" },
+      html_block_awareness = { type = "boolean" },
       table = { type = "boolean" },
       footnotes = { type = "boolean" },
     },
@@ -111,6 +113,13 @@ local SCHEMA = {
     },
   },
 
+  thematic_break = {
+    type = "table",
+    fields = {
+      style = { type = "string", enum = { ["---"] = true, ["***"] = true, ["___"] = true } },
+    },
+  },
+
   code_block = {
     type = "table",
     fields = {
@@ -129,6 +138,7 @@ local SCHEMA = {
   list = {
     type = "table",
     fields = {
+      smart_outdent = { type = "boolean" },
       checkbox_completion = {
         type = "table",
         fields = {
