@@ -1961,6 +1961,11 @@ markdown-plus.format.clear_formatting()
 markdown-plus.format.clear_formatting_word()
     Clears all formatting from the word under cursor.
 
+                                     *markdown-plus.format.get_lines_in_range*
+markdown-plus.format.get_lines_in_range(start_row, end_row)
+    DEPRECATED. Use |markdown-plus.utils.get_lines_in_range| instead.
+    Will be removed in v2.0.
+
 
 LINKS MODULE                                            *markdown-plus.links*
 
@@ -2161,6 +2166,59 @@ markdown-plus.footnotes.get_footnote_at_cursor()
                      - id: string (footnote ID)
                      - line_num: number (1-indexed)
                      Returns nil if cursor is not on a footnote.
+
+
+UTILS MODULE                                            *markdown-plus.utils*
+
+Utility functions available for plugin developers and advanced users via
+`require('markdown-plus.utils')`.
+
+                                       *markdown-plus.utils.get_lines_in_range*
+markdown-plus.utils.get_lines_in_range(start_row, end_row)
+    Returns buffer lines within a row range.
+    Parameters: ~
+        {start_row}  (number) Start row (1-indexed)
+        {end_row}    (number) End row (1-indexed, inclusive)
+    Returns: ~
+        {string[]}  Lines in the specified range
+
+                                      *markdown-plus.utils.get_code_block_lines*
+markdown-plus.utils.get_code_block_lines(lines)
+    Scans a list of lines and returns a set of line indices that belong to
+    fenced code blocks (``` or ~~~).
+    Parameters: ~
+        {lines}  (string[]) Array of lines to scan
+    Returns: ~
+        {table}  Map of 1-indexed line numbers to `true` for lines inside
+                 (or opening/closing) a code block fence
+
+                                      *markdown-plus.utils.build_markdown_link*
+markdown-plus.utils.build_markdown_link(text, url, title)
+    Builds a Markdown inline link string.
+    Parameters: ~
+        {text}   (string)  Link display text
+        {url}    (string)  Link URL
+        {title}  (string, optional)  Link title (shown on hover)
+    Returns: ~
+        {string}  Formatted link: `[text](url)` or `[text](url "title")`
+
+    Example: ~
+>lua
+        utils.build_markdown_link("Neovim", "https://neovim.io")
+        -- => [Neovim](https://neovim.io)
+        utils.build_markdown_link("Neovim", "https://neovim.io", "Editor")
+        -- => [Neovim](https://neovim.io "Editor")
+<
+
+                                     *markdown-plus.utils.build_markdown_image*
+markdown-plus.utils.build_markdown_image(alt, url, title)
+    Builds a Markdown inline image string.
+    Parameters: ~
+        {alt}    (string)  Alt text
+        {url}    (string)  Image URL
+        {title}  (string, optional)  Image title
+    Returns: ~
+        {string}  Formatted image: `![alt](url)` or `![alt](url "title")`
 
 
 ==============================================================================
