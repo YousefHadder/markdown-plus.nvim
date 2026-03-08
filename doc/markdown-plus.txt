@@ -2175,7 +2175,7 @@ Utility functions available for plugin developers and advanced users via
 
                                        *markdown-plus.utils.get_lines_in_range*
 markdown-plus.utils.get_lines_in_range(start_row, end_row)
-    Returns buffer lines within a row range.
+    Returns lines from the current buffer within a row range (uses bufnr=0).
     Parameters: ~
         {start_row}  (number) Start row (1-indexed)
         {end_row}    (number) End row (1-indexed, inclusive)
@@ -2193,7 +2193,7 @@ markdown-plus.utils.get_code_block_lines(lines)
                  (or opening/closing) a code block fence
 
                                       *markdown-plus.utils.build_markdown_link*
-markdown-plus.utils.build_markdown_link(text, url, title)
+markdown-plus.utils.build_markdown_link(text, url, {title})
     Builds a Markdown inline link string.
     Parameters: ~
         {text}   (string)  Link display text
@@ -2204,6 +2204,7 @@ markdown-plus.utils.build_markdown_link(text, url, title)
 
     Example: ~
 >lua
+        local utils = require('markdown-plus.utils')
         utils.build_markdown_link("Neovim", "https://neovim.io")
         -- => [Neovim](https://neovim.io)
         utils.build_markdown_link("Neovim", "https://neovim.io", "Editor")
@@ -2211,7 +2212,7 @@ markdown-plus.utils.build_markdown_link(text, url, title)
 <
 
                                      *markdown-plus.utils.build_markdown_image*
-markdown-plus.utils.build_markdown_image(alt, url, title)
+markdown-plus.utils.build_markdown_image(alt, url, {title})
     Builds a Markdown inline image string.
     Parameters: ~
         {alt}    (string)  Alt text
