@@ -566,6 +566,42 @@ describe("markdown-plus configuration", function()
     end)
   end)
 
+  describe("smart paste configuration", function()
+    it("accepts timeout up to 30 seconds", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          links = {
+            smart_paste = {
+              enabled = true,
+              timeout = 30,
+            },
+          },
+        })
+      end)
+
+      assert.equals(30, markdown_plus.config.links.smart_paste.timeout)
+    end)
+
+    it("rejects timeout values above 30 seconds", function()
+      local original_links = markdown_plus.links
+      markdown_plus.links = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          links = {
+            smart_paste = {
+              enabled = true,
+              timeout = 45,
+            },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.links)
+      markdown_plus.links = original_links
+    end)
+  end)
+
   describe("callouts configuration", function()
     it("accepts valid callouts config", function()
       assert.has_no.errors(function()

@@ -165,6 +165,9 @@ local SCHEMA = {
               if value <= 0 then
                 return false, path .. ": must be a positive number"
               end
+              if value > 30 then
+                return false, path .. ": must be less than or equal to 30 seconds"
+              end
               return true
             end,
           },

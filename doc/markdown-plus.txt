@@ -875,7 +875,7 @@ Enable in configuration:
       links = {
         smart_paste = {
           enabled = true,   -- Enable smart paste feature
-          timeout = 5,      -- Fetch timeout in seconds
+          timeout = 5,      -- Fetch timeout in seconds (1-30)
         },
       },
     })
@@ -1554,7 +1554,7 @@ The plugin can be configured through the setup function:
       links = {                  -- Links configuration
         smart_paste = {
           enabled = false,            -- Convert clipboard URLs to links (opt-in)
-          timeout = 5,                -- Fetch timeout in seconds
+          timeout = 5,                -- Fetch timeout in seconds (1-30)
         },
       },
       table = {                  -- Table sub-configuration
