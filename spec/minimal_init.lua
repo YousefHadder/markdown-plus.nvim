@@ -35,10 +35,6 @@ vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.writebackup = false
 
--- Prevent auto-setup from running during tests
--- Tests should explicitly call setup() when needed
-vim.g.markdown_plus_setup_called = true
-
 -- Ensure plugin files are loaded
 vim.cmd("runtime! plugin/**/*.vim")
 vim.cmd("runtime! plugin/**/*.lua")

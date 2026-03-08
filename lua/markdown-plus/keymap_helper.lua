@@ -10,6 +10,9 @@ local M = {}
 ---@field default_key? string|string[] Default key binding (optional). If both `modes` and `default_key` are arrays, they are indexed correspondingly (i.e., `modes[1]` gets `default_key[1]`, etc.).
 ---@field desc string Description for the keymap
 ---@field expr? boolean|boolean[] Whether the mapping is an expression mapping (optional). Can be a single boolean or array per mode.
+---@field map_opts? table Additional options for the <Plug> mapping
+---@field default_opts? table Additional options for the default keymap
+---@field force_default? boolean Set default keymap even when config.keymaps.enabled is false
 
 ---Setup keymaps for a module
 ---@param config markdown-plus.InternalConfig Plugin configuration
@@ -40,23 +43,32 @@ function M.setup_keymaps(config, keymaps)
       -- Determine if this mode uses expr mapping
       local is_expr = exprs and exprs[idx] or false
 
-      vim.keymap.set(mode, plug_name, fn, {
+      local plug_opts = vim.tbl_extend("force", {
         silent = true,
         desc = keymap.desc,
         expr = is_expr,
-      })
+      }, keymap.map_opts or {})
 
-      -- Set default keymap only if keymaps are enabled and default is specified
-      if config.keymaps and config.keymaps.enabled and default_keys and default_keys[idx] then
+      vim.keymap.set(mode, plug_name, fn, plug_opts)
+
+      local should_set_default = config.keymaps and config.keymaps.enabled
+      if keymap.force_default then
+        should_set_default = true
+      end
+
+      -- Set default keymap only if enabled and default is specified
+      if should_set_default and default_keys and default_keys[idx] then
         -- Check if a buffer-local mapping already exists for this key
         local existing = vim.fn.maparg(default_keys[idx], mode, false, true)
-        local has_buffer_mapping = existing and existing.buffer == 1
+        local has_buffer_mapping = type(existing) == "table" and existing.buffer == 1
 
         if not has_buffer_mapping then
-          vim.keymap.set(mode, default_keys[idx], plug_name, {
+          local default_opts = vim.tbl_extend("force", {
             buffer = true,
             desc = keymap.desc,
-          })
+          }, keymap.default_opts or {})
+
+          vim.keymap.set(mode, default_keys[idx], plug_name, default_opts)
         end
       end
     end

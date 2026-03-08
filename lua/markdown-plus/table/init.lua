@@ -21,7 +21,7 @@ M.defaults = {
   confirm_destructive = true,
   keymaps = {
     enabled = true,
-    prefix = "<leader>t",
+    prefix = "<localleader>t",
     insert_mode_navigation = true,
   },
 }

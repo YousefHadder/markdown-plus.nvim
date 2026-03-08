@@ -1,5 +1,6 @@
 -- TOC window module for markdown-plus.nvim
 local parser = require("markdown-plus.headers.parser")
+local keymap_helper = require("markdown-plus.keymap_helper")
 local M = {}
 
 local TOC_DEFAULT_MAX_DEPTH = 2 -- Default initial depth to show
@@ -327,15 +328,57 @@ end
 
 --- Set up keymaps for the TOC buffer
 local function setup_toc_keymaps()
-  local opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true }
+  local toc_keymaps = {
+    {
+      plug = keymap_helper.plug_name("TocExpand"),
+      fn = expand_header,
+      modes = "n",
+      default_key = "l",
+      desc = "Expand header",
+      force_default = true,
+      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
+    },
+    {
+      plug = keymap_helper.plug_name("TocCollapse"),
+      fn = collapse_header,
+      modes = "n",
+      default_key = "h",
+      desc = "Collapse header",
+      force_default = true,
+      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
+    },
+    {
+      plug = keymap_helper.plug_name("TocJump"),
+      fn = jump_to_header,
+      modes = "n",
+      default_key = "<CR>",
+      desc = "Jump to header",
+      force_default = true,
+      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
+    },
+    {
+      plug = keymap_helper.plug_name("TocClose"),
+      fn = function()
+        vim.cmd("close")
+      end,
+      modes = "n",
+      default_key = "q",
+      desc = "Close TOC",
+      force_default = true,
+      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
+    },
+    {
+      plug = keymap_helper.plug_name("TocHelp"),
+      fn = show_toc_help,
+      modes = "n",
+      default_key = "?",
+      desc = "Show help",
+      force_default = true,
+      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
+    },
+  }
 
-  vim.keymap.set("n", "l", expand_header, vim.tbl_extend("force", opts, { desc = "Expand header" }))
-  vim.keymap.set("n", "h", collapse_header, vim.tbl_extend("force", opts, { desc = "Collapse header" }))
-  vim.keymap.set("n", "<CR>", jump_to_header, vim.tbl_extend("force", opts, { desc = "Jump to header" }))
-  vim.keymap.set("n", "q", function()
-    vim.cmd("close")
-  end, vim.tbl_extend("force", opts, { desc = "Close TOC" }))
-  vim.keymap.set("n", "?", show_toc_help, vim.tbl_extend("force", opts, { desc = "Show help" }))
+  keymap_helper.setup_keymaps(config, toc_keymaps)
 end
 
 --- Check if TOC window is currently open

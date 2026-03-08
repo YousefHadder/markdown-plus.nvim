@@ -7,359 +7,299 @@
 
 local M = {}
 
+local keymap_helper = require("markdown-plus.keymap_helper")
+
 local plug_mappings_registered = false
+
+---@param direction "left"|"right"|"up"|"down"
+---@param fallback_key string
+---@return fun()
+local function insert_nav_with_fallback(direction, fallback_key)
+  return function()
+    local navigation = require("markdown-plus.table.navigation")
+    local success = navigation["move_" .. direction]()
+    if not success then
+      local key = vim.api.nvim_replace_termcodes(fallback_key, true, false, true)
+      vim.api.nvim_feedkeys(key, "n", false)
+    end
+  end
+end
+
+---@param prefix string
+---@param include_insert_defaults boolean
+---@return markdown-plus.KeymapDef[]
+local function get_keymap_defs(prefix, include_insert_defaults)
+  return {
+    -- Table creation & formatting
+    {
+      plug = "markdown-plus-table-create",
+      fn = function()
+        require("markdown-plus.table.creator").create_table_interactive()
+      end,
+      modes = "n",
+      default_key = prefix .. "c",
+      desc = "Create new table",
+    },
+    {
+      plug = "markdown-plus-table-format",
+      fn = function()
+        require("markdown-plus.table").format_table()
+      end,
+      modes = "n",
+      default_key = prefix .. "f",
+      desc = "Format table",
+    },
+    {
+      plug = "markdown-plus-table-normalize",
+      fn = function()
+        require("markdown-plus.table").normalize_table()
+      end,
+      modes = "n",
+      default_key = prefix .. "n",
+      desc = "Normalize table",
+    },
+
+    -- Row operations
+    {
+      plug = "markdown-plus-table-insert-row-below",
+      fn = function()
+        require("markdown-plus.table").insert_row_below()
+      end,
+      modes = "n",
+      default_key = prefix .. "ir",
+      desc = "Insert row below",
+    },
+    {
+      plug = "markdown-plus-table-insert-row-above",
+      fn = function()
+        require("markdown-plus.table").insert_row_above()
+      end,
+      modes = "n",
+      default_key = prefix .. "iR",
+      desc = "Insert row above",
+    },
+    {
+      plug = "markdown-plus-table-delete-row",
+      fn = function()
+        require("markdown-plus.table").delete_row()
+      end,
+      modes = "n",
+      default_key = prefix .. "dr",
+      desc = "Delete row",
+    },
+    {
+      plug = "markdown-plus-table-duplicate-row",
+      fn = function()
+        require("markdown-plus.table.manipulation").duplicate_row()
+      end,
+      modes = "n",
+      default_key = prefix .. "yr",
+      desc = "Duplicate row",
+    },
+
+    -- Column operations
+    {
+      plug = "markdown-plus-table-insert-column-right",
+      fn = function()
+        require("markdown-plus.table").insert_column_right()
+      end,
+      modes = "n",
+      default_key = prefix .. "ic",
+      desc = "Insert column right",
+    },
+    {
+      plug = "markdown-plus-table-insert-column-left",
+      fn = function()
+        require("markdown-plus.table").insert_column_left()
+      end,
+      modes = "n",
+      default_key = prefix .. "iC",
+      desc = "Insert column left",
+    },
+    {
+      plug = "markdown-plus-table-delete-column",
+      fn = function()
+        require("markdown-plus.table").delete_column()
+      end,
+      modes = "n",
+      default_key = prefix .. "dc",
+      desc = "Delete column",
+    },
+    {
+      plug = "markdown-plus-table-duplicate-column",
+      fn = function()
+        require("markdown-plus.table.manipulation").duplicate_column()
+      end,
+      modes = "n",
+      default_key = prefix .. "yc",
+      desc = "Duplicate column",
+    },
+
+    -- Cell operations
+    {
+      plug = "markdown-plus-table-toggle-cell-alignment",
+      fn = function()
+        require("markdown-plus.table").toggle_cell_alignment()
+      end,
+      modes = "n",
+      default_key = prefix .. "a",
+      desc = "Toggle cell alignment (left/center/right)",
+    },
+    {
+      plug = "markdown-plus-table-clear-cell",
+      fn = function()
+        require("markdown-plus.table").clear_cell()
+      end,
+      modes = "n",
+      default_key = prefix .. "x",
+      desc = "Clear cell content",
+    },
+
+    -- Row movement
+    {
+      plug = "markdown-plus-table-move-row-down",
+      fn = function()
+        require("markdown-plus.table").move_row_down()
+      end,
+      modes = "n",
+      default_key = prefix .. "mj",
+      desc = "Move row down",
+    },
+    {
+      plug = "markdown-plus-table-move-row-up",
+      fn = function()
+        require("markdown-plus.table").move_row_up()
+      end,
+      modes = "n",
+      default_key = prefix .. "mk",
+      desc = "Move row up",
+    },
+
+    -- Column movement
+    {
+      plug = "markdown-plus-table-move-column-left",
+      fn = function()
+        require("markdown-plus.table").move_column_left()
+      end,
+      modes = "n",
+      default_key = prefix .. "mh",
+      desc = "Move column left",
+    },
+    {
+      plug = "markdown-plus-table-move-column-right",
+      fn = function()
+        require("markdown-plus.table").move_column_right()
+      end,
+      modes = "n",
+      default_key = prefix .. "ml",
+      desc = "Move column right",
+    },
+
+    -- Advanced operations
+    {
+      plug = "markdown-plus-table-transpose",
+      fn = function()
+        require("markdown-plus.table").transpose_table()
+      end,
+      modes = "n",
+      default_key = prefix .. "t",
+      desc = "Transpose table (swap rows/columns)",
+    },
+    {
+      plug = "markdown-plus-table-sort-ascending",
+      fn = function()
+        require("markdown-plus.table").sort_ascending()
+      end,
+      modes = "n",
+      default_key = prefix .. "sa",
+      desc = "Sort table by column (ascending)",
+    },
+    {
+      plug = "markdown-plus-table-sort-descending",
+      fn = function()
+        require("markdown-plus.table").sort_descending()
+      end,
+      modes = "n",
+      default_key = prefix .. "sd",
+      desc = "Sort table by column (descending)",
+    },
+    {
+      plug = "markdown-plus-table-to-csv",
+      fn = function()
+        require("markdown-plus.table").table_to_csv()
+      end,
+      modes = "n",
+      default_key = prefix .. "vx",
+      desc = "Convert table to CSV",
+    },
+    {
+      plug = "markdown-plus-table-from-csv",
+      fn = function()
+        require("markdown-plus.table").csv_to_table()
+      end,
+      modes = "n",
+      default_key = prefix .. "vi",
+      desc = "Convert CSV to table",
+    },
+
+    -- Insert mode navigation (with fallback behavior)
+    {
+      plug = "markdown-plus-table-nav-left",
+      fn = insert_nav_with_fallback("left", "<Left>"),
+      modes = "i",
+      default_key = include_insert_defaults and "<A-h>" or nil,
+      desc = "Navigate to cell left or move cursor left",
+    },
+    {
+      plug = "markdown-plus-table-nav-right",
+      fn = insert_nav_with_fallback("right", "<Right>"),
+      modes = "i",
+      default_key = include_insert_defaults and "<A-l>" or nil,
+      desc = "Navigate to cell right or move cursor right",
+    },
+    {
+      plug = "markdown-plus-table-nav-up",
+      fn = insert_nav_with_fallback("up", "<Up>"),
+      modes = "i",
+      default_key = include_insert_defaults and "<A-k>" or nil,
+      desc = "Navigate to cell above or move cursor up",
+    },
+    {
+      plug = "markdown-plus-table-nav-down",
+      fn = insert_nav_with_fallback("down", "<Down>"),
+      modes = "i",
+      default_key = include_insert_defaults and "<A-j>" or nil,
+      desc = "Navigate to cell below or move cursor down",
+    },
+  }
+end
 
 ---Register global <Plug> mappings (should be called once)
 local function register_plug_mappings()
   if plug_mappings_registered then
     return
   end
+
   plug_mappings_registered = true
-  -- Define <Plug> mappings
-  local plug_mappings = {
-    -- Table creation & formatting
-    {
-      "n",
-      "<Plug>(markdown-plus-table-create)",
-      function()
-        require("markdown-plus.table.creator").create_table_interactive()
-      end,
-      "Create new table",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-format)",
-      function()
-        require("markdown-plus.table").format_table()
-      end,
-      "Format table",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-normalize)",
-      function()
-        require("markdown-plus.table").normalize_table()
-      end,
-      "Normalize table",
-    },
-
-    -- Row operations
-    {
-      "n",
-      "<Plug>(markdown-plus-table-insert-row-below)",
-      function()
-        require("markdown-plus.table").insert_row_below()
-      end,
-      "Insert row below",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-insert-row-above)",
-      function()
-        require("markdown-plus.table").insert_row_above()
-      end,
-      "Insert row above",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-delete-row)",
-      function()
-        require("markdown-plus.table").delete_row()
-      end,
-      "Delete row",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-duplicate-row)",
-      function()
-        require("markdown-plus.table.manipulation").duplicate_row()
-      end,
-      "Duplicate row",
-    },
-
-    -- Column operations
-    {
-      "n",
-      "<Plug>(markdown-plus-table-insert-column-right)",
-      function()
-        require("markdown-plus.table").insert_column_right()
-      end,
-      "Insert column right",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-insert-column-left)",
-      function()
-        require("markdown-plus.table").insert_column_left()
-      end,
-      "Insert column left",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-delete-column)",
-      function()
-        require("markdown-plus.table").delete_column()
-      end,
-      "Delete column",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-duplicate-column)",
-      function()
-        require("markdown-plus.table.manipulation").duplicate_column()
-      end,
-      "Duplicate column",
-    },
-
-    -- Phase 2: Cell operations
-    {
-      "n",
-      "<Plug>(markdown-plus-table-toggle-cell-alignment)",
-      function()
-        require("markdown-plus.table").toggle_cell_alignment()
-      end,
-      "Toggle cell alignment",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-clear-cell)",
-      function()
-        require("markdown-plus.table").clear_cell()
-      end,
-      "Clear cell content",
-    },
-
-    -- Phase 2: Row movement
-    {
-      "n",
-      "<Plug>(markdown-plus-table-move-row-up)",
-      function()
-        require("markdown-plus.table").move_row_up()
-      end,
-      "Move row up",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-move-row-down)",
-      function()
-        require("markdown-plus.table").move_row_down()
-      end,
-      "Move row down",
-    },
-
-    -- Phase 2: Column movement
-    {
-      "n",
-      "<Plug>(markdown-plus-table-move-column-left)",
-      function()
-        require("markdown-plus.table").move_column_left()
-      end,
-      "Move column left",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-move-column-right)",
-      function()
-        require("markdown-plus.table").move_column_right()
-      end,
-      "Move column right",
-    },
-
-    -- Phase 2: Advanced operations
-    {
-      "n",
-      "<Plug>(markdown-plus-table-transpose)",
-      function()
-        require("markdown-plus.table").transpose_table()
-      end,
-      "Transpose table",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-sort-ascending)",
-      function()
-        require("markdown-plus.table").sort_ascending()
-      end,
-      "Sort table by column (ascending)",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-sort-descending)",
-      function()
-        require("markdown-plus.table").sort_descending()
-      end,
-      "Sort table by column (descending)",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-to-csv)",
-      function()
-        require("markdown-plus.table").table_to_csv()
-      end,
-      "Convert table to CSV",
-    },
-    {
-      "n",
-      "<Plug>(markdown-plus-table-from-csv)",
-      function()
-        require("markdown-plus.table").csv_to_table()
-      end,
-      "Convert CSV to table",
-    },
-
-    -- Insert mode navigation (with fallback behavior)
-    {
-      "i",
-      "<Plug>(markdown-plus-table-nav-left)",
-      function()
-        local navigation = require("markdown-plus.table.navigation")
-        local success = navigation.move_left()
-        if not success then
-          local key = vim.api.nvim_replace_termcodes("<Left>", true, false, true)
-          vim.api.nvim_feedkeys(key, "n", false)
-        end
-      end,
-      "Navigate to cell left or move cursor left",
-    },
-    {
-      "i",
-      "<Plug>(markdown-plus-table-nav-right)",
-      function()
-        local navigation = require("markdown-plus.table.navigation")
-        local success = navigation.move_right()
-        if not success then
-          local key = vim.api.nvim_replace_termcodes("<Right>", true, false, true)
-          vim.api.nvim_feedkeys(key, "n", false)
-        end
-      end,
-      "Navigate to cell right or move cursor right",
-    },
-    {
-      "i",
-      "<Plug>(markdown-plus-table-nav-up)",
-      function()
-        local navigation = require("markdown-plus.table.navigation")
-        local success = navigation.move_up()
-        if not success then
-          local key = vim.api.nvim_replace_termcodes("<Up>", true, false, true)
-          vim.api.nvim_feedkeys(key, "n", false)
-        end
-      end,
-      "Navigate to cell above or move cursor up",
-    },
-    {
-      "i",
-      "<Plug>(markdown-plus-table-nav-down)",
-      function()
-        local navigation = require("markdown-plus.table.navigation")
-        local success = navigation.move_down()
-        if not success then
-          local key = vim.api.nvim_replace_termcodes("<Down>", true, false, true)
-          vim.api.nvim_feedkeys(key, "n", false)
-        end
-      end,
-      "Navigate to cell below or move cursor down",
-    },
-  }
-
-  -- Register all <Plug> mappings
-  for _, mapping in ipairs(plug_mappings) do
-    local mode, lhs, rhs, desc = mapping[1], mapping[2], mapping[3], mapping[4]
-    vim.keymap.set(mode, lhs, rhs, {
-      silent = true,
-      desc = desc,
-    })
-  end
+  keymap_helper.setup_keymaps({ keymaps = { enabled = false } }, get_keymap_defs("<localleader>t", true))
 end
 
 ---Setup buffer-local default keymaps
 ---@param config markdown-plus.InternalTableConfig Table configuration
 local function setup_buffer_keymaps(config)
-  local prefix = config.keymaps.prefix or "<leader>t"
+  register_plug_mappings()
 
-  -- Set up default keybindings if enabled
-  if config.keymaps.enabled then
-    local default_mappings = {
-      -- Table creation & formatting (normal mode)
-      { "n", prefix .. "c", "<Plug>(markdown-plus-table-create)", "Create new table" },
-      { "n", prefix .. "f", "<Plug>(markdown-plus-table-format)", "Format table" },
-      { "n", prefix .. "n", "<Plug>(markdown-plus-table-normalize)", "Normalize table" },
-
-      -- Row operations (normal mode)
-      { "n", prefix .. "ir", "<Plug>(markdown-plus-table-insert-row-below)", "Insert row below" },
-      { "n", prefix .. "iR", "<Plug>(markdown-plus-table-insert-row-above)", "Insert row above" },
-      { "n", prefix .. "dr", "<Plug>(markdown-plus-table-delete-row)", "Delete row" },
-      { "n", prefix .. "yr", "<Plug>(markdown-plus-table-duplicate-row)", "Duplicate row" },
-
-      -- Column operations (normal mode)
-      { "n", prefix .. "ic", "<Plug>(markdown-plus-table-insert-column-right)", "Insert column right" },
-      { "n", prefix .. "iC", "<Plug>(markdown-plus-table-insert-column-left)", "Insert column left" },
-      { "n", prefix .. "dc", "<Plug>(markdown-plus-table-delete-column)", "Delete column" },
-      { "n", prefix .. "yc", "<Plug>(markdown-plus-table-duplicate-column)", "Duplicate column" },
-
-      -- Phase 2: Cell operations
-      {
-        "n",
-        prefix .. "a",
-        "<Plug>(markdown-plus-table-toggle-cell-alignment)",
-        "Toggle cell alignment (left/center/right)",
-      },
-      { "n", prefix .. "x", "<Plug>(markdown-plus-table-clear-cell)", "Clear cell content" },
-
-      -- Phase 2: Row movement
-      { "n", prefix .. "mj", "<Plug>(markdown-plus-table-move-row-down)", "Move row down" },
-      { "n", prefix .. "mk", "<Plug>(markdown-plus-table-move-row-up)", "Move row up" },
-
-      -- Phase 2: Column movement
-      { "n", prefix .. "mh", "<Plug>(markdown-plus-table-move-column-left)", "Move column left" },
-      { "n", prefix .. "ml", "<Plug>(markdown-plus-table-move-column-right)", "Move column right" },
-
-      -- Phase 2: Advanced operations
-      { "n", prefix .. "t", "<Plug>(markdown-plus-table-transpose)", "Transpose table (swap rows/columns)" },
-      { "n", prefix .. "sa", "<Plug>(markdown-plus-table-sort-ascending)", "Sort table by column (ascending)" },
-      { "n", prefix .. "sd", "<Plug>(markdown-plus-table-sort-descending)", "Sort table by column (descending)" },
-      { "n", prefix .. "vx", "<Plug>(markdown-plus-table-to-csv)", "Convert table to CSV" },
-      { "n", prefix .. "vi", "<Plug>(markdown-plus-table-from-csv)", "Convert CSV to table" },
-    }
-
-    for _, mapping in ipairs(default_mappings) do
-      local mode, lhs, rhs, desc = mapping[1], mapping[2], mapping[3], mapping[4]
-      if vim.fn.hasmapto(rhs, mode) == 0 then
-        vim.keymap.set(mode, lhs, rhs, {
-          buffer = true,
-          silent = true,
-          desc = desc,
-        })
-      end
-    end
-  end
-
-  -- Set up insert mode navigation if enabled (default: true)
+  local prefix = config.keymaps.prefix or "<localleader>t"
   local insert_nav_enabled = config.keymaps.insert_mode_navigation
   if insert_nav_enabled == nil then
-    insert_nav_enabled = true -- Default to enabled
+    insert_nav_enabled = true
   end
 
-  if insert_nav_enabled and config.keymaps.enabled then
-    -- Insert mode navigation mappings using <Plug> mappings
-    local insert_nav_mappings = {
-      { "i", "<A-h>", "<Plug>(markdown-plus-table-nav-left)", "Navigate table cell left" },
-      { "i", "<A-l>", "<Plug>(markdown-plus-table-nav-right)", "Navigate table cell right" },
-      { "i", "<A-j>", "<Plug>(markdown-plus-table-nav-down)", "Navigate table cell down" },
-      { "i", "<A-k>", "<Plug>(markdown-plus-table-nav-up)", "Navigate table cell up" },
-    }
-
-    for _, mapping in ipairs(insert_nav_mappings) do
-      local mode, lhs, rhs, desc = mapping[1], mapping[2], mapping[3], mapping[4]
-      if vim.fn.hasmapto(rhs, mode) == 0 then
-        vim.keymap.set(mode, lhs, rhs, {
-          buffer = true,
-          silent = true,
-          desc = desc,
-        })
-      end
-    end
-  end
+  keymap_helper.setup_keymaps({
+    keymaps = {
+      enabled = config.keymaps.enabled,
+    },
+  }, get_keymap_defs(prefix, insert_nav_enabled))
 end
 
 ---Register global <Plug> mappings (call once during module setup)

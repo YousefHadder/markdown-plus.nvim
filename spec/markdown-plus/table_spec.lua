@@ -1237,7 +1237,7 @@ describe("table.keymaps", function()
         confirm_destructive = true,
         keymaps = {
           enabled = true,
-          prefix = "<leader>t",
+          prefix = "<localleader>t",
           insert_mode_navigation = true,
         },
       })
@@ -1258,7 +1258,7 @@ describe("table.keymaps", function()
         confirm_destructive = true,
         keymaps = {
           enabled = false,
-          prefix = "<leader>t",
+          prefix = "<localleader>t",
           insert_mode_navigation = true,
         },
       })
@@ -1281,7 +1281,7 @@ describe("table.keymaps", function()
         confirm_destructive = true,
         keymaps = {
           enabled = true,
-          prefix = "<leader>t",
+          prefix = "<localleader>t",
           insert_mode_navigation = false,
         },
       })

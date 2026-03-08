@@ -33,7 +33,7 @@ function M.setup_keymaps()
         M.toggle_quote,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>mq", "<leader>mq" },
+      default_key = { "<localleader>mq", "<localleader>mq" },
       desc = "Toggle blockquote",
     },
   })
