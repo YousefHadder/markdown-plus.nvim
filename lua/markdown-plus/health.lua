@@ -64,6 +64,12 @@ function M.check()
       health.warn("Plugin is not loaded (may load on FileType event)")
     end
 
+    if vim.g.markdown_plus ~= nil then
+      health.warn("vim.g.markdown_plus is set but no longer supported in v2.0", {
+        "Use require('markdown-plus').setup(opts) instead",
+      })
+    end
+
     -- Check configuration
     local validator_ok, validator = pcall(require, "markdown-plus.config.validate")
     if not validator_ok then

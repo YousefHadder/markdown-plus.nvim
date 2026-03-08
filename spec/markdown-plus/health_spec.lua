@@ -76,6 +76,37 @@ describe("health check", function()
 
       vim.g.loaded_markdown_plus = nil
     end)
+
+    it("warns when deprecated vim.g.markdown_plus config is present", function()
+      local saved_warn = vim.health.warn
+      local saved_global_config = vim.g.markdown_plus
+      local warning_messages = {}
+
+      vim.health.warn = function(msg, _)
+        table.insert(warning_messages, msg)
+      end
+
+      vim.g.markdown_plus = { enabled = true }
+
+      local success = pcall(function()
+        health_module.check()
+      end)
+
+      vim.health.warn = saved_warn
+      vim.g.markdown_plus = saved_global_config
+
+      assert.is_true(success, "Health check should run with deprecated config present")
+
+      local found_deprecation_warning = false
+      for _, msg in ipairs(warning_messages) do
+        if msg:match("vim%.g%.markdown_plus") then
+          found_deprecation_warning = true
+          break
+        end
+      end
+
+      assert.is_true(found_deprecation_warning, "Expected warning for deprecated vim.g.markdown_plus configuration")
+    end)
   end)
 
   describe("error handling", function()

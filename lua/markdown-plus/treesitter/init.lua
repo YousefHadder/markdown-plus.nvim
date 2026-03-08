@@ -5,6 +5,16 @@ local M = {}
 -- Per-buffer cache to avoid redundant parse(true) calls within the same edit cycle
 local _parse_cache = {}
 
+local cache_augroup = vim.api.nvim_create_augroup("MarkdownPlusTreesitterCache", { clear = true })
+vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
+  group = cache_augroup,
+  callback = function(args)
+    if args and args.buf then
+      _parse_cache[args.buf] = nil
+    end
+  end,
+})
+
 -- Centralized definitions for all markdown treesitter node types used
 ---@class markdown-plus.ts.NodeTypes
 M.nodes = {

@@ -34,8 +34,11 @@ end
 local function selection_in_html_block(selection)
   local start_row = math.min(selection.start_row, selection.end_row)
   local end_row = math.max(selection.start_row, selection.end_row)
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local html_lines = utils.get_html_block_lines(lines)
+
   for row = start_row, end_row do
-    if utils.is_in_html_block(row) then
+    if html_lines[row] then
       return true
     end
   end

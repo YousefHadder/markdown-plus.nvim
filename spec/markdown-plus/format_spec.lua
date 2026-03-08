@@ -1225,6 +1225,41 @@ describe("markdown-plus format", function()
   end)
 
   describe("HTML block awareness", function()
+    it("checks HTML block lines once for visual selection", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "<div>",
+        "first line",
+        "second line",
+        "</div>",
+      })
+
+      vim.fn.setpos("'<", { 0, 2, 1, 0 })
+      vim.fn.setpos("'>", { 0, 3, 11, 0 })
+
+      local original_get_html_block_lines = utils.get_html_block_lines
+      local original_is_in_html_block = utils.is_in_html_block
+      local get_html_calls = 0
+
+      utils.get_html_block_lines = function(lines)
+        get_html_calls = get_html_calls + 1
+        return original_get_html_block_lines(lines)
+      end
+
+      utils.is_in_html_block = function()
+        error("selection_in_html_block should not call utils.is_in_html_block")
+      end
+
+      local success, err = pcall(function()
+        format.toggle_format("bold")
+      end)
+
+      utils.get_html_block_lines = original_get_html_block_lines
+      utils.is_in_html_block = original_is_in_html_block
+
+      assert.is_true(success, err)
+      assert.equals(1, get_html_calls)
+    end)
+
     it("skips visual toggle inside HTML blocks when enabled", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, {
         "<div>",
