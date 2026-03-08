@@ -1223,4 +1223,45 @@ describe("markdown-plus format", function()
       assert.equals("`hello world`", line)
     end)
   end)
+
+  describe("HTML block awareness", function()
+    it("skips visual toggle inside HTML blocks when enabled", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "<div>",
+        "html text",
+        "</div>",
+        "",
+      })
+
+      vim.fn.setpos("'<", { 0, 2, 1, 0 })
+      vim.fn.setpos("'>", { 0, 2, 9, 0 })
+
+      format.toggle_format("bold")
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("html text", lines[2])
+    end)
+
+    it("allows toggling inside HTML blocks when awareness is disabled", function()
+      format.setup({
+        enabled = true,
+        features = {
+          text_formatting = true,
+          html_block_awareness = false,
+        },
+      })
+
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "<div>",
+        "word",
+        "</div>",
+      })
+      vim.api.nvim_win_set_cursor(0, { 2, 1 })
+
+      format.toggle_format_word("bold")
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("**word**", lines[2])
+    end)
+  end)
 end)

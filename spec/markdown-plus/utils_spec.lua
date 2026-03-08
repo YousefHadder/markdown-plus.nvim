@@ -1007,6 +1007,106 @@ describe("markdown-plus utils", function()
     end)
   end)
 
+  describe("get_html_block_lines", function()
+    it("marks type-1 script HTML block lines", function()
+      local lines = {
+        "Before",
+        "<script>",
+        "const x = 1;",
+        "</script>",
+        "After",
+      }
+      local result = utils.get_html_block_lines(lines)
+      assert.is_nil(result[1])
+      assert.is_true(result[2])
+      assert.is_true(result[3])
+      assert.is_true(result[4])
+      assert.is_nil(result[5])
+    end)
+
+    it("marks comment, processing instruction, declaration, and CDATA blocks", function()
+      local lines = {
+        "<!--",
+        "comment",
+        "-->",
+        "<?xml",
+        "version='1.0'?>",
+        "<!DOCTYPE html>",
+        "<![CDATA[",
+        "raw text",
+        "]]>",
+      }
+      local result = utils.get_html_block_lines(lines)
+      for i = 1, #lines do
+        assert.is_true(result[i])
+      end
+    end)
+
+    it("marks type-6 block tag regions until blank line", function()
+      local lines = {
+        "<div>",
+        "inside div",
+        "</div>",
+        "",
+        "1. list item",
+      }
+      local result = utils.get_html_block_lines(lines)
+      assert.is_true(result[1])
+      assert.is_true(result[2])
+      assert.is_true(result[3])
+      assert.is_nil(result[4])
+      assert.is_nil(result[5])
+    end)
+
+    it("marks type-7 standalone tag regions until blank line", function()
+      local lines = {
+        "<custom-tag>",
+        "inside custom tag block",
+        "</custom-tag>",
+        "",
+        "## Header",
+      }
+      local result = utils.get_html_block_lines(lines)
+      assert.is_true(result[1])
+      assert.is_true(result[2])
+      assert.is_true(result[3])
+      assert.is_nil(result[4])
+      assert.is_nil(result[5])
+    end)
+  end)
+
+  describe("is_in_html_block", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.bo[buf].filetype = "markdown"
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      if vim.api.nvim_buf_is_valid(buf) then
+        vim.api.nvim_buf_delete(buf, { force = true })
+      end
+    end)
+
+    it("returns true only for rows inside HTML block regions", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "<div>",
+        "inside",
+        "</div>",
+        "",
+        "normal text",
+      })
+
+      assert.is_true(utils.is_in_html_block(1))
+      assert.is_true(utils.is_in_html_block(2))
+      assert.is_true(utils.is_in_html_block(3))
+      assert.is_false(utils.is_in_html_block(4))
+      assert.is_false(utils.is_in_html_block(5))
+    end)
+  end)
+
   describe("build_markdown_link", function()
     it("builds simple link without title", function()
       assert.are.equal("[text](https://example.com)", utils.build_markdown_link("text", "https://example.com"))
