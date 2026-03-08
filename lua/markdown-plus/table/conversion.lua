@@ -8,6 +8,7 @@
 ---@brief ]]
 
 local M = {}
+local utils = require("markdown-plus.utils")
 
 ---Escape a CSV field if it contains special characters
 ---@param field string Field content
@@ -83,7 +84,7 @@ function M.table_to_csv()
 
   local table_info = parser.get_table_at_cursor()
   if not table_info then
-    vim.notify("Not in a table", vim.log.levels.WARN)
+    utils.notify("Not in a table", vim.log.levels.WARN)
     return false
   end
 
@@ -100,7 +101,7 @@ function M.table_to_csv()
   -- Replace table with CSV
   vim.api.nvim_buf_set_lines(0, table_info.start_row - 1, table_info.end_row, false, csv_lines)
 
-  vim.notify(string.format("Converted table to CSV (%d rows)", #csv_lines), vim.log.levels.INFO)
+  utils.notify(string.format("Converted table to CSV (%d rows)", #csv_lines), vim.log.levels.INFO)
   return true
 end
 
@@ -137,7 +138,6 @@ end
 ---@return boolean success True if conversion succeeded
 function M.csv_to_table()
   local formatter = require("markdown-plus.table.format")
-  local utils = require("markdown-plus.utils")
 
   -- Get current line
   local cursor = utils.get_cursor()
@@ -146,7 +146,7 @@ function M.csv_to_table()
   -- Ensure current line is CSV
   local curr_line_text = vim.api.nvim_buf_get_lines(0, current_line - 1, current_line, false)[1]
   if not is_csv_line(curr_line_text) then
-    vim.notify("Cursor is not on a CSV line", vim.log.levels.WARN)
+    utils.notify("Cursor is not on a CSV line", vim.log.levels.WARN)
     return false
   end
 
@@ -179,7 +179,7 @@ function M.csv_to_table()
   -- Get CSV lines
   local csv_lines = vim.api.nvim_buf_get_lines(0, start_row - 1, math.min(end_row, total_lines), false)
   if #csv_lines == 0 then
-    vim.notify("No CSV data found", vim.log.levels.WARN)
+    utils.notify("No CSV data found", vim.log.levels.WARN)
     return false
   end
 
@@ -216,7 +216,7 @@ function M.csv_to_table()
   -- Format and update buffer
   formatter.format_table(table_info)
 
-  vim.notify(string.format("Converted CSV to table (%d rows, %d columns)", #cells, max_cols), vim.log.levels.INFO)
+  utils.notify(string.format("Converted CSV to table (%d rows, %d columns)", #cells, max_cols), vim.log.levels.INFO)
   return true
 end
 

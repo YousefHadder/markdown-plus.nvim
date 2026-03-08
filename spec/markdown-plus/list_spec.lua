@@ -2355,11 +2355,7 @@ describe("markdown-plus list management", function()
 
     it("includes HTML lines when awareness is disabled", function()
       local renumber = require("markdown-plus.list.renumber")
-      renumber.set_config({
-        features = {
-          html_block_awareness = false,
-        },
-      })
+      renumber.set_html_awareness(false)
 
       local groups = list.find_list_groups({
         "1. One",
@@ -2372,7 +2368,7 @@ describe("markdown-plus list management", function()
       assert.are.equal(1, groups[1].items[1].line_num)
       assert.are.equal(3, groups[2].items[1].line_num)
 
-      renumber.set_config({})
+      renumber.set_html_awareness(true)
     end)
   end)
 end)

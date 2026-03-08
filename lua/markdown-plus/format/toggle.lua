@@ -9,23 +9,22 @@ local word = require("markdown-plus.format.word")
 
 local M = {}
 
----@type markdown-plus.InternalConfig
-local config = {}
+local html_awareness = true
 
 -- ESC character constant for consistency
 local ESC = "\027"
 
----Set module configuration
----@param cfg markdown-plus.InternalConfig
+---Set HTML block awareness state
+---@param enabled boolean
 ---@return nil
-function M.set_config(cfg)
-  config = cfg or {}
+function M.set_html_awareness(enabled)
+  html_awareness = enabled ~= false
 end
 
 ---Check whether HTML block awareness is enabled (default: true)
 ---@return boolean
 local function html_awareness_enabled()
-  return not (config.features and config.features.html_block_awareness == false)
+  return html_awareness
 end
 
 ---Check if any row in selection intersects an HTML block

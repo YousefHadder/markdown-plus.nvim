@@ -35,7 +35,7 @@ function M.setup(config)
   -- Pass list-specific config to checkbox module
   checkbox.setup(M.config.list)
   handlers.set_config(M.config)
-  renumber.set_config(M.config)
+  renumber.set_html_awareness(utils.is_html_awareness_enabled(M.config))
 end
 
 ---Enable list features for current buffer

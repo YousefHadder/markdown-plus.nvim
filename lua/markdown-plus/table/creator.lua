@@ -10,6 +10,7 @@
 ---@brief ]]
 
 local M = {}
+local utils = require("markdown-plus.utils")
 
 ---Create a new table at cursor position
 ---@param rows integer Number of data rows (excluding header)
@@ -20,12 +21,12 @@ function M.create_table(rows, cols, default_alignment)
 
   -- Validate input
   if rows < 1 or cols < 1 then
-    vim.notify("Rows and columns must be at least 1", vim.log.levels.ERROR)
+    utils.notify("Rows and columns must be at least 1", vim.log.levels.ERROR)
     return
   end
 
   if rows > 100 or cols > 50 then
-    vim.notify("Table too large (max 100 rows, 50 columns)", vim.log.levels.ERROR)
+    utils.notify("Table too large (max 100 rows, 50 columns)", vim.log.levels.ERROR)
     return
   end
 
@@ -86,7 +87,7 @@ function M.create_table_interactive()
   local cols_input = vim.fn.input("Number of columns: ")
   local cols = tonumber(cols_input)
   if not cols or cols < 1 then
-    vim.notify("Invalid column count", vim.log.levels.ERROR)
+    utils.notify("Invalid column count", vim.log.levels.ERROR)
     return
   end
 
@@ -94,7 +95,7 @@ function M.create_table_interactive()
   local rows_input = vim.fn.input("Number of rows (data rows, excluding header): ")
   local rows = tonumber(rows_input)
   if not rows or rows < 1 then
-    vim.notify("Invalid row count", vim.log.levels.ERROR)
+    utils.notify("Invalid row count", vim.log.levels.ERROR)
     return
   end
 

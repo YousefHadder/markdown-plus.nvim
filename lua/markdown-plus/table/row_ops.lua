@@ -11,6 +11,7 @@
 ---@brief ]]
 
 local M = {}
+local utils = require("markdown-plus.utils")
 
 ---Insert a row in the table
 ---@param above boolean If true, insert above current row; otherwise below
@@ -37,7 +38,7 @@ function M.insert_row(above)
   else
     local current_cells_index = row_mapper.pos_row_to_cells_index(pos.row)
     if not current_cells_index then
-      vim.notify("Cannot determine insertion position (internal error)", vim.log.levels.ERROR)
+      utils.notify("Cannot determine insertion position (internal error)", vim.log.levels.ERROR)
       return false
     end
     insert_index = above and current_cells_index or current_cells_index + 1
@@ -59,24 +60,24 @@ function M.delete_row()
   end
 
   if row_mapper.is_header_row(pos.row) or row_mapper.is_separator_row(pos.row) then
-    vim.notify("Cannot delete header or separator row", vim.log.levels.WARN)
+    utils.notify("Cannot delete header or separator row", vim.log.levels.WARN)
     return false
   end
 
   if #table_info.cells < 2 then
-    vim.notify("Cannot delete the only data row", vim.log.levels.WARN)
+    utils.notify("Cannot delete the only data row", vim.log.levels.WARN)
     return false
   end
 
   local cells_index = row_mapper.pos_row_to_cells_index(pos.row)
   if not cells_index then
-    vim.notify("Cannot delete separator row (internal error)", vim.log.levels.ERROR)
+    utils.notify("Cannot delete separator row (internal error)", vim.log.levels.ERROR)
     return false
   end
 
   local valid, err = row_mapper.validate_cells_index(cells_index, #table_info.cells)
   if not valid then
-    vim.notify("Invalid row index: " .. err, vim.log.levels.ERROR)
+    utils.notify("Invalid row index: " .. err, vim.log.levels.ERROR)
     return false
   end
 
@@ -108,19 +109,19 @@ function M.duplicate_row()
   end
 
   if row_mapper.is_separator_row(pos.row) then
-    vim.notify("Cannot duplicate separator row", vim.log.levels.WARN)
+    utils.notify("Cannot duplicate separator row", vim.log.levels.WARN)
     return false
   end
 
   local cells_index = row_mapper.pos_row_to_cells_index(pos.row)
   if not cells_index then
-    vim.notify("Invalid row position (internal error)", vim.log.levels.ERROR)
+    utils.notify("Invalid row position (internal error)", vim.log.levels.ERROR)
     return false
   end
 
   local valid, err = row_mapper.validate_cells_index(cells_index, #table_info.cells)
   if not valid then
-    vim.notify("Invalid row index: " .. err, vim.log.levels.ERROR)
+    utils.notify("Invalid row index: " .. err, vim.log.levels.ERROR)
     return false
   end
 
@@ -144,7 +145,7 @@ function M.move_row_up()
   end
 
   if row_mapper.is_header_row(pos.row) or row_mapper.is_separator_row(pos.row) then
-    vim.notify("Cannot move header or separator row", vim.log.levels.WARN)
+    utils.notify("Cannot move header or separator row", vim.log.levels.WARN)
     return false
   end
 
@@ -154,7 +155,7 @@ function M.move_row_up()
   end
 
   if cells_index <= 2 then
-    vim.notify("Cannot move row up - already at top", vim.log.levels.WARN)
+    utils.notify("Cannot move row up - already at top", vim.log.levels.WARN)
     return false
   end
 
@@ -176,7 +177,7 @@ function M.move_row_down()
   end
 
   if row_mapper.is_header_row(pos.row) or row_mapper.is_separator_row(pos.row) then
-    vim.notify("Cannot move header or separator row", vim.log.levels.WARN)
+    utils.notify("Cannot move header or separator row", vim.log.levels.WARN)
     return false
   end
 
@@ -186,7 +187,7 @@ function M.move_row_down()
   end
 
   if cells_index >= #table_info.cells then
-    vim.notify("Cannot move row down - already at bottom", vim.log.levels.WARN)
+    utils.notify("Cannot move row down - already at bottom", vim.log.levels.WARN)
     return false
   end
 

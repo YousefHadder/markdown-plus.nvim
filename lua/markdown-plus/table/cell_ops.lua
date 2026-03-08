@@ -8,6 +8,7 @@
 ---@brief ]]
 
 local M = {}
+local utils = require("markdown-plus.utils")
 
 ---Clear content of the current cell
 ---@return boolean success True if cell was cleared
@@ -21,7 +22,7 @@ function M.clear_cell()
   end
 
   if row_mapper.is_separator_row(pos.row) then
-    vim.notify("Cannot clear separator row", vim.log.levels.WARN)
+    utils.notify("Cannot clear separator row", vim.log.levels.WARN)
     return false
   end
 
@@ -65,7 +66,7 @@ function M.toggle_cell_alignment()
   local formatter = require("markdown-plus.table.format")
   formatter.format_table(table_info)
 
-  vim.notify(string.format("Column alignment: %s", next_alignment), vim.log.levels.INFO)
+  utils.notify(string.format("Column alignment: %s", next_alignment), vim.log.levels.INFO)
   return true
 end
 

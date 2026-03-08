@@ -3,23 +3,16 @@
 local utils = require("markdown-plus.utils")
 
 local M = {}
----@type markdown-plus.InternalConfig
-local config = {}
+local html_awareness = true
 
 ---Header pattern (matches # through ######)
 M.header_pattern = "^(#+)%s+(.+)$"
 
----Set module configuration
----@param cfg markdown-plus.InternalConfig
+---Set HTML block awareness state
+---@param enabled boolean
 ---@return nil
-function M.set_config(cfg)
-  config = cfg or {}
-end
-
----Check whether HTML block awareness is enabled (default: true)
----@return boolean
-local function html_awareness_enabled()
-  return not (config.features and config.features.html_block_awareness == false)
+function M.set_html_awareness(enabled)
+  html_awareness = enabled ~= false
 end
 
 ---Parse header information from a line and optional lookahead line
@@ -83,7 +76,7 @@ function M.get_all_headers()
   -- Use regex for full-buffer code block scanning (faster than TS tree walk)
   local code_block_lines = utils.get_code_block_lines(lines)
   local html_block_lines = {}
-  if html_awareness_enabled() then
+  if html_awareness then
     html_block_lines = utils.get_html_block_lines(lines)
   end
 

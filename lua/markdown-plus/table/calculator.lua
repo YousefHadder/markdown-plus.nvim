@@ -26,7 +26,7 @@ function M.transpose_table()
 
   local table_info = parser.get_table_at_cursor()
   if not table_info then
-    vim.notify("Not in a table", vim.log.levels.WARN)
+    utils.notify("Not in a table", vim.log.levels.WARN)
     return false
   end
 
@@ -35,7 +35,7 @@ function M.transpose_table()
   if config.confirm_destructive then
     local confirmed = utils.confirm("Transpose table? This will swap rows and columns.", true)
     if not confirmed then
-      vim.notify("Transpose cancelled", vim.log.levels.INFO)
+      utils.notify("Transpose cancelled", vim.log.levels.INFO)
       return false
     end
   end
@@ -67,7 +67,7 @@ function M.transpose_table()
   -- Reformat and update buffer
   formatter.format_table(table_info)
 
-  vim.notify("Table transposed successfully", vim.log.levels.INFO)
+  utils.notify("Table transposed successfully", vim.log.levels.INFO)
   return true
 end
 
@@ -153,7 +153,7 @@ function M.sort_by_column(ascending)
 
   local table_info = parser.get_table_at_cursor()
   if not table_info then
-    vim.notify("Not in a table", vim.log.levels.WARN)
+    utils.notify("Not in a table", vim.log.levels.WARN)
     return false
   end
 
@@ -164,7 +164,7 @@ function M.sort_by_column(ascending)
 
   -- Must have at least one data row to sort
   if #table_info.cells < 2 then
-    vim.notify("No data rows to sort", vim.log.levels.WARN)
+    utils.notify("No data rows to sort", vim.log.levels.WARN)
     return false
   end
 
@@ -174,7 +174,7 @@ function M.sort_by_column(ascending)
     local direction = ascending and "ascending" or "descending"
     local confirmed = utils.confirm(string.format("Sort table by column %d (%s)?", pos.col + 1, direction), true)
     if not confirmed then
-      vim.notify("Sort cancelled", vim.log.levels.INFO)
+      utils.notify("Sort cancelled", vim.log.levels.INFO)
       return false
     end
   end
@@ -208,7 +208,7 @@ function M.sort_by_column(ascending)
 
   local direction = ascending and "ascending" or "descending"
   local sort_type = numeric and "numeric" or "alphabetic"
-  vim.notify(string.format("Table sorted %s (%s)", direction, sort_type), vim.log.levels.INFO)
+  utils.notify(string.format("Table sorted %s (%s)", direction, sort_type), vim.log.levels.INFO)
   return true
 end
 

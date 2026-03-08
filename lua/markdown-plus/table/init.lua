@@ -11,6 +11,7 @@
 ---@brief ]]
 
 local M = {}
+local utils = require("markdown-plus.utils")
 
 ---Default configuration for table module
 ---@type markdown-plus.InternalTableConfig
@@ -59,7 +60,7 @@ function M.format_table()
 
   local table_info = parser.get_table_at_cursor()
   if not table_info then
-    vim.notify("Not in a table", vim.log.levels.WARN)
+    utils.notify("Not in a table", vim.log.levels.WARN)
     return false
   end
 

@@ -9,25 +9,18 @@ local ORDERED_LIST_CANDIDATE_PATTERNS = {
   "^%s*[A-Za-z][%.%)]",
 }
 
----@type markdown-plus.InternalConfig
-local config = {}
+local html_awareness = true
 
 -- Recognized fence patterns — capture the fence character and its full run
 -- e.g. "    ```python" captures indent="    ", fence_char="`", fence_run="```"
 local CODE_FENCE_OPEN_PATTERN = "^(%s*)((`+)(.*))"
 local CODE_FENCE_TILDE_OPEN_PATTERN = "^(%s*)((~+)(.*))"
 
----Set module configuration
----@param cfg markdown-plus.InternalConfig
+---Set HTML block awareness state
+---@param enabled boolean
 ---@return nil
-function M.set_config(cfg)
-  config = cfg or {}
-end
-
----Check whether HTML block awareness is enabled (default: true)
----@return boolean
-local function html_awareness_enabled()
-  return not (config.features and config.features.html_block_awareness == false)
+function M.set_html_awareness(enabled)
+  html_awareness = enabled ~= false
 end
 
 ---Parse a line as a potential code fence opener or closer.
@@ -247,7 +240,7 @@ function M.find_list_groups(lines)
   local current_groups_by_indent = {} -- Track active groups by indentation level
   local code_block_lines, non_indented_regions = get_fenced_code_block_lines(lines)
   local html_block_lines = {}
-  if html_awareness_enabled() then
+  if html_awareness then
     html_block_lines = utils.get_html_block_lines(lines)
   end
 

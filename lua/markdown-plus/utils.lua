@@ -45,32 +45,6 @@ function M.insert_line(line_num, content)
   vim.api.nvim_buf_set_lines(0, line_num - 1, line_num - 1, false, { content })
 end
 
----Delete line at position (1-indexed)
----@param line_num number 1-indexed line number
----@return nil
-function M.delete_line(line_num)
-  vim.api.nvim_buf_set_lines(0, line_num - 1, line_num, false, {})
-end
-
----Get indentation level of a line
----@param line string Line content
----@return number Number of indentation characters
-function M.get_indent_level(line)
-  local indent = line:match("^(%s*)")
-  return #indent
-end
-
----Get indentation string (spaces or tabs)
----@param level number Indentation level
----@return string Indentation string
-function M.get_indent_string(level)
-  if vim.bo.expandtab then
-    return string.rep(" ", level * vim.bo.shiftwidth)
-  else
-    return string.rep("\t", math.floor(level / vim.bo.tabstop))
-  end
-end
-
 -- Check if current buffer is markdown (deprecated, kept for compatibility)
 -- Note: This check is now redundant as the autocmd pattern already filters by filetype
 ---@return boolean True if buffer filetype is markdown
@@ -78,15 +52,11 @@ function M.is_markdown_buffer()
   return true
 end
 
----Safe string matching with nil check
----@param str? string String to match
----@param pattern string Pattern to match against
----@return string|nil Matched string or nil
-function M.safe_match(str, pattern)
-  if not str then
-    return nil
-  end
-  return str:match(pattern)
+---Check whether HTML block awareness is enabled in config
+---@param plugin_config? markdown-plus.InternalConfig
+---@return boolean
+function M.is_html_awareness_enabled(plugin_config)
+  return not (plugin_config and plugin_config.features and plugin_config.features.html_block_awareness == false)
 end
 
 ---Escape special regex characters
@@ -94,15 +64,6 @@ end
 ---@return string Escaped string
 function M.escape_pattern(str)
   return str:gsub("([^%w])", "%%%1")
-end
-
----Debug print (only when debug mode is enabled)
----@param ... any Values to print
----@return nil
-function M.debug_print(...)
-  if vim.g.markdown_plus_debug then
-    print("[MarkdownPlus]", ...)
-  end
 end
 
 ---Split a line at a byte column position, ensuring proper UTF-8 character boundaries.

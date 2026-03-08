@@ -11,6 +11,7 @@
 ---@brief ]]
 
 local M = {}
+local utils = require("markdown-plus.utils")
 
 ---Insert a column in the table
 ---@param left boolean If true, insert left of current column; otherwise right
@@ -46,7 +47,7 @@ function M.delete_column()
   end
 
   if table_info.cols <= 1 then
-    vim.notify("Cannot delete the only column", vim.log.levels.WARN)
+    utils.notify("Cannot delete the only column", vim.log.levels.WARN)
     return false
   end
 
@@ -104,7 +105,7 @@ function M.move_column_left()
   end
 
   if pos.col == 0 then
-    vim.notify("Cannot move column left - already at leftmost position", vim.log.levels.WARN)
+    utils.notify("Cannot move column left - already at leftmost position", vim.log.levels.WARN)
     return false
   end
 
@@ -129,7 +130,7 @@ function M.move_column_right()
   end
 
   if pos.col >= table_info.cols - 1 then
-    vim.notify("Cannot move column right - already at rightmost position", vim.log.levels.WARN)
+    utils.notify("Cannot move column right - already at rightmost position", vim.log.levels.WARN)
     return false
   end
 

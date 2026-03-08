@@ -7,6 +7,7 @@
 ---@brief ]]
 
 local M = {}
+local utils = require("markdown-plus.utils")
 
 ---Fetch table info and cursor position, notifying on failure.
 ---@return table|nil table_info Parsed table information, or nil if not in a table
@@ -15,7 +16,7 @@ function M.get_table_and_pos()
   local parser = require("markdown-plus.table.parser")
   local table_info = parser.get_table_at_cursor()
   if not table_info then
-    vim.notify("Not in a table", vim.log.levels.WARN)
+    utils.notify("Not in a table", vim.log.levels.WARN)
     return nil, nil
   end
   local pos = parser.get_cursor_position_in_table()

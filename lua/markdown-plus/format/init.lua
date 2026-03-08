@@ -88,7 +88,7 @@ end
 ---@return nil
 function M.setup(config)
   M.config = config or {}
-  toggle.set_config(M.config)
+  toggle.set_html_awareness(utils.is_html_awareness_enabled(M.config))
 end
 
 ---Enable formatting features for current buffer
