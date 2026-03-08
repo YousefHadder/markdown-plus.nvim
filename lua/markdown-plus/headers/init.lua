@@ -23,6 +23,7 @@ M.header_pattern = parser.header_pattern
 function M.setup(config)
   M.config = config or {}
   -- Pass config to sub-modules that need it
+  parser.set_config(M.config)
   toc.set_config(M.config)
   toc_window.set_config(M.config)
 end
@@ -60,28 +61,35 @@ function M.setup_keymaps()
       plug = keymap_helper.plug_name("PromoteHeader"),
       fn = manipulation.promote_header,
       modes = "n",
-      default_key = "<leader>h+",
+      default_key = "<localleader>h+",
       desc = "Promote header (increase level)",
     },
     {
       plug = keymap_helper.plug_name("DemoteHeader"),
       fn = manipulation.demote_header,
       modes = "n",
-      default_key = "<leader>h-",
+      default_key = "<localleader>h-",
       desc = "Demote header (decrease level)",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleAtxSetext"),
+      fn = manipulation.toggle_atx_setext,
+      modes = "n",
+      default_key = "<localleader>ms",
+      desc = "Toggle heading between ATX and setext style",
     },
     {
       plug = keymap_helper.plug_name("GenerateTOC"),
       fn = toc.generate_toc,
       modes = "n",
-      default_key = "<leader>ht",
+      default_key = "<localleader>ht",
       desc = "Generate table of contents",
     },
     {
       plug = keymap_helper.plug_name("UpdateTOC"),
       fn = toc.update_toc,
       modes = "n",
-      default_key = "<leader>hu",
+      default_key = "<localleader>hu",
       desc = "Update table of contents",
     },
     {
@@ -97,7 +105,7 @@ function M.setup_keymaps()
         toc_window.open_toc_window("vertical")
       end,
       modes = "n",
-      default_key = "<leader>hT",
+      default_key = "<localleader>hT",
       desc = "Open navigable TOC window",
     },
   }
@@ -110,7 +118,7 @@ function M.setup_keymaps()
         manipulation.set_header_level(i)
       end,
       modes = "n",
-      default_key = "<leader>h" .. i,
+      default_key = "<localleader>h" .. i,
       desc = "Set/convert to H" .. i,
     })
   end
@@ -141,6 +149,7 @@ M.follow_link = navigation.follow_link
 M.promote_header = manipulation.promote_header
 M.demote_header = manipulation.demote_header
 M.set_header_level = manipulation.set_header_level
+M.toggle_atx_setext = manipulation.toggle_atx_setext
 M.generate_toc = toc.generate_toc
 M.find_toc = toc.find_toc
 M.update_toc = toc.update_toc

@@ -88,6 +88,7 @@ end
 ---@return nil
 function M.setup(config)
   M.config = config or {}
+  toggle.set_config(M.config)
 end
 
 ---Enable formatting features for current buffer
@@ -116,7 +117,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>mb", "<leader>mb" },
+      default_key = { "<localleader>mb", "<localleader>mb" },
       desc = "Toggle bold formatting",
       expr = { true, false },
     },
@@ -131,7 +132,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>mi", "<leader>mi" },
+      default_key = { "<localleader>mi", "<localleader>mi" },
       desc = "Toggle italic formatting",
       expr = { true, false },
     },
@@ -149,7 +150,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>ms", "<leader>ms" },
+      default_key = { "<localleader>mS", "<localleader>mS" },
       desc = "Toggle strikethrough formatting",
       expr = { true, false },
     },
@@ -164,7 +165,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>mc", "<leader>mc" },
+      default_key = { "<localleader>mc", "<localleader>mc" },
       desc = "Toggle inline code formatting",
       expr = { true, false },
     },
@@ -182,7 +183,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>mh", "<leader>mh" },
+      default_key = { "<localleader>m=", "<localleader>m=" },
       desc = "Toggle highlight formatting",
       expr = { true, false },
     },
@@ -200,7 +201,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>mu", "<leader>mu" },
+      default_key = { "<localleader>mu", "<localleader>mu" },
       desc = "Toggle underline formatting",
       expr = { true, false },
     },
@@ -210,7 +211,7 @@ function M.setup_keymaps()
         M.convert_to_code_block()
       end,
       modes = "x",
-      default_key = "<leader>mw",
+      default_key = "<localleader>mw",
       desc = "Convert selection to code block",
     },
     {
@@ -224,7 +225,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<leader>mC", "<leader>mC" },
+      default_key = { "<localleader>mC", "<localleader>mC" },
       desc = "Clear all formatting",
       expr = { true, false },
     },

@@ -24,6 +24,22 @@ describe("markdown-plus headers", function()
       assert.is_not_nil(header)
       assert.are.equal(2, header.level)
       assert.are.equal("Test Header", header.text)
+      assert.are.equal("atx", header.style)
+    end)
+
+    it("parses setext H1 and H2 headers with lookahead line", function()
+      local h1 = headers.parse_header("Main Title", "====")
+      local h2 = headers.parse_header("Sub Title", "----")
+
+      assert.is_not_nil(h1)
+      assert.are.equal(1, h1.level)
+      assert.are.equal("Main Title", h1.text)
+      assert.are.equal("setext", h1.style)
+
+      assert.is_not_nil(h2)
+      assert.are.equal(2, h2.level)
+      assert.are.equal("Sub Title", h2.text)
+      assert.are.equal("setext", h2.style)
     end)
 
     it("returns nil for non-header lines", function()
@@ -463,6 +479,170 @@ describe("markdown-plus headers", function()
         cleanup_toc_window()
       end
     end)
+
+    it("sets TOC window keymaps through centralized keymap helper", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Header 1",
+        "## Header 2",
+      })
+
+      headers.open_toc_window()
+
+      local toc_win = nil
+      for _, win in ipairs(vim.api.nvim_list_wins()) do
+        local win_buf = vim.api.nvim_win_get_buf(win)
+        local name = vim.api.nvim_buf_get_name(win_buf)
+        if name:match("TOC:") then
+          toc_win = win
+          break
+        end
+      end
+
+      assert.is_not_nil(toc_win)
+      vim.api.nvim_set_current_win(toc_win)
+
+      local expand = vim.fn.maparg("l", "n", false, true)
+      local collapse = vim.fn.maparg("h", "n", false, true)
+      local jump = vim.fn.maparg("<CR>", "n", false, true)
+      local close = vim.fn.maparg("q", "n", false, true)
+      local help = vim.fn.maparg("?", "n", false, true)
+
+      assert.are.equal(1, expand.buffer)
+      assert.are.equal("<Plug>(MarkdownPlusTocExpand)", expand.rhs)
+      assert.are.equal("<Plug>(MarkdownPlusTocCollapse)", collapse.rhs)
+      assert.are.equal("<Plug>(MarkdownPlusTocJump)", jump.rhs)
+      assert.are.equal("<Plug>(MarkdownPlusTocClose)", close.rhs)
+      assert.are.equal("<Plug>(MarkdownPlusTocHelp)", help.rhs)
+
+      cleanup_toc_window()
+    end)
+  end)
+
+  describe("setext heading support", function()
+    it("includes setext headings in header collection", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "Main Title",
+        "==========",
+        "",
+        "Subtitle",
+        "--------",
+        "## ATX Header",
+      })
+
+      local all_headers = headers.get_all_headers()
+
+      assert.are.equal(3, #all_headers)
+      assert.are.equal("Main Title", all_headers[1].text)
+      assert.are.equal(1, all_headers[1].level)
+      assert.are.equal(1, all_headers[1].line_num)
+      assert.are.equal("Subtitle", all_headers[2].text)
+      assert.are.equal(2, all_headers[2].level)
+      assert.are.equal(4, all_headers[2].line_num)
+      assert.are.equal("ATX Header", all_headers[3].text)
+      assert.are.equal(6, all_headers[3].line_num)
+    end)
+
+    it("navigates to setext heading text line (not underline)", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Top",
+        "",
+        "Setext Heading",
+        "------",
+        "",
+        "## Tail",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      headers.next_header()
+
+      local cursor = vim.api.nvim_win_get_cursor(0)
+      assert.are.equal(3, cursor[1])
+    end)
+
+    it("toggles ATX H1 to setext and back to ATX", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "# Heading" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      headers.toggle_atx_setext()
+      local after_setext = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.same({ "Heading", "=======" }, after_setext)
+
+      headers.toggle_atx_setext()
+      local after_atx = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.same({ "# Heading" }, after_atx)
+    end)
+
+    it("promotes/demotes setext headings correctly", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "Title",
+        "-----",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      headers.promote_header()
+      local promoted = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.same({ "Title", "=====" }, promoted)
+
+      headers.demote_header()
+      local demoted = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.same({ "Title", "-----" }, demoted)
+    end)
+
+    it("converts promoted H1 setext to ATX H1 at max level", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "Main",
+        "====",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      headers.promote_header()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.same({ "# Main" }, lines)
+    end)
+
+    it("includes setext headings in generated TOC", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Doc",
+        "",
+        "Section",
+        "-------",
+        "## API",
+      })
+
+      headers.generate_toc()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local has_setext_entry = false
+      for _, line in ipairs(lines) do
+        if line:match("%[Section%]%(%#section%)") then
+          has_setext_entry = true
+          break
+        end
+      end
+      assert.is_true(has_setext_entry)
+    end)
+
+    it("does not treat standalone thematic breaks as headers", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "---",
+        "## Real Header",
+      })
+
+      local all_headers = headers.get_all_headers()
+      assert.are.equal(1, #all_headers)
+      assert.are.equal("Real Header", all_headers[1].text)
+    end)
+
+    it("registers default keymap for ATX/setext toggle", function()
+      headers.setup({
+        keymaps = { enabled = true },
+      })
+      headers.setup_keymaps()
+
+      local toggle_map = vim.fn.maparg("<localleader>ms", "n", false, true)
+      assert.are.equal("<Plug>(MarkdownPlusToggleAtxSetext)", toggle_map.rhs)
+    end)
   end)
 
   describe("get_all_headers", function()
@@ -494,6 +674,44 @@ describe("markdown-plus headers", function()
       assert.are.equal(2, #all_headers)
       assert.are.equal("Real Header", all_headers[1].text)
       assert.are.equal("Another Real Header", all_headers[2].text)
+    end)
+
+    it("filters headers inside HTML blocks", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Real Header",
+        "<div>",
+        "## Not a markdown header",
+        "</div>",
+        "",
+        "## Another Real Header",
+      })
+
+      local all_headers = headers.get_all_headers()
+      assert.are.equal(2, #all_headers)
+      assert.are.equal("Real Header", all_headers[1].text)
+      assert.are.equal("Another Real Header", all_headers[2].text)
+    end)
+
+    it("includes headers inside HTML blocks when awareness is disabled", function()
+      headers.setup({
+        features = {
+          html_block_awareness = false,
+        },
+      })
+
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Real Header",
+        "<div>",
+        "## Included Header",
+        "</div>",
+      })
+
+      local all_headers = headers.get_all_headers()
+      assert.are.equal(2, #all_headers)
+      assert.are.equal("Real Header", all_headers[1].text)
+      assert.are.equal("Included Header", all_headers[2].text)
+
+      headers.setup({})
     end)
   end)
 end)
