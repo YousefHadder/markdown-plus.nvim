@@ -10,7 +10,7 @@ local checkbox = require("markdown-plus.list.checkbox")
 
 local M = {}
 
-local RENNUMBER_DEBOUNCE_MS = 150
+local RENUMBER_DEBOUNCE_MS = 150
 local renumber_timers = {}
 local ORDERED_LOOKAROUND = 20
 local ORDERABLE_LIST_TYPES = {
@@ -133,7 +133,8 @@ end
 
 ---Set up autocommands for auto-renumbering
 function M.setup_renumber_autocmds()
-  local group = vim.api.nvim_create_augroup("MarkdownPlusListRenumber", { clear = true })
+  local current_bufnr = vim.api.nvim_get_current_buf()
+  local group = vim.api.nvim_create_augroup("MarkdownPlusListRenumber_" .. current_bufnr, { clear = true })
 
   local function get_cursor_row_for_buffer(bufnr)
     if vim.api.nvim_get_current_buf() == bufnr then
@@ -175,11 +176,11 @@ function M.setup_renumber_autocmds()
   -- Normal-mode edits: renumber immediately.
   vim.api.nvim_create_autocmd("TextChanged", {
     group = group,
-    buffer = 0,
+    buffer = current_bufnr,
     callback = function(args)
-      local bufnr = args.buf
-      local cursor_row = get_cursor_row_for_buffer(bufnr)
-      if not has_ordered_list_near_row(bufnr, cursor_row) then
+      local changed_bufnr = args.buf
+      local cursor_row = get_cursor_row_for_buffer(changed_bufnr)
+      if not has_ordered_list_near_row(changed_bufnr, cursor_row) then
         return
       end
 
@@ -190,23 +191,23 @@ function M.setup_renumber_autocmds()
   -- Insert-mode edits: debounce to avoid renumbering on every keystroke.
   vim.api.nvim_create_autocmd("TextChangedI", {
     group = group,
-    buffer = 0,
+    buffer = current_bufnr,
     callback = function(args)
-      local bufnr = args.buf
-      local cursor_row = get_cursor_row_for_buffer(bufnr)
-      if not has_ordered_list_near_row(bufnr, cursor_row) then
+      local changed_bufnr = args.buf
+      local cursor_row = get_cursor_row_for_buffer(changed_bufnr)
+      if not has_ordered_list_near_row(changed_bufnr, cursor_row) then
         return
       end
 
-      stop_debounce_timer(bufnr)
+      stop_debounce_timer(changed_bufnr)
 
-      renumber_timers[bufnr] = vim.fn.timer_start(RENNUMBER_DEBOUNCE_MS, function()
-        renumber_timers[bufnr] = nil
+      renumber_timers[changed_bufnr] = vim.fn.timer_start(RENUMBER_DEBOUNCE_MS, function()
+        renumber_timers[changed_bufnr] = nil
         vim.schedule(function()
-          if not vim.api.nvim_buf_is_valid(bufnr) or not vim.bo[bufnr].modifiable then
+          if not vim.api.nvim_buf_is_valid(changed_bufnr) or not vim.bo[changed_bufnr].modifiable then
             return
           end
-          vim.api.nvim_buf_call(bufnr, function()
+          vim.api.nvim_buf_call(changed_bufnr, function()
             renumber.renumber_ordered_lists()
           end)
         end)
@@ -217,7 +218,7 @@ function M.setup_renumber_autocmds()
   -- Ensure timers are cleaned up for deleted buffers.
   vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
     group = group,
-    buffer = 0,
+    buffer = current_bufnr,
     callback = function(args)
       stop_debounce_timer(args.buf)
     end,

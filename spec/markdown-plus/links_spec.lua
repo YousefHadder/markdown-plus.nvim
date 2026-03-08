@@ -353,6 +353,11 @@ describe("markdown-plus links", function()
         assert.is_true(select(1, smart_paste._is_blocked_url("https://[fe80::1]/")))
       end)
 
+      it("blocks IPv6-mapped private IPv4 ranges", function()
+        assert.is_true(select(1, smart_paste._is_blocked_url("https://[::ffff:127.0.0.1]/")))
+        assert.is_true(select(1, smart_paste._is_blocked_url("https://[::ffff:192.168.0.1]/")))
+      end)
+
       it("allows public host URLs", function()
         local is_blocked, reason = smart_paste._is_blocked_url("https://example.com/docs")
         assert.is_false(is_blocked)

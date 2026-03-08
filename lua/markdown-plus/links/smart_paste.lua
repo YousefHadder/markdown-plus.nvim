@@ -105,6 +105,14 @@ local function is_local_ipv6(host)
   return normalized:match("^f[cd]") ~= nil or normalized:match("^fe[89ab]") ~= nil
 end
 
+---Extract embedded IPv4 from IPv6-mapped IPv4 hosts (e.g. ::ffff:127.0.0.1)
+---@param host string
+---@return string|nil
+local function extract_mapped_ipv4(host)
+  local normalized = host:lower()
+  return normalized:match("^::ffff:(%d+%.%d+%.%d+%.%d+)$")
+end
+
 ---Check whether URL host should be blocked for smart fetch
 ---@param url string
 ---@return boolean is_blocked
@@ -121,6 +129,11 @@ local function is_blocked_url(url)
 
   if is_private_ipv4(host) then
     return true, "private IPv4 addresses are not allowed"
+  end
+
+  local mapped_ipv4 = host:find(":", 1, true) and extract_mapped_ipv4(host) or nil
+  if mapped_ipv4 and is_private_ipv4(mapped_ipv4) then
+    return true, "IPv6-mapped private IPv4 addresses are not allowed"
   end
 
   if host:find(":", 1, true) and is_local_ipv6(host) then

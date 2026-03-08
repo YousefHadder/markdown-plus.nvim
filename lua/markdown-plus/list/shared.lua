@@ -73,7 +73,7 @@ end
 ---Scans backward from `row - 1` and stops at structural breaks.
 ---@param row number Current row number (1-indexed)
 ---@param target_indent number Target indentation width in spaces
----@param lines string[] All buffer lines
+---@param lines table<number, string> Sparse absolute-row line map (missing keys stop scan)
 ---@return markdown-plus.ListInfo|nil, number|nil Parent list info and row, or nil if not found
 function M.find_parent_list_at_indent(row, target_indent, lines)
   for i = row - 1, 1, -1 do
@@ -110,7 +110,7 @@ end
 ---Checks if a line is a continuation line of a list item by looking for a parent
 ---@param line string The line to check
 ---@param line_num number The line number (1-indexed)
----@param lines string[] All buffer lines
+---@param lines table<number, string> Sparse absolute-row line map (missing keys stop scan)
 ---@return table|nil, number|nil List info and row number of parent, or nil if not found
 function M.find_parent_list_item(line, line_num, lines)
   -- Must be indented
@@ -157,7 +157,7 @@ end
 ---A continuation line has indentation that matches a list item's content position
 ---@param line string The line to check
 ---@param line_num number The line number (1-indexed)
----@param lines string[] All buffer lines
+---@param lines table<number, string> Sparse absolute-row line map (missing keys stop scan)
 ---@return boolean True if the line is a continuation line
 function M.is_continuation_line(line, line_num, lines)
   return M.find_parent_list_item(line, line_num, lines) ~= nil

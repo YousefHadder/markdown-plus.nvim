@@ -640,126 +640,110 @@ function M.get_html_block_lines(lines)
   local type1_tag = nil ---@type string|nil
 
   for i, line in ipairs(lines) do
+    local handled_existing_mode = false
+
     if mode == "type6" or mode == "type7" then
+      handled_existing_mode = true
       if line:match("^%s*$") then
         mode = nil
       else
         html_lines[i] = true
       end
-      goto continue
-    end
-
-    if mode == "type1" then
+    elseif mode == "type1" then
+      handled_existing_mode = true
       html_lines[i] = true
       if type1_tag and line:lower():find("</" .. type1_tag .. "%s*>") then
         mode = nil
         type1_tag = nil
       end
-      goto continue
-    end
-
-    if mode == "comment" then
+    elseif mode == "comment" then
+      handled_existing_mode = true
       html_lines[i] = true
       if line:find("%-%->") then
         mode = nil
       end
-      goto continue
-    end
-
-    if mode == "pi" then
+    elseif mode == "pi" then
+      handled_existing_mode = true
       html_lines[i] = true
       if line:find("%?>") then
         mode = nil
       end
-      goto continue
-    end
-
-    if mode == "declaration" then
+    elseif mode == "declaration" then
+      handled_existing_mode = true
       html_lines[i] = true
       if line:find(">", 1, true) then
         mode = nil
       end
-      goto continue
-    end
-
-    if mode == "cdata" then
+    elseif mode == "cdata" then
+      handled_existing_mode = true
       html_lines[i] = true
       if line:find("%]%]>") then
         mode = nil
       end
-      goto continue
     end
 
-    -- Type 1: <script>, <pre>, <style>
-    local open_tag = line:match("^%s*<([A-Za-z]+)[%s>/]")
-    if open_tag then
-      local tag = open_tag:lower()
-      if tag == "script" or tag == "pre" or tag == "style" then
-        html_lines[i] = true
-        if not line:lower():find("</" .. tag .. "%s*>") then
-          mode = "type1"
-          type1_tag = tag
+    if not handled_existing_mode then
+      -- Type 1: <script>, <pre>, <style>
+      local open_tag = line:match("^%s*<([A-Za-z]+)[%s>/]")
+      local handled_new_mode = false
+      if open_tag then
+        local tag = open_tag:lower()
+        if tag == "script" or tag == "pre" or tag == "style" then
+          html_lines[i] = true
+          if not line:lower():find("</" .. tag .. "%s*>") then
+            mode = "type1"
+            type1_tag = tag
+          end
+          handled_new_mode = true
         end
-        goto continue
+      end
+
+      if not handled_new_mode then
+        -- Type 2: HTML comments
+        if line:match("^%s*<!%-%-") then
+          html_lines[i] = true
+          if not line:find("%-%->") then
+            mode = "comment"
+          end
+        -- Type 3: Processing instructions
+        elseif line:match("^%s*<%?") then
+          html_lines[i] = true
+          if not line:find("%?>") then
+            mode = "pi"
+          end
+        -- Type 4: Declarations (e.g. <!DOCTYPE html>)
+        elseif line:match("^%s*<!%u") then
+          html_lines[i] = true
+          if not line:find(">", 1, true) then
+            mode = "declaration"
+          end
+        -- Type 5: CDATA
+        elseif line:match("^%s*<!%[CDATA%[") then
+          html_lines[i] = true
+          if not line:find("%]%]>") then
+            mode = "cdata"
+          end
+        else
+          -- Type 6: Block tag starts (ends on first following blank line)
+          local block_tag = line:match("^%s*</?([A-Za-z][A-Za-z0-9%-]*)[%s>/]")
+          if block_tag and HTML_BLOCK_TYPE6_TAGS[block_tag:lower()] then
+            html_lines[i] = true
+            mode = "type6"
+          else
+            -- Type 7: Standalone open/close tag lines (ends on first following blank line)
+            local standalone_tag = line:match("^%s*<([A-Za-z][A-Za-z0-9%-]*)%f[%s/>][^>]*>%s*$")
+              or line:match("^%s*</([A-Za-z][A-Za-z0-9%-]*)%s*>%s*$")
+            if standalone_tag then
+              local tag = standalone_tag:lower()
+              if tag ~= "script" and tag ~= "pre" and tag ~= "style" and not HTML_BLOCK_TYPE6_TAGS[tag] then
+                html_lines[i] = true
+                mode = "type7"
+              end
+            end
+          end
+        end
       end
     end
-
-    -- Type 2: HTML comments
-    if line:match("^%s*<!%-%-") then
-      html_lines[i] = true
-      if not line:find("%-%->") then
-        mode = "comment"
-      end
-      goto continue
-    end
-
-    -- Type 3: Processing instructions
-    if line:match("^%s*<%?") then
-      html_lines[i] = true
-      if not line:find("%?>") then
-        mode = "pi"
-      end
-      goto continue
-    end
-
-    -- Type 4: Declarations (e.g. <!DOCTYPE html>)
-    if line:match("^%s*<!%u") then
-      html_lines[i] = true
-      if not line:find(">", 1, true) then
-        mode = "declaration"
-      end
-      goto continue
-    end
-
-    -- Type 5: CDATA
-    if line:match("^%s*<!%[CDATA%[") then
-      html_lines[i] = true
-      if not line:find("%]%]>") then
-        mode = "cdata"
-      end
-      goto continue
-    end
-
-    -- Type 6: Block tag starts (ends on first following blank line)
-    local block_tag = line:match("^%s*</?([A-Za-z][A-Za-z0-9%-]*)[%s>/]")
-    if block_tag and HTML_BLOCK_TYPE6_TAGS[block_tag:lower()] then
-      html_lines[i] = true
-      mode = "type6"
-      goto continue
-    end
-
-    -- Type 7: Standalone open/close tag lines (ends on first following blank line)
-    local standalone_tag = line:match("^%s*<([A-Za-z][A-Za-z0-9%-]*)%f[%s/>][^>]*>%s*$")
-      or line:match("^%s*</([A-Za-z][A-Za-z0-9%-]*)%s*>%s*$")
-    if standalone_tag then
-      local tag = standalone_tag:lower()
-      if tag ~= "script" and tag ~= "pre" and tag ~= "style" and not HTML_BLOCK_TYPE6_TAGS[tag] then
-        html_lines[i] = true
-        mode = "type7"
-      end
-    end
-
-    ::continue::
   end
 
   return html_lines
