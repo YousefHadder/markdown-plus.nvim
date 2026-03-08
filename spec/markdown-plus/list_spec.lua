@@ -2077,6 +2077,75 @@ describe("markdown-plus list management", function()
     end)
   end)
 
+  describe("setup_renumber_autocmds", function()
+    it("debounces insert-mode renumber callbacks and keeps normal-mode immediate", function()
+      local renumber_module = require("markdown-plus.list.renumber")
+      local original_renumber = renumber_module.renumber_ordered_lists
+      local original_schedule = vim.schedule
+      local original_create_augroup = vim.api.nvim_create_augroup
+      local original_create_autocmd = vim.api.nvim_create_autocmd
+      local original_timer_start = vim.fn.timer_start
+      local original_timer_stop = vim.fn.timer_stop
+
+      local callbacks = {}
+      local renumber_calls = 0
+      local timer_start_calls = 0
+      local timer_stop_calls = 0
+      local pending_timer_cb = nil
+
+      renumber_module.renumber_ordered_lists = function()
+        renumber_calls = renumber_calls + 1
+      end
+      vim.schedule = function(fn)
+        fn()
+      end
+      vim.api.nvim_create_augroup = function()
+        return 999
+      end
+      vim.api.nvim_create_autocmd = function(events, opts)
+        if type(events) == "string" then
+          callbacks[events] = opts.callback
+        else
+          for _, event in ipairs(events) do
+            callbacks[event] = opts.callback
+          end
+        end
+      end
+      vim.fn.timer_start = function(_, cb)
+        timer_start_calls = timer_start_calls + 1
+        pending_timer_cb = cb
+        return 1234
+      end
+      vim.fn.timer_stop = function(_)
+        timer_stop_calls = timer_stop_calls + 1
+      end
+
+      list.setup_renumber_autocmds()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. Item" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      callbacks.TextChangedI({ buf = buf })
+      callbacks.TextChangedI({ buf = buf })
+      assert.equals(0, renumber_calls)
+      assert.equals(2, timer_start_calls)
+      assert.equals(1, timer_stop_calls)
+      assert.is_not_nil(pending_timer_cb)
+
+      pending_timer_cb()
+      assert.equals(1, renumber_calls)
+
+      callbacks.TextChanged({ buf = buf })
+      assert.equals(2, renumber_calls)
+
+      renumber_module.renumber_ordered_lists = original_renumber
+      vim.schedule = original_schedule
+      vim.api.nvim_create_augroup = original_create_augroup
+      vim.api.nvim_create_autocmd = original_create_autocmd
+      vim.fn.timer_start = original_timer_start
+      vim.fn.timer_stop = original_timer_stop
+    end)
+  end)
+
   describe("handle_normal_o", function()
     it("creates next parent ordered item when on last nested child", function()
       vim.bo[buf].shiftwidth = 2

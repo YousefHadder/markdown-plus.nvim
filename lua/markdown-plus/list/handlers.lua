@@ -4,6 +4,10 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
+local CONTEXT_LOOKBACK = 100
+local CONTEXT_LOOKAHEAD = 100
+local MAX_LAST_ITEM_LOOKAHEAD = 50
+
 ---@type markdown-plus.InternalConfig
 local config = {}
 
@@ -55,9 +59,41 @@ end
 ---@param current_line string Current line content
 ---@return table|nil, number|nil List info and row number of parent, or nil if not found
 local function find_parent_list_item(current_row, current_line)
-  -- Get all buffer lines for the search
-  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-  return shared.find_parent_list_item(current_line, current_row, lines)
+  local start_row = math.max(1, current_row - shared.MAX_PARENT_LOOKBACK)
+  local lines = vim.api.nvim_buf_get_lines(0, start_row - 1, current_row, false)
+  local line_map = {}
+  for idx, line in ipairs(lines) do
+    line_map[start_row + idx - 1] = line
+  end
+
+  return shared.find_parent_list_item(current_line, current_row, line_map)
+end
+
+---Get a windowed line map keyed by absolute row number
+---@param start_row number
+---@param end_row number
+---@return table<number, string>
+local function get_line_window(start_row, end_row)
+  local lines = vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
+  local line_map = {}
+  for idx, line in ipairs(lines) do
+    line_map[start_row + idx - 1] = line
+  end
+  return line_map
+end
+
+---Get context lines around a row as an absolute-row map
+---@param row number
+---@param lookback number
+---@param lookahead number
+---@return table<number, string> lines_by_row
+---@return number line_count
+local function get_context_lines(row, lookback, lookahead)
+  local line_count = vim.api.nvim_buf_line_count(0)
+  local start_row = math.max(1, row - lookback)
+  local end_row = math.min(line_count, row + lookahead)
+  local lines_by_row = get_line_window(start_row, end_row)
+  return lines_by_row, line_count
 end
 
 ---Break out of list (remove current empty item)
@@ -264,7 +300,7 @@ function M.handle_shift_tab()
 
   if smart_outdent_enabled() then
     local target_indent = #new_indent
-    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local lines, _ = get_context_lines(row, CONTEXT_LOOKBACK, 0)
     local parent_list = shared.find_parent_list_at_indent(row, target_indent, lines)
     if parent_list then
       new_marker = parser.get_next_marker(parent_list)
@@ -337,13 +373,14 @@ end
 ---Handle normal mode 'o' key
 ---@param row number
 ---@param indent_level number
----@param lines string[]
+---@param lines table<number, string>
+---@param max_scan_row number
 ---@return boolean
-local function is_last_item_at_indent(row, indent_level, lines)
-  for i = row + 1, #lines do
+local function is_last_item_at_indent(row, indent_level, lines, max_scan_row)
+  for i = row + 1, max_scan_row do
     local line = lines[i]
     if not line then
-      break
+      return true
     end
 
     local next_list = parser.parse_list_line(line, i)
@@ -367,6 +404,8 @@ local function is_last_item_at_indent(row, indent_level, lines)
     end
   end
 
+  -- We intentionally bound scanning for performance and assume "last item"
+  -- when no sibling or break is found in the lookahead window.
   return true
 end
 
@@ -389,9 +428,10 @@ function M.handle_normal_o()
   if smart_outdent_enabled() then
     local current_indent = #list_info.indent
     local indent_size = vim.bo.shiftwidth
-    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local lines, line_count = get_context_lines(row, CONTEXT_LOOKBACK, CONTEXT_LOOKAHEAD)
+    local max_scan_row = math.min(line_count, row + MAX_LAST_ITEM_LOOKAHEAD)
 
-    if current_indent >= indent_size and is_last_item_at_indent(row, current_indent, lines) then
+    if current_indent >= indent_size and is_last_item_at_indent(row, current_indent, lines, max_scan_row) then
       local target_indent = current_indent - indent_size
       local parent_list = shared.find_parent_list_at_indent(row, target_indent, lines)
 

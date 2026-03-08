@@ -4,6 +4,11 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
+local ORDERED_LIST_CANDIDATE_PATTERNS = {
+  "^%s*%d+[%.%)]",
+  "^%s*[A-Za-z][%.%)]",
+}
+
 ---@type markdown-plus.InternalConfig
 local config = {}
 
@@ -362,9 +367,64 @@ function M.renumber_list_group(group)
   return #changes > 0 and changes or nil
 end
 
+---Cheap pre-filter to skip expensive parsing when no ordered list candidates exist
+---@param lines string[]
+---@return boolean
+local function has_ordered_list_candidates(lines)
+  for _, line in ipairs(lines) do
+    for _, pattern in ipairs(ORDERED_LIST_CANDIDATE_PATTERNS) do
+      if line:match(pattern) then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+---Apply line changes using contiguous batch writes
+---@param changes {line_num: integer, new_line: string}[]
+local function apply_changes(changes)
+  table.sort(changes, function(a, b)
+    return a.line_num < b.line_num
+  end)
+
+  local start_line = nil
+  local end_line = nil
+  local replacement_lines = {}
+
+  local function flush_segment()
+    if not start_line then
+      return
+    end
+    vim.api.nvim_buf_set_lines(0, start_line - 1, end_line, false, replacement_lines)
+  end
+
+  for _, change in ipairs(changes) do
+    if not start_line then
+      start_line = change.line_num
+      end_line = change.line_num
+      replacement_lines = { change.new_line }
+    elseif change.line_num == end_line + 1 then
+      end_line = change.line_num
+      table.insert(replacement_lines, change.new_line)
+    else
+      flush_segment()
+      start_line = change.line_num
+      end_line = change.line_num
+      replacement_lines = { change.new_line }
+    end
+  end
+
+  flush_segment()
+end
+
 ---Renumber all ordered lists in the buffer
 function M.renumber_ordered_lists()
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  if not has_ordered_list_candidates(lines) then
+    return
+  end
+
   local modified = false
   local changes = {}
 
@@ -384,9 +444,7 @@ function M.renumber_ordered_lists()
 
   -- Apply changes if any were made
   if modified then
-    for _, change in ipairs(changes) do
-      utils.set_line(change.line_num, change.new_line)
-    end
+    apply_changes(changes)
   end
 end
 
