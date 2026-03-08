@@ -1751,42 +1751,42 @@ CALLOUTS ~
 TABLES ~
 
     Basic operations:
-    <Plug>(markdown-plus-table-create)              - Create table (n)
-    <Plug>(markdown-plus-table-format)              - Format table (n)
-    <Plug>(markdown-plus-table-normalize)           - Normalize table (n)
+    <Plug>(MarkdownPlusTableCreate)                 - Create table (n)
+    <Plug>(MarkdownPlusTableFormat)                 - Format table (n)
+    <Plug>(MarkdownPlusTableNormalize)              - Normalize table (n)
 
     Row operations:
-    <Plug>(markdown-plus-table-insert-row-below)    - Insert row below (n)
-    <Plug>(markdown-plus-table-insert-row-above)    - Insert row above (n)
-    <Plug>(markdown-plus-table-delete-row)          - Delete row (n)
-    <Plug>(markdown-plus-table-duplicate-row)       - Duplicate row (n)
-    <Plug>(markdown-plus-table-move-row-up)         - Move row up (n)
-    <Plug>(markdown-plus-table-move-row-down)       - Move row down (n)
+    <Plug>(MarkdownPlusTableInsertRowBelow)         - Insert row below (n)
+    <Plug>(MarkdownPlusTableInsertRowAbove)         - Insert row above (n)
+    <Plug>(MarkdownPlusTableDeleteRow)              - Delete row (n)
+    <Plug>(MarkdownPlusTableDuplicateRow)           - Duplicate row (n)
+    <Plug>(MarkdownPlusTableMoveRowUp)              - Move row up (n)
+    <Plug>(MarkdownPlusTableMoveRowDown)            - Move row down (n)
 
     Column operations:
-    <Plug>(markdown-plus-table-insert-column-right) - Insert column right (n)
-    <Plug>(markdown-plus-table-insert-column-left)  - Insert column left (n)
-    <Plug>(markdown-plus-table-delete-column)       - Delete column (n)
-    <Plug>(markdown-plus-table-duplicate-column)    - Duplicate column (n)
-    <Plug>(markdown-plus-table-move-column-left)    - Move column left (n)
-    <Plug>(markdown-plus-table-move-column-right)   - Move column right (n)
+    <Plug>(MarkdownPlusTableInsertColumnRight)      - Insert column right (n)
+    <Plug>(MarkdownPlusTableInsertColumnLeft)       - Insert column left (n)
+    <Plug>(MarkdownPlusTableDeleteColumn)           - Delete column (n)
+    <Plug>(MarkdownPlusTableDuplicateColumn)        - Duplicate column (n)
+    <Plug>(MarkdownPlusTableMoveColumnLeft)         - Move column left (n)
+    <Plug>(MarkdownPlusTableMoveColumnRight)        - Move column right (n)
 
     Cell operations:
-    <Plug>(markdown-plus-table-toggle-cell-alignment) - Toggle alignment (n)
-    <Plug>(markdown-plus-table-clear-cell)           - Clear cell (n)
+    <Plug>(MarkdownPlusTableToggleCellAlignment)    - Toggle alignment (n)
+    <Plug>(MarkdownPlusTableClearCell)              - Clear cell (n)
 
     Advanced operations:
-    <Plug>(markdown-plus-table-transpose)           - Transpose table (n)
-    <Plug>(markdown-plus-table-sort-ascending)      - Sort ascending (n)
-    <Plug>(markdown-plus-table-sort-descending)     - Sort descending (n)
-    <Plug>(markdown-plus-table-to-csv)              - To CSV (n)
-    <Plug>(markdown-plus-table-from-csv)            - From CSV (n)
+    <Plug>(MarkdownPlusTableTranspose)              - Transpose table (n)
+    <Plug>(MarkdownPlusTableSortAscending)          - Sort ascending (n)
+    <Plug>(MarkdownPlusTableSortDescending)         - Sort descending (n)
+    <Plug>(MarkdownPlusTableToCSV)                  - To CSV (n)
+    <Plug>(MarkdownPlusTableFromCSV)                - From CSV (n)
 
     Insert mode navigation:
-    <Plug>(markdown-plus-table-nav-left)            - Move to cell left (i)
-    <Plug>(markdown-plus-table-nav-right)           - Move to cell right (i)
-    <Plug>(markdown-plus-table-nav-up)              - Move to cell above (i)
-    <Plug>(markdown-plus-table-nav-down)            - Move to cell below (i)
+    <Plug>(MarkdownPlusTableNavLeft)                - Move to cell left (i)
+    <Plug>(MarkdownPlusTableNavRight)               - Move to cell right (i)
+    <Plug>(MarkdownPlusTableNavUp)                  - Move to cell above (i)
+    <Plug>(MarkdownPlusTableNavDown)                - Move to cell below (i)
 
 FOOTNOTES ~
 
@@ -1808,7 +1808,7 @@ Example custom mapping: ~
 
     -- Create custom keymaps
     vim.keymap.set('n', '<C-b>', '<Plug>(MarkdownPlusBold)')
-    vim.keymap.set('n', '<localleader>tt', '<Plug>(markdown-plus-table-transpose)')
+    vim.keymap.set('n', '<localleader>tt', '<Plug>(MarkdownPlusTableTranspose)')
 <
 
 

@@ -137,13 +137,12 @@ describe("markdown-plus configuration", function()
       local mappings_n = vim.api.nvim_buf_get_keymap(buf, "n")
       local mappings_i = vim.api.nvim_buf_get_keymap(buf, "i")
 
-      -- Helper to check if a mapping is from markdown-plus (matches both naming conventions)
+      -- Helper to check if a mapping is from markdown-plus
       local function is_markdown_plus_mapping(map)
         if not map.rhs then
           return false
         end
-        -- Match both <Plug>(MarkdownPlus...) and <Plug>(markdown-plus-...)
-        return map.rhs:match("<Plug>%(MarkdownPlus") or map.rhs:match("<Plug>%(markdown%-plus")
+        return map.rhs:match("<Plug>%(MarkdownPlus")
       end
 
       -- Count only BUFFER-LOCAL markdown-plus keymaps in normal mode

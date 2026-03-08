@@ -32,7 +32,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
   return {
     -- Table creation & formatting
     {
-      plug = "markdown-plus-table-create",
+      plug = keymap_helper.plug_name("TableCreate"),
       fn = function()
         require("markdown-plus.table.creator").create_table_interactive()
       end,
@@ -41,7 +41,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Create new table",
     },
     {
-      plug = "markdown-plus-table-format",
+      plug = keymap_helper.plug_name("TableFormat"),
       fn = function()
         require("markdown-plus.table").format_table()
       end,
@@ -50,7 +50,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Format table",
     },
     {
-      plug = "markdown-plus-table-normalize",
+      plug = keymap_helper.plug_name("TableNormalize"),
       fn = function()
         require("markdown-plus.table").normalize_table()
       end,
@@ -61,7 +61,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
 
     -- Row operations
     {
-      plug = "markdown-plus-table-insert-row-below",
+      plug = keymap_helper.plug_name("TableInsertRowBelow"),
       fn = function()
         require("markdown-plus.table").insert_row_below()
       end,
@@ -70,7 +70,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Insert row below",
     },
     {
-      plug = "markdown-plus-table-insert-row-above",
+      plug = keymap_helper.plug_name("TableInsertRowAbove"),
       fn = function()
         require("markdown-plus.table").insert_row_above()
       end,
@@ -79,7 +79,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Insert row above",
     },
     {
-      plug = "markdown-plus-table-delete-row",
+      plug = keymap_helper.plug_name("TableDeleteRow"),
       fn = function()
         require("markdown-plus.table").delete_row()
       end,
@@ -88,7 +88,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Delete row",
     },
     {
-      plug = "markdown-plus-table-duplicate-row",
+      plug = keymap_helper.plug_name("TableDuplicateRow"),
       fn = function()
         require("markdown-plus.table.manipulation").duplicate_row()
       end,
@@ -99,7 +99,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
 
     -- Column operations
     {
-      plug = "markdown-plus-table-insert-column-right",
+      plug = keymap_helper.plug_name("TableInsertColumnRight"),
       fn = function()
         require("markdown-plus.table").insert_column_right()
       end,
@@ -108,7 +108,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Insert column right",
     },
     {
-      plug = "markdown-plus-table-insert-column-left",
+      plug = keymap_helper.plug_name("TableInsertColumnLeft"),
       fn = function()
         require("markdown-plus.table").insert_column_left()
       end,
@@ -117,7 +117,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Insert column left",
     },
     {
-      plug = "markdown-plus-table-delete-column",
+      plug = keymap_helper.plug_name("TableDeleteColumn"),
       fn = function()
         require("markdown-plus.table").delete_column()
       end,
@@ -126,7 +126,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Delete column",
     },
     {
-      plug = "markdown-plus-table-duplicate-column",
+      plug = keymap_helper.plug_name("TableDuplicateColumn"),
       fn = function()
         require("markdown-plus.table.manipulation").duplicate_column()
       end,
@@ -137,7 +137,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
 
     -- Cell operations
     {
-      plug = "markdown-plus-table-toggle-cell-alignment",
+      plug = keymap_helper.plug_name("TableToggleCellAlignment"),
       fn = function()
         require("markdown-plus.table").toggle_cell_alignment()
       end,
@@ -146,7 +146,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Toggle cell alignment (left/center/right)",
     },
     {
-      plug = "markdown-plus-table-clear-cell",
+      plug = keymap_helper.plug_name("TableClearCell"),
       fn = function()
         require("markdown-plus.table").clear_cell()
       end,
@@ -157,7 +157,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
 
     -- Row movement
     {
-      plug = "markdown-plus-table-move-row-down",
+      plug = keymap_helper.plug_name("TableMoveRowDown"),
       fn = function()
         require("markdown-plus.table").move_row_down()
       end,
@@ -166,7 +166,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Move row down",
     },
     {
-      plug = "markdown-plus-table-move-row-up",
+      plug = keymap_helper.plug_name("TableMoveRowUp"),
       fn = function()
         require("markdown-plus.table").move_row_up()
       end,
@@ -177,7 +177,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
 
     -- Column movement
     {
-      plug = "markdown-plus-table-move-column-left",
+      plug = keymap_helper.plug_name("TableMoveColumnLeft"),
       fn = function()
         require("markdown-plus.table").move_column_left()
       end,
@@ -186,7 +186,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Move column left",
     },
     {
-      plug = "markdown-plus-table-move-column-right",
+      plug = keymap_helper.plug_name("TableMoveColumnRight"),
       fn = function()
         require("markdown-plus.table").move_column_right()
       end,
@@ -197,7 +197,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
 
     -- Advanced operations
     {
-      plug = "markdown-plus-table-transpose",
+      plug = keymap_helper.plug_name("TableTranspose"),
       fn = function()
         require("markdown-plus.table").transpose_table()
       end,
@@ -206,7 +206,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Transpose table (swap rows/columns)",
     },
     {
-      plug = "markdown-plus-table-sort-ascending",
+      plug = keymap_helper.plug_name("TableSortAscending"),
       fn = function()
         require("markdown-plus.table").sort_ascending()
       end,
@@ -215,7 +215,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Sort table by column (ascending)",
     },
     {
-      plug = "markdown-plus-table-sort-descending",
+      plug = keymap_helper.plug_name("TableSortDescending"),
       fn = function()
         require("markdown-plus.table").sort_descending()
       end,
@@ -224,7 +224,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Sort table by column (descending)",
     },
     {
-      plug = "markdown-plus-table-to-csv",
+      plug = keymap_helper.plug_name("TableToCSV"),
       fn = function()
         require("markdown-plus.table").table_to_csv()
       end,
@@ -233,7 +233,7 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       desc = "Convert table to CSV",
     },
     {
-      plug = "markdown-plus-table-from-csv",
+      plug = keymap_helper.plug_name("TableFromCSV"),
       fn = function()
         require("markdown-plus.table").csv_to_table()
       end,
@@ -244,28 +244,28 @@ local function get_keymap_defs(prefix, include_insert_defaults)
 
     -- Insert mode navigation (with fallback behavior)
     {
-      plug = "markdown-plus-table-nav-left",
+      plug = keymap_helper.plug_name("TableNavLeft"),
       fn = insert_nav_with_fallback("left", "<Left>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-h>" or nil,
       desc = "Navigate to cell left or move cursor left",
     },
     {
-      plug = "markdown-plus-table-nav-right",
+      plug = keymap_helper.plug_name("TableNavRight"),
       fn = insert_nav_with_fallback("right", "<Right>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-l>" or nil,
       desc = "Navigate to cell right or move cursor right",
     },
     {
-      plug = "markdown-plus-table-nav-up",
+      plug = keymap_helper.plug_name("TableNavUp"),
       fn = insert_nav_with_fallback("up", "<Up>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-k>" or nil,
       desc = "Navigate to cell above or move cursor up",
     },
     {
-      plug = "markdown-plus-table-nav-down",
+      plug = keymap_helper.plug_name("TableNavDown"),
       fn = insert_nav_with_fallback("down", "<Down>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-j>" or nil,
