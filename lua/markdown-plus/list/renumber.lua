@@ -4,10 +4,26 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
+---@type markdown-plus.InternalConfig
+local config = {}
+
 -- Recognized fence patterns — capture the fence character and its full run
 -- e.g. "    ```python" captures indent="    ", fence_char="`", fence_run="```"
 local CODE_FENCE_OPEN_PATTERN = "^(%s*)((`+)(.*))"
 local CODE_FENCE_TILDE_OPEN_PATTERN = "^(%s*)((~+)(.*))"
+
+---Set module configuration
+---@param cfg markdown-plus.InternalConfig
+---@return nil
+function M.set_config(cfg)
+  config = cfg or {}
+end
+
+---Check whether HTML block awareness is enabled (default: true)
+---@return boolean
+local function html_awareness_enabled()
+  return not (config.features and config.features.html_block_awareness == false)
+end
 
 ---Parse a line as a potential code fence opener or closer.
 ---Tracks fence character type and length per CommonMark §4.5:
@@ -150,6 +166,74 @@ function M.is_list_breaking_line(line, line_num, lines)
   return true
 end
 
+---Check whether groups can be merged without crossing structural separators.
+---All lines between groups must be blank or deeper-indented than parent indent.
+---@param lines string[]
+---@param start_line number
+---@param end_line number
+---@param parent_indent number
+---@return boolean
+local function can_merge_between(lines, start_line, end_line, parent_indent)
+  local saw_nested_content = false
+
+  for line_num = start_line + 1, end_line - 1 do
+    local line = lines[line_num] or ""
+    if not line:match("^%s*$") then
+      local list_info = parser.parse_list_line(line, line_num)
+      if list_info then
+        if #list_info.indent <= parent_indent then
+          return false
+        end
+        saw_nested_content = true
+      else
+        local indent = #(line:match("^(%s*)") or "")
+        if indent <= parent_indent then
+          return false
+        end
+        saw_nested_content = true
+      end
+    end
+  end
+
+  return saw_nested_content
+end
+
+---Merge same-indent/type groups fragmented by nested children.
+---@param groups table[]
+---@param lines string[]
+---@return table[]
+local function merge_fragmented_groups(groups, lines)
+  if #groups < 2 then
+    return groups
+  end
+
+  local merged = {}
+  for _, group in ipairs(groups) do
+    local previous = merged[#merged]
+    local can_merge = previous
+      and previous.indent == group.indent
+      and previous.list_type == group.list_type
+      and #previous.items > 0
+      and #group.items > 0
+
+    if can_merge then
+      local prev_end = previous.items[#previous.items].line_num
+      local next_start = group.items[1].line_num
+      if can_merge_between(lines, prev_end, next_start, previous.indent) then
+        for _, item in ipairs(group.items) do
+          table.insert(previous.items, item)
+        end
+      else
+        table.insert(merged, group)
+      end
+    else
+      table.insert(merged, group)
+    end
+  end
+
+  return merged
+end
+
 ---Find all distinct list groups in the buffer
 ---@param lines string[] All buffer lines
 ---@return table[] List of list groups
@@ -157,8 +241,16 @@ function M.find_list_groups(lines)
   local groups = {}
   local current_groups_by_indent = {} -- Track active groups by indentation level
   local code_block_lines, non_indented_regions = get_fenced_code_block_lines(lines)
+  local html_block_lines = {}
+  if html_awareness_enabled() then
+    html_block_lines = utils.get_html_block_lines(lines)
+  end
 
   for i, line in ipairs(lines) do
+    if html_block_lines[i] then
+      goto continue
+    end
+
     if code_block_lines[i] then
       -- Non-indented (column 0) code blocks are structural separators per
       -- CommonMark — they break list continuity even without surrounding
@@ -234,7 +326,7 @@ function M.find_list_groups(lines)
     ::continue::
   end
 
-  return groups
+  return merge_fragmented_groups(groups, lines)
 end
 
 ---Renumber items in a list group

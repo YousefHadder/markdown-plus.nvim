@@ -22,6 +22,8 @@ function M.setup(config)
   M.config = config or {}
   -- Pass list-specific config to checkbox module
   checkbox.setup(M.config.list)
+  handlers.set_config(M.config)
+  renumber.set_config(M.config)
 end
 
 ---Enable list features for current buffer
@@ -76,14 +78,14 @@ function M.setup_keymaps()
       plug = keymap_helper.plug_name("RenumberLists"),
       fn = renumber.renumber_ordered_lists,
       modes = "n",
-      default_key = "<leader>mr",
+      default_key = "<localleader>mr",
       desc = "Renumber ordered lists",
     },
     {
       plug = keymap_helper.plug_name("DebugLists"),
       fn = renumber.debug_list_groups,
       modes = "n",
-      default_key = "<leader>md",
+      default_key = "<localleader>md",
       desc = "Debug list groups",
     },
     {
@@ -108,7 +110,7 @@ function M.setup_keymaps()
         checkbox.toggle_checkbox_insert,
       },
       modes = { "n", "x", "i" },
-      default_key = { "<leader>mx", "<leader>mx", "<C-t>" },
+      default_key = { "<localleader>mx", "<localleader>mx", "<C-t>" },
       desc = "Toggle checkbox",
     },
   })

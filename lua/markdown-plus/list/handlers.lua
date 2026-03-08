@@ -4,6 +4,22 @@ local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local M = {}
 
+---@type markdown-plus.InternalConfig
+local config = {}
+
+---Set module configuration
+---@param cfg markdown-plus.InternalConfig
+---@return nil
+function M.set_config(cfg)
+  config = cfg or {}
+end
+
+---Check whether smart outdent behavior is enabled (default: true)
+---@return boolean
+local function smart_outdent_enabled()
+  return not (config.list and config.list.smart_outdent == false)
+end
+
 ---Build the prefix string for a new list item (indent + marker + optional checkbox)
 ---@param indent string Indentation string
 ---@param marker string List marker (e.g., "-", "1.", "a)")
@@ -244,12 +260,27 @@ function M.handle_shift_tab()
 
   local new_indent = list_info.indent:sub(1, #list_info.indent - indent_size)
   local content = shared.extract_list_content(current_line, list_info)
-  local new_line = new_indent .. list_info.full_marker .. " " .. content
+  local new_marker = list_info.full_marker
+
+  if smart_outdent_enabled() then
+    local target_indent = #new_indent
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    local parent_list = shared.find_parent_list_at_indent(row, target_indent, lines)
+    if parent_list then
+      new_marker = parser.get_next_marker(parent_list)
+      if list_info.checkbox then
+        new_marker = new_marker .. " [" .. list_info.checkbox .. "]"
+      end
+    end
+  end
+
+  local new_line = new_indent .. new_marker .. " " .. content
 
   utils.set_line(row, new_line)
 
   -- Adjust cursor position
-  local new_col = math.max(0, col - indent_size)
+  local marker_delta = #new_marker - #list_info.full_marker
+  local new_col = math.max(0, col - indent_size + marker_delta)
   utils.set_cursor(row, new_col)
 end
 
@@ -304,6 +335,41 @@ function M.handle_backspace()
 end
 
 ---Handle normal mode 'o' key
+---@param row number
+---@param indent_level number
+---@param lines string[]
+---@return boolean
+local function is_last_item_at_indent(row, indent_level, lines)
+  for i = row + 1, #lines do
+    local line = lines[i]
+    if not line then
+      break
+    end
+
+    local next_list = parser.parse_list_line(line, i)
+    if next_list then
+      local next_indent = #next_list.indent
+      if next_indent == indent_level then
+        return false
+      end
+      if next_indent < indent_level then
+        return true
+      end
+    else
+      if line:match("^%s*$") then
+        return true
+      end
+
+      local line_indent = #(line:match("^(%s*)") or "")
+      if line_indent <= indent_level then
+        return true
+      end
+    end
+  end
+
+  return true
+end
+
 function M.handle_normal_o()
   local current_line = utils.get_current_line()
   local cursor = utils.get_cursor()
@@ -318,6 +384,27 @@ function M.handle_normal_o()
     utils.set_cursor(row + 1, 0)
     vim.cmd("startinsert")
     return
+  end
+
+  if smart_outdent_enabled() then
+    local current_indent = #list_info.indent
+    local indent_size = vim.bo.shiftwidth
+    local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+
+    if current_indent >= indent_size and is_last_item_at_indent(row, current_indent, lines) then
+      local target_indent = current_indent - indent_size
+      local parent_list = shared.find_parent_list_at_indent(row, target_indent, lines)
+
+      if parent_list then
+        local next_parent_marker = parser.get_next_marker(parent_list)
+        local next_parent_line = build_list_prefix(parent_list.indent, next_parent_marker, parent_list.checkbox)
+
+        utils.insert_line(row + 1, next_parent_line)
+        utils.set_cursor(row + 1, #next_parent_line)
+        vim.cmd("startinsert!")
+        return
+      end
+    end
   end
 
   -- Create next list item below
