@@ -171,7 +171,6 @@ describe("markdown-plus configuration", function()
       -- Clean up
       vim.api.nvim_buf_delete(buf, { force = true })
     end)
-
   end)
 
   describe("keymap setup with buffer-local detection", function()
