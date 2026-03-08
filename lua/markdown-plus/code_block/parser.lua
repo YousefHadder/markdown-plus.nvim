@@ -1,5 +1,3 @@
-local utils = require("markdown-plus.utils")
-
 local M = {}
 
 ---@class markdown-plus.CodeBlockInfo
@@ -16,7 +14,7 @@ local M = {}
 
 ---@param line string
 ---@return {indent: string, fence_char: "`"|"~", fence_length: number, info_string: string, language: string}|nil
-local function parse_opening_fence(line)
+function M.parse_opening_fence(line)
   local indent, fence, info = line:match("^(%s*)(`+)(.*)$")
   local fence_char = "`"
   if not fence then
@@ -43,7 +41,7 @@ end
 ---@param line string
 ---@param open_fence {fence_char: "`"|"~", fence_length: number}
 ---@return {indent: string, fence_length: number}|nil
-local function parse_closing_fence(line, open_fence)
+function M.parse_closing_fence(line, open_fence)
   local indent, fence, trailing
   if open_fence.fence_char == "`" then
     indent, fence, trailing = line:match("^(%s*)(`+)(%s*)$")
@@ -65,22 +63,22 @@ local function parse_closing_fence(line, open_fence)
   }
 end
 
----Find all fenced code blocks in the current buffer
+---Find all fenced code blocks in a list of lines
+---@param lines string[]
 ---@return markdown-plus.CodeBlockInfo[]
-function M.find_all_blocks()
-  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+function M.find_all_blocks_in_lines(lines)
   local blocks = {}
   local i = 1
 
   while i <= #lines do
-    local opening = parse_opening_fence(lines[i])
+    local opening = M.parse_opening_fence(lines[i])
     if not opening then
       i = i + 1
     else
       local closing_line = nil
       local closing = nil
       for j = i + 1, #lines do
-        closing = parse_closing_fence(lines[j], opening)
+        closing = M.parse_closing_fence(lines[j], opening)
         if closing then
           closing_line = j
           break
@@ -108,10 +106,17 @@ function M.find_all_blocks()
   return blocks
 end
 
+---Find all fenced code blocks in the current buffer
+---@return markdown-plus.CodeBlockInfo[]
+function M.find_all_blocks()
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  return M.find_all_blocks_in_lines(lines)
+end
+
 ---Find the fenced code block containing the cursor
 ---@return markdown-plus.CodeBlockInfo|nil
 function M.find_block_at_cursor()
-  local row = utils.get_cursor()[1]
+  local row = vim.api.nvim_win_get_cursor(0)[1]
   local blocks = M.find_all_blocks()
   for _, block in ipairs(blocks) do
     if row >= block.start_line and row <= block.end_line then

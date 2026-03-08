@@ -86,6 +86,24 @@ describe("markdown-plus code_block", function()
       }, lines)
     end)
 
+    it("supports asynchronous language pickers", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "before", "after" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.ui.select = function(_, _, on_choice)
+        vim.defer_fn(function()
+          on_choice("lua")
+        end, 20)
+      end
+
+      code_block.insert_with_language()
+
+      local ok = vim.wait(500, function()
+        local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+        return lines[2] == "```lua"
+      end, 10)
+      assert.is_true(ok)
+    end)
+
     it("wraps visual selection in fenced code block", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "one", "two", "three" })
       vim.api.nvim_win_set_cursor(0, { 2, 0 })
@@ -206,7 +224,11 @@ describe("markdown-plus code_block", function()
 
       assert.is_true(vim.fn.hasmapto("<Plug>(MarkdownPlusCodeBlockInsert)", "n") == 1)
       assert.is_true(vim.fn.hasmapto("<Plug>(MarkdownPlusCodeBlockInsert)", "x") == 1)
+      assert.is_true(vim.fn.hasmapto("<Plug>(MarkdownPlusCodeBlockNext)", "n") == 1)
+      assert.is_true(vim.fn.hasmapto("<Plug>(MarkdownPlusCodeBlockPrev)", "n") == 1)
       assert.is_true(vim.fn.hasmapto("<Plug>(MarkdownPlusCodeBlockChangeLanguage)", "n") == 1)
+      assert.are.equal("<Plug>(MarkdownPlusCodeBlockNext)", vim.fn.maparg("]b", "n"))
+      assert.are.equal("<Plug>(MarkdownPlusCodeBlockPrev)", vim.fn.maparg("[b", "n"))
     end)
   end)
 end)

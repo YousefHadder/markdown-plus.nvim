@@ -1,14 +1,6 @@
 -- Common utilities for markdown-plus.nvim
 local M = {}
 
-local ASCII_ESCAPABLE_PUNCTUATION = [[!"#$%&'()*+,-./:;<=>?@[\]^_`{|}~]]
-
----@param char string
----@return boolean
-local function is_escapable_punctuation(char)
-  return #char == 1 and ASCII_ESCAPABLE_PUNCTUATION:find(char, 1, true) ~= nil
-end
-
 ---Get current cursor position
 ---@return number[] {row, col} 1-indexed row, 0-indexed col
 function M.get_cursor()
@@ -72,85 +64,6 @@ end
 ---@return string Escaped string
 function M.escape_pattern(str)
   return str:gsub("([^%w])", "%%%1")
-end
-
----Escape markdown punctuation characters using GFM backslash escapes
----@param text string
----@return string
-function M.escape_markdown(text)
-  local out = {}
-  local i = 1
-
-  while i <= #text do
-    local char = text:sub(i, i)
-    local next_char = i < #text and text:sub(i + 1, i + 1) or ""
-
-    if char == "\\" then
-      if is_escapable_punctuation(next_char) then
-        table.insert(out, "\\")
-      else
-        table.insert(out, "\\\\")
-      end
-      i = i + 1
-    elseif is_escapable_punctuation(char) then
-      local backslash_count = 0
-      local j = i - 1
-      while j >= 1 and text:sub(j, j) == "\\" do
-        backslash_count = backslash_count + 1
-        j = j - 1
-      end
-
-      if backslash_count % 2 == 1 then
-        table.insert(out, char)
-      else
-        table.insert(out, "\\" .. char)
-      end
-      i = i + 1
-    else
-      table.insert(out, char)
-      i = i + 1
-    end
-  end
-
-  return table.concat(out)
-end
-
----Remove one level of markdown backslash escaping for punctuation characters
----@param text string
----@return string
-function M.unescape_markdown(text)
-  local out = {}
-  local i = 1
-
-  while i <= #text do
-    local char = text:sub(i, i)
-    local next_char = i < #text and text:sub(i + 1, i + 1) or ""
-
-    if char == "\\" and is_escapable_punctuation(next_char) then
-      table.insert(out, next_char)
-      i = i + 2
-    else
-      table.insert(out, char)
-      i = i + 1
-    end
-  end
-
-  return table.concat(out)
-end
-
----Check whether text contains markdown backslash escapes for punctuation
----@param text string
----@return boolean
-function M.has_escaped_markdown(text)
-  local i = 1
-  while i < #text do
-    if text:sub(i, i) == "\\" and is_escapable_punctuation(text:sub(i + 1, i + 1)) then
-      return true
-    end
-    i = i + 1
-  end
-
-  return false
 end
 
 ---Split a line at a byte column position, ensuring proper UTF-8 character boundaries.
@@ -637,14 +550,12 @@ end
 ---@return table<number, boolean> Set of line numbers inside code blocks
 function M.get_code_block_lines(lines)
   local code_lines = {}
-  local in_code_block = false
+  local code_block_parser = require("markdown-plus.code_block.parser")
+  local blocks = code_block_parser.find_all_blocks_in_lines(lines)
 
-  for i, line in ipairs(lines) do
-    if line:match("^%s*```") or line:match("^%s*~~~") then
-      code_lines[i] = true
-      in_code_block = not in_code_block
-    elseif in_code_block then
-      code_lines[i] = true
+  for _, block in ipairs(blocks) do
+    for row = block.start_line, block.end_line do
+      code_lines[row] = true
     end
   end
 

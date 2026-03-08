@@ -1107,23 +1107,6 @@ describe("markdown-plus utils", function()
     end)
   end)
 
-  describe("markdown escape helpers", function()
-    it("escapes ASCII punctuation for markdown literals", function()
-      local escaped = utils.escape_markdown("Hello *world* [link](url)!")
-      assert.are.equal("Hello \\*world\\* \\[link\\]\\(url\\)\\!", escaped)
-    end)
-
-    it("does not double-escape already escaped punctuation", function()
-      local escaped = utils.escape_markdown("\\*already\\* and *new*")
-      assert.are.equal("\\*already\\* and \\*new\\*", escaped)
-    end)
-
-    it("unescapes escaped markdown punctuation", function()
-      local unescaped = utils.unescape_markdown("\\*world\\* \\[link\\]\\(url\\)")
-      assert.are.equal("*world* [link](url)", unescaped)
-    end)
-  end)
-
   describe("build_markdown_link", function()
     it("builds simple link without title", function()
       assert.are.equal("[text](https://example.com)", utils.build_markdown_link("text", "https://example.com"))

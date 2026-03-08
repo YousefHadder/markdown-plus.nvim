@@ -37,37 +37,30 @@ local function get_fence_delimiter()
 end
 
 ---@param current_language string
----@return string|nil
-local function select_language(current_language)
+---@param on_selected fun(language: string|nil)
+---@return nil
+local function select_language(current_language, on_selected)
   local options = vim.deepcopy(get_languages())
   table.insert(options, CUSTOM_LANGUAGE_LABEL)
 
-  local selected = nil
-  local done = false
   vim.ui.select(options, { prompt = "Code block language:" }, function(choice)
-    selected = choice
-    done = true
-  end)
-
-  if not done then
-    vim.wait(1000, function()
-      return done
-    end, 10)
-  end
-
-  if not done or not selected then
-    return nil
-  end
-
-  if selected == CUSTOM_LANGUAGE_LABEL then
-    local custom = utils.input("Code block language: ", current_language)
-    if not custom then
-      return nil
+    if not choice then
+      on_selected(nil)
+      return
     end
-    return vim.trim(custom)
-  end
 
-  return selected
+    if choice == CUSTOM_LANGUAGE_LABEL then
+      local custom = utils.input("Code block language: ", current_language)
+      if not custom then
+        on_selected(nil)
+        return
+      end
+      on_selected(vim.trim(custom))
+      return
+    end
+
+    on_selected(choice)
+  end)
 end
 
 ---@param fence string
@@ -100,17 +93,18 @@ end
 ---Insert a fenced code block below cursor with selected language
 ---@return nil
 function M.insert_with_language()
-  local language = select_language("")
-  if language == nil then
-    return
-  end
+  select_language("", function(language)
+    if language == nil then
+      return
+    end
 
-  local fence = get_fence_delimiter()
-  local opening = opening_fence_line(fence, language)
-  local row = utils.get_cursor()[1]
+    local fence = get_fence_delimiter()
+    local opening = opening_fence_line(fence, language)
+    local row = utils.get_cursor()[1]
 
-  vim.api.nvim_buf_set_lines(0, row, row, false, { opening, "", fence })
-  utils.set_cursor(row + 1, 0)
+    vim.api.nvim_buf_set_lines(0, row, row, false, { opening, "", fence })
+    utils.set_cursor(row + 1, 0)
+  end)
 end
 
 ---Wrap visual selection in a fenced code block with selected language
@@ -119,19 +113,19 @@ function M.wrap_selection()
   local selection = utils.get_visual_selection(false)
   local start_row = math.min(selection.start_row, selection.end_row)
   local end_row = math.max(selection.start_row, selection.end_row)
-
-  local language = select_language("")
-  if language == nil then
-    vim.cmd("normal! " .. ESC)
-    return
-  end
-
-  local fence = get_fence_delimiter()
-  local opening = opening_fence_line(fence, language)
-
-  vim.api.nvim_buf_set_lines(0, start_row - 1, start_row - 1, false, { opening })
-  vim.api.nvim_buf_set_lines(0, end_row + 1, end_row + 1, false, { fence })
   vim.cmd("normal! " .. ESC)
+
+  select_language("", function(language)
+    if language == nil then
+      return
+    end
+
+    local fence = get_fence_delimiter()
+    local opening = opening_fence_line(fence, language)
+
+    vim.api.nvim_buf_set_lines(0, start_row - 1, start_row - 1, false, { opening })
+    vim.api.nvim_buf_set_lines(0, end_row + 1, end_row + 1, false, { fence })
+  end)
 end
 
 ---Change language info string on the code block under cursor
@@ -143,14 +137,15 @@ function M.change_language()
     return
   end
 
-  local language = select_language(block.language or "")
-  if language == nil then
-    return
-  end
+  select_language(block.language or "", function(language)
+    if language == nil then
+      return
+    end
 
-  local fence = string.rep(block.fence_char, block.fence_length)
-  local new_line = block.opening_indent .. opening_fence_line(fence, language)
-  utils.set_line(block.start_line, new_line)
+    local fence = string.rep(block.fence_char, block.fence_length)
+    local new_line = block.opening_indent .. opening_fence_line(fence, language)
+    utils.set_line(block.start_line, new_line)
+  end)
 end
 
 ---Toggle code block fence style between backticks and tildes
@@ -201,14 +196,14 @@ function M.setup_keymaps()
       plug = keymap_helper.plug_name("CodeBlockNext"),
       fn = navigation.next_block,
       modes = "n",
-      default_key = "]c",
+      default_key = "]b",
       desc = "Jump to next fenced code block",
     },
     {
       plug = keymap_helper.plug_name("CodeBlockPrev"),
       fn = navigation.prev_block,
       modes = "n",
-      default_key = "[c",
+      default_key = "[b",
       desc = "Jump to previous fenced code block",
     },
     {

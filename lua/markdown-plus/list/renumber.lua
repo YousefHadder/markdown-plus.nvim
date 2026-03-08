@@ -2,6 +2,7 @@
 local utils = require("markdown-plus.utils")
 local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
+local code_block_parser = require("markdown-plus.code_block.parser")
 local M = {}
 
 local ORDERED_LIST_CANDIDATE_PATTERNS = {
@@ -11,47 +12,11 @@ local ORDERED_LIST_CANDIDATE_PATTERNS = {
 
 local html_awareness = true
 
--- Recognized fence patterns — capture the fence character and its full run
--- e.g. "    ```python" captures indent="    ", fence_char="`", fence_run="```"
-local CODE_FENCE_OPEN_PATTERN = "^(%s*)((`+)(.*))"
-local CODE_FENCE_TILDE_OPEN_PATTERN = "^(%s*)((~+)(.*))"
-
 ---Set HTML block awareness state
 ---@param enabled boolean
 ---@return nil
 function M.set_html_awareness(enabled)
   html_awareness = enabled ~= false
-end
-
----Parse a line as a potential code fence opener or closer.
----Tracks fence character type and length per CommonMark §4.5:
----a closing fence must use the same character as the opener, be at least
----as long, and may only be followed by spaces/tabs.
----@param line string
----@param active_fence {char: string, len: number}|nil Currently open fence, if any
----@return {indent: string, char: string, len: number}|nil info Fence info, or nil if not a fence
-local function parse_fence_line(line, active_fence)
-  for _, pat in ipairs({ CODE_FENCE_OPEN_PATTERN, CODE_FENCE_TILDE_OPEN_PATTERN }) do
-    local indent, _, fence_run, trailing = line:match(pat)
-    if fence_run then
-      local char = fence_run:sub(1, 1)
-      local len = #fence_run
-      if len >= 3 then
-        if active_fence then
-          -- Closing fence: must match char, length >= opener, and trailing
-          -- text must be whitespace-only (CommonMark §4.5)
-          if char == active_fence.char and len >= active_fence.len and trailing:match("^%s*$") then
-            return { indent = indent, char = char, len = len }
-          end
-          -- Not a valid closer — treat as content inside the block
-          return nil
-        end
-        -- Opening fence: trailing info string is allowed
-        return { indent = indent, char = char, len = len }
-      end
-    end
-  end
-  return nil
 end
 
 ---Build set of line numbers inside fenced code blocks using regex fence-toggle
@@ -71,16 +36,19 @@ local function get_fenced_code_block_lines(lines)
 
   for i, line in ipairs(lines) do
     if not active_fence then
-      local info = parse_fence_line(line, nil)
-      if info then
+      local opening = code_block_parser.parse_opening_fence(line)
+      if opening then
         code_lines[i] = true
-        active_fence = { char = info.char, len = info.len }
+        active_fence = {
+          fence_char = opening.fence_char,
+          fence_length = opening.fence_length,
+        }
         block_start = i
         -- Only column-0 fences are unambiguous structural separators.
         -- Fences indented 1+ spaces adjacent to list items are treated as
         -- nested content (the list marker width determines nesting, not the
         -- CommonMark standalone 0-3 rule which doesn't apply inside lists).
-        if #info.indent == 0 then
+        if #opening.indent == 0 then
           non_indented_regions[i] = true
         end
       end
@@ -90,8 +58,8 @@ local function get_fenced_code_block_lines(lines)
       if non_indented_regions[block_start] then
         non_indented_regions[i] = true
       end
-      local info = parse_fence_line(line, active_fence)
-      if info then
+      local closing = code_block_parser.parse_closing_fence(line, active_fence)
+      if closing then
         -- Valid closer found
         active_fence = nil
         block_start = nil

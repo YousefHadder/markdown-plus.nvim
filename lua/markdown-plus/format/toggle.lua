@@ -4,6 +4,7 @@
 local utils = require("markdown-plus.utils")
 local patterns = require("markdown-plus.format.patterns")
 local detection = require("markdown-plus.format.detection")
+local escape = require("markdown-plus.format.escape")
 local treesitter = require("markdown-plus.format.treesitter")
 local word = require("markdown-plus.format.word")
 
@@ -231,10 +232,10 @@ function M.toggle_escape_selection()
   end
 
   local new_text
-  if utils.has_escaped_markdown(text) then
-    new_text = utils.unescape_markdown(text)
+  if escape.has_escaped_markdown(text) then
+    new_text = escape.unescape_markdown(text)
   else
-    new_text = utils.escape_markdown(text)
+    new_text = escape.escape_markdown(text)
   end
 
   utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)

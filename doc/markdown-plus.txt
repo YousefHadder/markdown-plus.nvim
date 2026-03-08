@@ -75,7 +75,7 @@ FEATURES                                     *markdown-plus-introduction-feature
 - Code block operations:
   - Insert fenced code blocks with language picker
   - Wrap visual selections in fenced code blocks
-  - Navigate to next/previous code block with ]c / [c
+  - Navigate to next/previous code block with ]b / [b
   - Change language info string on the block under cursor
 
 - Links & References:
@@ -711,7 +711,7 @@ Insert or wrap fenced code blocks with language picker:
 - `<localleader>mc` (normal mode): insert fenced code block below cursor
 - `<localleader>mc` (visual mode): wrap selected lines in fenced code block
 - `<localleader>mC`: change language on code block under cursor
-- `]c` / `[c`: jump to next/previous fenced code block
+- `]b` / `[b`: jump to next/previous fenced code block
 
 >markdown
     ```lua
@@ -1449,8 +1449,8 @@ Default keymaps:
 
         -- Code block operations
         code_block_insert = '<localleader>mc',      -- Insert/wrap fenced code block
-        code_block_next = ']c',                     -- Next code block
-        code_block_prev = '[c',                     -- Previous code block
+        code_block_next = ']b',                     -- Next code block
+        code_block_prev = '[b',                     -- Previous code block
         code_block_change_language = '<localleader>mC', -- Change code block language
 
         -- Thematic breaks

@@ -5,19 +5,17 @@ local M = {}
 
 ---Formatting pattern definition
 ---@class markdown-plus.format.Pattern
----@field start string Start pattern (Lua pattern)
----@field end_pat string End pattern (Lua pattern)
 ---@field wrap string Wrapper string
 
 ---Formatting patterns for different styles
 ---@type table<string, markdown-plus.format.Pattern>
 M.patterns = {
-  bold = { start = "%*%*", end_pat = "%*%*", wrap = "**" },
-  italic = { start = "%*", end_pat = "%*", wrap = "*" },
-  strikethrough = { start = "~~", end_pat = "~~", wrap = "~~" },
-  code = { start = "`", end_pat = "`", wrap = "`" },
-  highlight = { start = "==", end_pat = "==", wrap = "==" },
-  underline = { start = "%+%+", end_pat = "%+%+", wrap = "++" },
+  bold = { wrap = "**" },
+  italic = { wrap = "*" },
+  strikethrough = { wrap = "~~" },
+  code = { wrap = "`" },
+  highlight = { wrap = "==" },
+  underline = { wrap = "++" },
 }
 
 ---Treesitter node types for format detection (markdown_inline parser)
