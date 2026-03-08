@@ -5,6 +5,24 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.11.0...v1.12.0) (2026-03-08)
+
+
+### Features
+
+* **ci:** add agentic workflow code-simplifier ([#222](https://github.com/YousefHadder/markdown-plus.nvim/issues/222)) ([d4d836b](https://github.com/YousefHadder/markdown-plus.nvim/commit/d4d836b73f27b2056b7f0ea41acba05c05e0d48f))
+* **ci:** add agentic workflow config-sync-checker ([#224](https://github.com/YousefHadder/markdown-plus.nvim/issues/224)) ([a6803f8](https://github.com/YousefHadder/markdown-plus.nvim/commit/a6803f89dd0e62a1fed0027247d8ff2b5c262d31))
+* **ci:** add agentic workflow daily-doc-updater ([#218](https://github.com/YousefHadder/markdown-plus.nvim/issues/218)) ([3cfd7b5](https://github.com/YousefHadder/markdown-plus.nvim/commit/3cfd7b505e35e7f72369417b4a31fc84369ef763))
+* **ci:** add daily-file-diet and semantic-function-refactor agentic workflows ([e337361](https://github.com/YousefHadder/markdown-plus.nvim/commit/e3373610782b48a163251a7635a82528cc563411))
+
+
+### Bug Fixes
+
+* **ci:** close verification gaps in code-simplifier agentic workflow ([#225](https://github.com/YousefHadder/markdown-plus.nvim/issues/225)) ([376c3f2](https://github.com/YousefHadder/markdown-plus.nvim/commit/376c3f295683b886494b053c03f2dad64ed88c70))
+* **ci:** harden daily-doc-updater workflow guardrails ([#220](https://github.com/YousefHadder/markdown-plus.nvim/issues/220)) ([25c3f1a](https://github.com/YousefHadder/markdown-plus.nvim/commit/25c3f1a1953a22311164ad039544d2a0f47a431d))
+* **ci:** use copilot engine for file-diet and refactor workflows ([76a4d44](https://github.com/YousefHadder/markdown-plus.nvim/commit/76a4d443d420d863cddc2b8fcd02f1f4b69fc794))
+* **list:** skip fenced code blocks in ordered list renumbering ([#214](https://github.com/YousefHadder/markdown-plus.nvim/issues/214)) ([752e7d6](https://github.com/YousefHadder/markdown-plus.nvim/commit/752e7d66c223892c509906c5ebe3a88e2069ae97))
+
 ## [1.11.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.10.0...v1.11.0) (2026-02-24)
 
 
