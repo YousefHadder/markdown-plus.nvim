@@ -1596,15 +1596,15 @@ The plugin can be configured through the setup function:
     })
 <
 
-Legacy vim.g Configuration (removed in v2.0) *markdown-plus-configuration-vim-g*
+v2.0 Migration Notes                              *markdown-plus-configuration-v2*
 
-v2.0 removes |vim.g.markdown_plus| support. Configure the plugin with
-`require('markdown-plus').setup(opts)` only.
-
-Migration:
+v2.0 includes several migration items:
   1. Remove any `vim.g.markdown_plus = ...` assignments.
-  2. Move that configuration into `setup({ ... })`.
-  3. For lazy.nvim, use `opts = {}` (or your custom opts table).
+  2. Configure explicitly with `require('markdown-plus').setup(opts)` (or lazy.nvim `opts = {}`).
+  3. Default mappings now use `<localleader>` instead of `<leader>`.
+  4. Internal API for integrations changed:
+     `markdown-plus.headers.parse_header(line, next_line)`
+     (the extra `next_line` enables setext heading detection).
 
                                         *markdown-plus-configuration-filetypes*
 

@@ -22,6 +22,9 @@
 
 A comprehensive Neovim plugin that provides modern markdown editing capabilities, implementing features found in popular editors like Typora, Mark Text, and Obsidian.
 
+> [!NOTE]
+> **v2.0 includes breaking changes.** Please read the migration guide before upgrading: [v2.0 Migration Guide (Wiki)](https://github.com/YousefHadder/markdown-plus.nvim/wiki/9.v2.0-Migration-Guide).
+
 **Key Features:** Zero dependencies • Works with any filetype • Full test coverage (85%+) • Extensively documented
 
 ## Examples features
@@ -64,8 +67,9 @@ That's it! The plugin will automatically activate with default keymaps when you 
 
 ### v2.0 migration notes
 
-- `vim.g.markdown_plus` configuration was removed; use `setup(opts)`/`opts = {}` only.
+- `vim.g.markdown_plus` configuration was removed; call `require("markdown-plus").setup(opts)` (or lazy.nvim `opts = {}`) explicitly.
 - Default mappings now use `<localleader>` instead of `<leader>`.
+- Internal API change for plugin integrators: `headers.parse_header()` now expects `(line, next_line)` to support setext headings.
 - New toggle: `features.html_block_awareness = true` skips formatting/list/header operations inside HTML blocks.
 - New heading toggle: `<localleader>ms` switches ATX/setext heading style (H1/H2).
 - New thematic-break commands: `<localleader>mh` (insert) and `<localleader>mH` (cycle style).
