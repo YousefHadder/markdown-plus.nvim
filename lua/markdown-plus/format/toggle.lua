@@ -213,6 +213,34 @@ function M.clear_formatting()
   vim.cmd("normal! " .. ESC)
 end
 
+---Toggle markdown escaping on visual selection
+---Escapes punctuation if unescaped, unescapes if already escaped.
+---@return nil
+function M.toggle_escape_selection()
+  local selection = utils.get_visual_selection()
+
+  if html_awareness_enabled() and selection_in_html_block(selection) then
+    vim.cmd("normal! " .. ESC)
+    return
+  end
+
+  local text = utils.get_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col)
+  if text == "" then
+    vim.cmd("normal! " .. ESC)
+    return
+  end
+
+  local new_text
+  if utils.has_escaped_markdown(text) then
+    new_text = utils.unescape_markdown(text)
+  else
+    new_text = utils.escape_markdown(text)
+  end
+
+  utils.set_text_in_range(selection.start_row, selection.start_col, selection.end_row, selection.end_col, new_text)
+  vim.cmd("normal! " .. ESC)
+end
+
 ---Remove all formatting from current word
 ---@return nil
 function M.clear_formatting_word()

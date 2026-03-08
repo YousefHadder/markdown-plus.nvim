@@ -319,7 +319,8 @@
 **Steps**:
 
 1. In one markdown file, exercise:
-   - Format: `<localleader>mb`, `<localleader>mi`, `<localleader>mC`
+   - Format: `<localleader>mb`, `<localleader>mi`, `<localleader>mF`, `<localleader>me` (visual)
+   - Code blocks: `<localleader>mc`, `<localleader>mC`, `]c`, `[c`
    - Links: `<localleader>ml`, `<localleader>me`
    - Quote: `<localleader>mq`
    - List checkbox: `<localleader>mx`

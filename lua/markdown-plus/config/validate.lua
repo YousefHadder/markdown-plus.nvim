@@ -124,6 +124,8 @@ local SCHEMA = {
     type = "table",
     fields = {
       enabled = { type = "boolean" },
+      fence_style = { type = "string", enum = { backtick = true, tilde = true } },
+      languages = { type = "array", array_type = "string" },
     },
   },
 

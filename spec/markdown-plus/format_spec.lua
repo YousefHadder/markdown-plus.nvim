@@ -59,6 +59,12 @@ describe("markdown-plus format", function()
       assert.is_false(format.has_formatting("++text", "underline"))
       assert.is_false(format.has_formatting("text++", "underline"))
     end)
+
+    it("ignores escaped closing delimiters", function()
+      assert.is_false(format.has_formatting("*text\\*", "italic"))
+      assert.is_false(format.has_formatting("**text\\*\\*", "bold"))
+      assert.is_false(format.has_formatting("`text\\`", "code"))
+    end)
   end)
 
   describe("add_formatting", function()
@@ -228,6 +234,16 @@ describe("markdown-plus format", function()
 
     it("returns false for invalid format type", function()
       assert.is_false(format.contains_formatting("hello world", "invalid"))
+    end)
+
+    it("ignores escaped delimiters for bold/italic/code detection", function()
+      assert.is_false(format.contains_formatting("\\*\\*bold\\*\\*", "bold"))
+      assert.is_false(format.contains_formatting("\\*italic\\*", "italic"))
+      assert.is_false(format.contains_formatting("\\`code\\`", "code"))
+    end)
+
+    it("treats double-escaped asterisk as active italic delimiter", function()
+      assert.is_true(format.contains_formatting("\\\\*text*", "italic"))
     end)
   end)
 
@@ -590,6 +606,12 @@ describe("markdown-plus format", function()
       format.setup_keymaps()
       assert.is_true(vim.fn.hasmapto("<Plug>(MarkdownPlusCodeBlock)", "x") == 1)
     end)
+
+    it("sets up escape selection mapping in visual mode", function()
+      format.setup({ keymaps = { enabled = true } })
+      format.setup_keymaps()
+      assert.is_true(vim.fn.hasmapto("<Plug>(MarkdownPlusEscapeSelection)", "x") == 1)
+    end)
   end)
 
   describe("get_lines_in_range", function()
@@ -680,6 +702,28 @@ describe("markdown-plus format", function()
       -- Verify that no markers were inserted
       assert.are.equal("First line", lines[1])
       assert.are.equal("Second line", lines[2])
+    end)
+  end)
+
+  describe("toggle_escape_selection", function()
+    it("escapes markdown punctuation in visual selection", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello *world*" })
+      vim.cmd("normal! ggv$")
+
+      format.toggle_escape_selection()
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("hello \\*world\\*", line)
+    end)
+
+    it("unescapes when selection is already escaped", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello \\*world\\*" })
+      vim.cmd("normal! ggv$")
+
+      format.toggle_escape_selection()
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("hello *world*", line)
     end)
   end)
 

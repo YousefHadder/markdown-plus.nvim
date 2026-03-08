@@ -84,6 +84,8 @@
 ---Code block configuration
 ---@class markdown-plus.CodeBlockConfig
 ---@field enabled? boolean Enable code block features (default: true)
+---@field fence_style? "backtick"|"tilde" Preferred fence style for insertion (default: "backtick")
+---@field languages? string[] Language options shown in picker
 
 ---TOC window configuration
 ---@class markdown-plus.TocConfig
@@ -140,6 +142,8 @@
 ---Internal code block configuration
 ---@class markdown-plus.InternalCodeBlockConfig
 ---@field enabled boolean
+---@field fence_style "backtick"|"tilde"
+---@field languages string[]
 
 ---Internal thematic break configuration
 ---@class markdown-plus.InternalThematicBreakConfig

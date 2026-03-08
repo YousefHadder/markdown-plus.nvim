@@ -70,7 +70,9 @@ That's it! The plugin will automatically activate with default keymaps when you 
 - New heading toggle: `<localleader>ms` switches ATX/setext heading style (H1/H2).
 - New thematic-break commands: `<localleader>mh` (insert) and `<localleader>mH` (cycle style).
 - Smart list outdent is enabled by default (`list.smart_outdent = true`) for parent-aware marker continuation.
-- Formatting defaults moved to avoid key collisions: strikethrough `<localleader>mS`, highlight `<localleader>m=`.
+- New formatting escape toggle: `<localleader>me` (visual mode) escapes/unescapes markdown punctuation.
+- Code block module is now first-class: `<localleader>mc` insert/wrap, `]c`/`[c` navigate, `<localleader>mC` change language.
+- Formatting defaults moved to avoid key collisions: strikethrough `<localleader>mS`, inline code `<localleader>m\``, highlight `<localleader>m=`, clear formatting `<localleader>mF`.
 - If needed, set `vim.g.maplocalleader = "\\"` (or your preferred key) before plugin setup.
 
 **Want to customize?**

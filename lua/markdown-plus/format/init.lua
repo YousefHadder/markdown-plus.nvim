@@ -165,7 +165,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<localleader>mc", "<localleader>mc" },
+      default_key = { "<localleader>m`", "<localleader>m`" },
       desc = "Toggle inline code formatting",
       expr = { true, false },
     },
@@ -206,6 +206,13 @@ function M.setup_keymaps()
       expr = { true, false },
     },
     {
+      plug = keymap_helper.plug_name("EscapeSelection"),
+      fn = M.toggle_escape_selection,
+      modes = "x",
+      default_key = "<localleader>me",
+      desc = "Escape/unescape markdown punctuation in selection",
+    },
+    {
       plug = keymap_helper.plug_name("CodeBlock"),
       fn = function()
         M.convert_to_code_block()
@@ -225,7 +232,7 @@ function M.setup_keymaps()
         end,
       },
       modes = { "n", "x" },
-      default_key = { "<localleader>mC", "<localleader>mC" },
+      default_key = { "<localleader>mF", "<localleader>mF" },
       desc = "Clear all formatting",
       expr = { true, false },
     },
@@ -314,6 +321,12 @@ end
 ---@return nil
 function M.clear_formatting()
   return toggle.clear_formatting()
+end
+
+---Toggle markdown escaping on visual selection
+---@return nil
+function M.toggle_escape_selection()
+  return toggle.toggle_escape_selection()
 end
 
 ---Convert visual selection to a code block

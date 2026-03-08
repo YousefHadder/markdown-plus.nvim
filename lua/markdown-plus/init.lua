@@ -45,6 +45,8 @@ M.config = {
   },
   code_block = {
     enabled = true,
+    fence_style = "backtick",
+    languages = { "lua", "python", "javascript", "typescript", "bash", "json", "yaml", "markdown" },
   },
   footnotes = {
     section_header = "Footnotes",
@@ -77,6 +79,7 @@ M.images = nil
 M.headers = nil
 M.quotes = nil
 M.callouts = nil
+M.code_block = nil
 M.table = nil
 M.footnotes = nil
 
@@ -144,6 +147,11 @@ function M.setup(opts)
     M.callouts.setup(M.config)
   end
 
+  if M.config.features.code_block then
+    M.code_block = require("markdown-plus.code_block")
+    M.code_block.setup(M.config)
+  end
+
   if M.config.features.table then
     M.table = require("markdown-plus.table")
     if M.config.table then
@@ -194,6 +202,9 @@ function M.enable_features_for_buffer()
   end
   if M.callouts then
     M.callouts.enable()
+  end
+  if M.code_block then
+    M.code_block.enable()
   end
   if M.table and M.config.keymaps.enabled then
     -- Set up buffer-local table keymaps (only if global keymaps are enabled)

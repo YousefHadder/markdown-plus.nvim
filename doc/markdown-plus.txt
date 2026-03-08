@@ -64,13 +64,19 @@ FEATURES                                     *markdown-plus-introduction-feature
 
 - Text formatting (Treesitter-powered):
   - Toggle bold, italic, strikethrough, inline code, highlight, and underline
-  - Convert selected rows to code block
+  - Escape/unescape markdown punctuation in visual selections
   - Smart formatting that respects word boundaries
   - Treesitter-based format detection with regex fallback
   - Support for nested formatting (e.g., bold inside italic)
   - Clear all formatting from selected text
   - Works in both normal and visual mode
   - Dot-repeat support in normal mode (press `.` to reapply to next word)
+
+- Code block operations:
+  - Insert fenced code blocks with language picker
+  - Wrap visual selections in fenced code blocks
+  - Navigate to next/previous code block with ]c / [c
+  - Change language info string on the block under cursor
 
 - Links & References:
   - Insert and edit markdown links
@@ -636,11 +642,21 @@ Toggle strikethrough with `<localleader>mS`:
 
 CODE ~
 
-Toggle inline code with `<localleader>mc`:
+Toggle inline code with `<localleader>m\``:
 
 >markdown
     This is code           ->    This is `code`
     This is `code`         ->    This is code
+<
+
+ESCAPE / UNESCAPE ~
+
+In visual mode, toggle markdown escaping with `<localleader>me`.
+If punctuation is unescaped, it is escaped; if already escaped, it is unescaped.
+
+>markdown
+    *text*               ->    \*text\*
+    \*text\*             ->    *text*
 <
 
 HIGHLIGHT ~
@@ -688,31 +704,24 @@ Use:
 - Bold (**text**) or italic (*text*) for emphasis
 - <ins>text</ins> for underline (GitHub renders this)
 
-CODE BLOCK ~
+CODE BLOCKS ~
 
-Convert selected rows to a code block with `<localleader>mw`:
-1. Enter visual block mode with `V`.
-2. Select the rows you want to convert.
-3. Press `<localleader>mw`.
-4. Enter the language for the code block when prompted (e.g., txt).
+Insert or wrap fenced code blocks with language picker:
 
->markdown
-    This is some text
-    and more text
-<
-
-After following the steps above, the selected text will become:
+- `<localleader>mc` (normal mode): insert fenced code block below cursor
+- `<localleader>mc` (visual mode): wrap selected lines in fenced code block
+- `<localleader>mC`: change language on code block under cursor
+- `]c` / `[c`: jump to next/previous fenced code block
 
 >markdown
-    ```txt
-    This is some text
-    and more text
+    ```lua
+    print("hello")
     ```
 <
 
 CLEAR FORMATTING ~
 
-Remove all formatting with `<localleader>mC`:
+Remove all formatting with `<localleader>mF`:
 
 >markdown
     Formatted text         ->    This is some text
@@ -1431,11 +1440,18 @@ Default keymaps:
         toggle_bold = '<localleader>mb',
         toggle_italic = '<localleader>mi',
         toggle_strikethrough = '<localleader>mS',
-        toggle_code = '<localleader>mc',
+        toggle_code = '<localleader>m`',
         toggle_highlight = '<localleader>m=',
         toggle_underline = '<localleader>mu',
+        escape_selection = '<localleader>me',       -- Escape/unescape selection (visual)
         convert_to_code_block = '<localleader>mw', -- Convert selection to code block
-        clear_formatting = '<localleader>mC',
+        clear_formatting = '<localleader>mF',
+
+        -- Code block operations
+        code_block_insert = '<localleader>mc',      -- Insert/wrap fenced code block
+        code_block_next = ']c',                     -- Next code block
+        code_block_prev = '[c',                     -- Previous code block
+        code_block_change_language = '<localleader>mC', -- Change code block language
 
         -- Thematic breaks
         insert_thematic_break = '<localleader>mh', -- Insert horizontal rule below cursor
@@ -1520,7 +1536,7 @@ The plugin can be configured through the setup function:
         images = true,           -- Image link insertion and editing
         quotes = true,           -- Blockquote (>) management
         callouts = true,         -- GitHub Flavored Markdown callouts/admonitions
-        code_block = true,       -- Convert selected text to code blocks
+        code_block = true,       -- Fenced code block insertion, wrapping, navigation
         html_block_awareness = true, -- Skip markdown ops inside GFM HTML blocks
         footnotes = true,        -- Footnote insertion, navigation, and listing
       },
@@ -1529,6 +1545,11 @@ The plugin can be configured through the setup function:
       },
       code_block = {             -- Code block configuration
         enabled = true,          -- Enable code block features
+        fence_style = 'backtick',-- 'backtick' | 'tilde'
+        languages = {            -- Language picker options
+          'lua', 'python', 'javascript', 'typescript',
+          'bash', 'json', 'yaml', 'markdown',
+        },
       },
       thematic_break = {         -- Thematic break configuration
         style = '---',           -- '---' | '***' | '___'
@@ -1681,8 +1702,17 @@ TEXT FORMATTING ~
     <Plug>(MarkdownPlusCode)               - Toggle inline code (n, x)
     <Plug>(MarkdownPlusHighlight)          - Toggle highlight ==text== (n, x)
     <Plug>(MarkdownPlusUnderline)          - Toggle underline ++text++ (n, x)
-    <Plug>(MarkdownPlusCodeBlock)          - Convert to code block (x)
+    <Plug>(MarkdownPlusEscapeSelection)    - Escape/unescape selection (x)
     <Plug>(MarkdownPlusClearFormatting)    - Clear all formatting (n, x)
+    <Plug>(MarkdownPlusCodeBlock)          - Wrap selection in fenced code block (x, legacy)
+
+CODE BLOCKS ~
+
+    <Plug>(MarkdownPlusCodeBlockInsert)         - Insert/wrap fenced code block (n, x)
+    <Plug>(MarkdownPlusCodeBlockNext)           - Jump to next code block (n)
+    <Plug>(MarkdownPlusCodeBlockPrev)           - Jump to previous code block (n)
+    <Plug>(MarkdownPlusCodeBlockChangeLanguage) - Change code block language (n)
+    <Plug>(MarkdownPlusCodeBlockToggleFence)    - Toggle code block fence style (n)
 
 HEADERS & TOC ~
 
@@ -1976,7 +2006,7 @@ markdown-plus.format.toggle_format_word(format_type)
         {format_type}  (string) One of: 'bold', 'italic', 'strikethrough',
                        'code', 'highlight', 'underline'
 
-                                        *markdown-plus.format.strip_all_formatting*
+                                         *markdown-plus.format.strip_all_formatting*
 markdown-plus.format.strip_all_formatting(text)
     Removes all supported formatting markers from the provided text.
     Parameters: ~
@@ -1984,10 +2014,16 @@ markdown-plus.format.strip_all_formatting(text)
     Returns: ~
         {string}  The text with all formatting removed
 
-                                        *markdown-plus.format.convert_to_code_block*
+                                     *markdown-plus.format.toggle_escape_selection*
+markdown-plus.format.toggle_escape_selection()
+    Toggles markdown escaping on visual selection:
+    - Escapes punctuation when unescaped
+    - Unescapes punctuation when already escaped
+
+                                         *markdown-plus.format.convert_to_code_block*
 markdown-plus.format.convert_to_code_block()
-    Converts the selected text to a code block. Prompts for the language of the
-    code block.
+    Legacy wrapper for code block wrapping. Prefer `markdown-plus.code_block`
+    module APIs for insertion/navigation/language changes.
 
 
                                         *markdown-plus.format.clear_formatting*
@@ -1997,6 +2033,33 @@ markdown-plus.format.clear_formatting()
                                    *markdown-plus.format.clear_formatting_word*
 markdown-plus.format.clear_formatting_word()
     Clears all formatting from the word under cursor.
+
+
+CODE BLOCK MODULE                                  *markdown-plus.code_block*
+
+                                  *markdown-plus.code_block.insert_with_language*
+markdown-plus.code_block.insert_with_language()
+    Inserts a fenced code block below cursor using language picker.
+
+                                      *markdown-plus.code_block.wrap_selection*
+markdown-plus.code_block.wrap_selection()
+    Wraps visual selection in fenced code block using language picker.
+
+                                     *markdown-plus.code_block.change_language*
+markdown-plus.code_block.change_language()
+    Changes language info string on the code block under cursor.
+
+                                     *markdown-plus.code_block.toggle_fence_style*
+markdown-plus.code_block.toggle_fence_style()
+    Toggles fence style between backticks and tildes for current code block.
+
+                                      *markdown-plus.code_block.find_all_blocks*
+markdown-plus.code_block.find_all_blocks()
+    Returns all fenced code blocks in current buffer.
+
+                                   *markdown-plus.code_block.find_block_at_cursor*
+markdown-plus.code_block.find_block_at_cursor()
+    Returns the code block that contains the cursor, or nil.
 
 
 LINKS MODULE                                            *markdown-plus.links*
@@ -2265,10 +2328,12 @@ Ensure you're using the correct keymap. By default:
 - `<localleader>mb` for bold
 - `<localleader>mi` for italic
 - `<localleader>mS` for strikethrough
-- `<localleader>mc` for inline code
+- `<localleader>m\`` for inline code
 - `<localleader>m=` for highlight (==text==)
 - `<localleader>mu` for underline (++text++)
-- `<localleader>mC` for clearing formatting
+- `<localleader>mF` for clearing formatting
+- `<localleader>mc` for fenced code block insertion/wrapping
+- `<localleader>mC` for changing code block language
 - `<localleader>mq` for toggling blockquote
 
 These work in both normal mode (on word under cursor) and visual mode

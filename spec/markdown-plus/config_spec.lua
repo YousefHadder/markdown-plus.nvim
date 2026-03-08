@@ -273,6 +273,7 @@ describe("markdown-plus configuration", function()
       markdown_plus.images = nil
       markdown_plus.quotes = nil
       markdown_plus.callouts = nil
+      markdown_plus.code_block = nil
       markdown_plus.table = nil
     end)
 
@@ -562,6 +563,70 @@ describe("markdown-plus configuration", function()
 
       assert.is_nil(markdown_plus.thematic_break)
       markdown_plus.thematic_break = original_thematic_break
+    end)
+  end)
+
+  describe("code block configuration", function()
+    it("accepts valid fence style and languages", function()
+      assert.has_no.errors(function()
+        markdown_plus.setup({
+          code_block = {
+            fence_style = "tilde",
+            languages = { "lua", "python", "markdown" },
+          },
+        })
+      end)
+
+      assert.equals("tilde", markdown_plus.config.code_block.fence_style)
+      assert.are.same({ "lua", "python", "markdown" }, markdown_plus.config.code_block.languages)
+    end)
+
+    it("rejects invalid fence_style values", function()
+      local original_code_block = markdown_plus.code_block
+      markdown_plus.code_block = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          code_block = {
+            fence_style = "invalid",
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.code_block)
+      markdown_plus.code_block = original_code_block
+    end)
+
+    it("rejects non-array languages values", function()
+      local original_code_block = markdown_plus.code_block
+      markdown_plus.code_block = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          code_block = {
+            languages = "lua",
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.code_block)
+      markdown_plus.code_block = original_code_block
+    end)
+
+    it("rejects non-string language entries", function()
+      local original_code_block = markdown_plus.code_block
+      markdown_plus.code_block = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          code_block = {
+            languages = { "lua", 42 },
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.code_block)
+      markdown_plus.code_block = original_code_block
     end)
   end)
 
