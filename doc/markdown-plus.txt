@@ -1,4 +1,4 @@
-*markdown-plus.txt*      Enhanced Markdown editing for Neovim      Last change: 2025 November 27
+*markdown-plus.txt*      Enhanced Markdown editing for Neovim      Last change: 2026 March 09
 
 ==============================================================================
 Table of Contents                            *markdown-plus-table-of-contents*
@@ -1641,12 +1641,9 @@ filetypes. For lazy.nvim:
 <
 
 Future versions may add:
-- Table manipulation features
-- Code block management
 - Custom TOC formatting options
 - Custom list markers
 - Custom header anchor generation
-- Keymap customization
 - Link following behavior customization
 
 
@@ -2036,8 +2033,8 @@ markdown-plus.format.clear_formatting_word()
 
                                      *markdown-plus.format.get_lines_in_range*
 markdown-plus.format.get_lines_in_range(start_row, end_row)
-    DEPRECATED. Use |markdown-plus.utils.get_lines_in_range| instead.
-    Will be removed in v2.0.
+    DEPRECATED since v2.0. Use |markdown-plus.utils.get_lines_in_range| instead.
+    Retained as a compatibility shim; will be removed in a future release.
 
 
 CODE BLOCK MODULE                                  *markdown-plus.code_block*
