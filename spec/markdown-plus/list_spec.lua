@@ -2162,6 +2162,21 @@ describe("markdown-plus list management", function()
       assert.are.equal("2. ", lines[4])
     end)
 
+    it("creates next parent item when last child has partial indent", function()
+      vim.bo[buf].shiftwidth = 4
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "1. Parent",
+        "   - Child one", -- 3-space indent (formatter-style)
+        "   - Child two",
+      })
+      vim.api.nvim_win_set_cursor(0, { 3, 5 })
+
+      list.handle_normal_o()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("2. ", lines[4])
+    end)
+
     it("creates next sibling child when current child is not last", function()
       vim.bo[buf].shiftwidth = 2
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
@@ -2208,13 +2223,43 @@ describe("markdown-plus list management", function()
         assert.are.equal("- Item", lines[1]) -- unchanged
       end)
 
-      it("does not outdent if indent is less than shiftwidth", function()
+      it("outdents partial indent when indent is less than shiftwidth", function()
         vim.bo[buf].shiftwidth = 4
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "  - Item" }) -- only 2 spaces
         vim.api.nvim_win_set_cursor(0, { 1, 4 })
         list.handle_shift_tab()
         local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("  - Item", lines[1]) -- unchanged
+        assert.are.equal("- Item", lines[1]) -- outdented to root
+      end)
+
+      it("outdents 3-space indent with shiftwidth=4 (formatter mismatch)", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "   1. Item" }) -- 3 spaces (formatter-style)
+        vim.api.nvim_win_set_cursor(0, { 1, 6 })
+        list.handle_shift_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("1. Item", lines[1])
+      end)
+
+      it("updates cursor position correctly after partial outdent", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "   - Item" }) -- 3 spaces
+        vim.api.nvim_win_set_cursor(0, { 1, 6 })
+        list.handle_shift_tab()
+        local cursor = vim.api.nvim_win_get_cursor(0)
+        assert.are.equal(3, cursor[2]) -- original 6 - 3 (actual indent removed)
+      end)
+
+      it("adopts parent marker when outdenting partial indent with smart_outdent", function()
+        vim.bo[buf].shiftwidth = 4
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+          "1. Parent",
+          "   - Child", -- 3-space indent (formatter-style)
+        })
+        vim.api.nvim_win_set_cursor(0, { 2, 6 })
+        list.handle_shift_tab()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("2. Child", lines[2])
       end)
 
       it("updates cursor position after outdent", function()
