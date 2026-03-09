@@ -260,7 +260,7 @@ function M.handle_tab()
   end
 
   -- Increase indentation
-  local indent_size = vim.bo.shiftwidth
+  local indent_size = vim.fn.shiftwidth()
 
   local new_indent = list_info.indent .. string.rep(" ", indent_size)
   local content = shared.extract_list_content(current_line, list_info)
@@ -287,7 +287,7 @@ function M.handle_shift_tab()
   end
 
   -- Decrease indentation
-  local indent_size = vim.bo.shiftwidth
+  local indent_size = vim.fn.shiftwidth()
 
   -- Can't outdent if already at root level
   if #list_info.indent == 0 then
@@ -428,7 +428,7 @@ function M.handle_normal_o()
 
   if smart_outdent_enabled() then
     local current_indent = #list_info.indent
-    local indent_size = vim.bo.shiftwidth
+    local indent_size = vim.fn.shiftwidth()
     local lines, line_count = get_context_lines(row, CONTEXT_LOOKBACK, CONTEXT_LOOKAHEAD)
     local max_scan_row = math.min(line_count, row + MAX_LAST_ITEM_LOOKAHEAD)
 
