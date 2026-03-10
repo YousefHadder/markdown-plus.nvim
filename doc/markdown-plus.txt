@@ -461,6 +461,11 @@ All list types maintain their marker style when indented:
 
 Outside of lists, `<Tab>` and `<S-Tab>` insert/remove indentation normally.
 
+Partial indentation (fewer spaces than `shiftwidth`, e.g., 3 spaces when
+`shiftwidth=4`) is handled correctly: `<S-Tab>` removes all existing indent,
+bringing the item to root level. This ensures compatibility with formatters
+such as conform.nvim or prettier that may apply non-standard indentation.
+
 SMART OUTDENT ~
 
 When outdenting nested list items with `<S-Tab>`, markdown-plus can adopt the
@@ -1959,6 +1964,9 @@ markdown-plus.list.handle_tab()
                                            *markdown-plus.list.handle_shift_tab*
 markdown-plus.list.handle_shift_tab()
     Handles Shift-Tab key in insert mode for dedenting list items.
+    Removes up to `shiftwidth` spaces of indentation, or all remaining spaces
+    if the indent is less than `shiftwidth` (partial indent). Outdenting at
+    root level (zero indent) is a no-op.
     With `list.smart_outdent = true`, nested children that outdent to a parent
     ordered list adopt the parent continuation marker.
 
