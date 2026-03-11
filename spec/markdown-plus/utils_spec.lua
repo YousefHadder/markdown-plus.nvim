@@ -720,6 +720,19 @@ describe("markdown-plus utils", function()
       assert.is_not_nil(result)
       assert.are.equal("the quick brown fox", result.line)
     end)
+
+    it("handles multi-byte characters in selection", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "hello 世界 world" })
+      -- Set marks to select "世界"
+      -- 世 starts at byte 7, 界 starts at byte 10 (getpos returns first byte)
+      vim.fn.setpos("'<", { 0, 1, 7, 0 })
+      vim.fn.setpos("'>", { 0, 1, 10, 0 })
+
+      local result = utils.get_single_line_selection("links")
+
+      assert.is_not_nil(result)
+      assert.are.equal("世界", result.text)
+    end)
   end)
 
   -- Tests use treesitter when available (markdown filetype), with regex fallback

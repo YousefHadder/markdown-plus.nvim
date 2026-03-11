@@ -109,6 +109,9 @@ function M.get_single_line_selection(element_name)
 
   local line = buffer.get_line(start_row)
 
+  -- Adjust end_col for multi-byte characters (getpos returns first byte of char)
+  end_col = text.get_char_end_byte(line, end_col)
+
   -- Extract selected text (vim columns are 1-indexed)
   local selected_text = line:sub(start_col, end_col)
 
