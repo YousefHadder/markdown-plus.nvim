@@ -26,7 +26,7 @@ end
 ---Build the prefix string for a new list item (indent + marker + optional checkbox)
 ---@param indent string Indentation string
 ---@param marker string List marker (e.g., "-", "1.", "a)")
----@param checkbox string|nil Checkbox state (e.g., " ", "x") or nil if no checkbox
+---@param checkbox string|nil Non-nil if the list uses checkboxes (value ignored — new items always start unchecked)
 ---@return string prefix The constructed list item prefix
 function M.build_list_prefix(indent, marker, checkbox)
   local prefix = indent .. marker .. " "
