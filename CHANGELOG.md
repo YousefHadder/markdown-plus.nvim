@@ -5,6 +5,13 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.0.0...v2.0.1) (2026-03-13)
+
+
+### Bug Fixes
+
+* **list:** handle outdent when indent is less than shiftwidth ([#248](https://github.com/YousefHadder/markdown-plus.nvim/issues/248)) ([447b963](https://github.com/YousefHadder/markdown-plus.nvim/commit/447b96310a49a94eea61dcaf181e4f30baa0cc34))
+
 ## [2.0.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.11.0...v2.0.0) (2026-03-08)
 
 
