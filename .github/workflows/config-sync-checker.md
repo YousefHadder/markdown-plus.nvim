@@ -3,7 +3,7 @@ name: Config Sync Checker
 description: Checks that config options stay in sync across types, validation, defaults, and documentation — reports inconsistencies as GitHub issues
 on:
   schedule:
-    - cron: daily
+    - cron: weekly
   workflow_dispatch:
   skip-if-match: 'is:issue is:open in:title "[config-sync]"'
 

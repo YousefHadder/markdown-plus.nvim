@@ -4,7 +4,7 @@ description: Automatically reviews and updates documentation to ensure accuracy 
 on:
   schedule:
     # Every day at 6am UTC
-    - cron: daily
+    - cron: weekly
   workflow_dispatch:
 
 permissions:

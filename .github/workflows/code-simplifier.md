@@ -2,7 +2,7 @@
 name: Code Simplifier
 description: Analyzes recently modified code for simplification opportunities and performs semantic function analysis to detect duplicates, outliers, and misplaced functions — creates pull requests with improvements
 on:
-  schedule: daily
+  schedule: weekly
   skip-if-match: 'is:pr is:open in:title "[code-simplifier]"'
 
 permissions:
