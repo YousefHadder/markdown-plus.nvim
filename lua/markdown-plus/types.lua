@@ -71,7 +71,7 @@
 ---Smart paste configuration
 ---@class markdown-plus.SmartPasteConfig
 ---@field enabled? boolean Enable smart URL paste (default: false, opt-in)
----@field timeout? number Fetch timeout in seconds (default: 5, max: 30)
+---@field timeout? number Fetch timeout in seconds (default: 5, must be > 0 and <= 30)
 
 ---Checkbox completion timestamp configuration
 ---@class markdown-plus.CheckboxCompletionConfig
