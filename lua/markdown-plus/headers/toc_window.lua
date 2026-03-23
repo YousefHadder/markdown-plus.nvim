@@ -1,11 +1,11 @@
--- TOC window module for markdown-plus.nvim
+-- TOC window orchestrator for markdown-plus.nvim
+-- Slim entry point that delegates to toc_state, toc_render, and toc_actions.
 local parser = require("markdown-plus.headers.parser")
-local keymap_helper = require("markdown-plus.keymap_helper")
-local M = {}
+local toc_state = require("markdown-plus.headers.toc_state")
+local toc_render = require("markdown-plus.headers.toc_render")
+local toc_actions = require("markdown-plus.headers.toc_actions")
 
-local TOC_DEFAULT_MAX_DEPTH = 2 -- Default initial depth to show
-local TOC_WINDOW_PADDING = 5 -- Extra padding for window width calculation
-local TOC_MAX_WIDTH_RATIO = 0.5 -- Maximum window width as ratio of total columns
+local M = {}
 
 ---@type markdown-plus.InternalConfig
 local config = {}
@@ -16,435 +16,117 @@ function M.set_config(cfg)
   config = cfg or {}
 end
 
--- State for TOC window
-local toc_state = {
-  source_bufnr = nil,
-  toc_bufnr = nil,
-  toc_winnr = nil,
-  headers = {},
-  expanded_levels = {}, -- Track which headers are expanded
-  visible_headers = {}, -- Currently visible headers
-  max_depth = TOC_DEFAULT_MAX_DEPTH, -- Initial depth to show
-}
-
---- Check if a header's children should be visible
----@param header_idx number Index of the header in headers array
----@return boolean
-local function is_expanded(header_idx)
-  return toc_state.expanded_levels[header_idx] == true
-end
-
---- Get children of a header
----@param header_idx number Index of the parent header
----@return table List of child header indices
-local function get_children(header_idx)
-  local children = {}
-  local parent_level = toc_state.headers[header_idx].level
-
-  for i = header_idx + 1, #toc_state.headers do
-    local header = toc_state.headers[i]
-    if header.level <= parent_level then
-      break -- No more children
-    end
-    if header.level == parent_level + 1 then
-      table.insert(children, i)
-    end
-  end
-
-  return children
-end
-
---- Check if all ancestors of a header are expanded
----@param header_idx number Index of the header in headers array
----@return boolean True if all ancestors are expanded (or no ancestors exist)
-local function are_all_ancestors_expanded(header_idx)
-  local current_level = toc_state.headers[header_idx].level
-
-  -- H1 has no ancestors
-  if current_level == 1 then
-    return true
-  end
-
-  -- Find direct parent and check ancestor chain
-  local check_idx = header_idx - 1
-  while check_idx >= 1 do
-    local check_header = toc_state.headers[check_idx]
-    if check_header.level < current_level then
-      -- Found an ancestor at higher level
-      if check_header.level == current_level - 1 then
-        -- Direct parent - check if expanded
-        if not is_expanded(check_idx) then
-          return false
-        end
-        -- Continue checking parent's ancestors
-        current_level = check_header.level
-      end
-    end
-    check_idx = check_idx - 1
-  end
-
-  return true
-end
-
---- Build the visible headers list based on expansion state
-local function build_visible_headers()
-  toc_state.visible_headers = {}
-
-  for i, header in ipairs(toc_state.headers) do
-    -- Check if this header should be visible
-    local should_show
-
-    -- Find direct parent (one level up)
-    local parent_idx = nil
-    for j = i - 1, 1, -1 do
-      if toc_state.headers[j].level == header.level - 1 then
-        parent_idx = j
-        break
-      end
-    end
-
-    if header.level == 1 then
-      -- H1 is always visible
-      should_show = true
-    elseif header.level <= toc_state.max_depth then
-      -- Within initial depth - show if all ancestors are expanded
-      should_show = are_all_ancestors_expanded(i)
-    else
-      -- Beyond initial depth - only show if parent is expanded AND all ancestors are expanded
-      should_show = parent_idx and is_expanded(parent_idx) and are_all_ancestors_expanded(i)
-    end
-
-    if should_show then
-      table.insert(toc_state.visible_headers, {
-        idx = i,
-        header = header,
-        has_children = #get_children(i) > 0,
-        is_expanded = is_expanded(i),
-      })
-    end
-  end
-end
-
---- Format a header line for display
----@param visible_header table The visible header entry
----@return string
-local function format_header_line(visible_header)
-  local header = visible_header.header
-  local indent = string.rep("  ", header.level - 1)
-
-  local fold_marker
-  if visible_header.has_children then
-    fold_marker = visible_header.is_expanded and "▼ " or "▶ "
-  else
-    fold_marker = "  "
-  end
-
-  -- Format: [H1] Title (max level is 6, so no padding needed)
-  local level_indicator = string.format("[H%d] ", header.level)
-
-  return indent .. fold_marker .. level_indicator .. header.text
-end
-
---- Render the TOC buffer
-local function render_toc()
-  if not toc_state.toc_bufnr or not vim.api.nvim_buf_is_valid(toc_state.toc_bufnr) then
-    return
-  end
-
-  build_visible_headers()
-
-  local lines = {}
-  local max_len = 0
-
-  for _, visible_header in ipairs(toc_state.visible_headers) do
-    local line = format_header_line(visible_header)
-    table.insert(lines, line)
-
-    local line_len = vim.fn.strdisplaywidth(line)
-    if line_len > max_len then
-      max_len = line_len
-    end
-  end
-
-  vim.bo[toc_state.toc_bufnr].modifiable = true
-  vim.api.nvim_buf_set_lines(toc_state.toc_bufnr, 0, -1, false, lines)
-  vim.bo[toc_state.toc_bufnr].modifiable = false
-  vim.bo[toc_state.toc_bufnr].modified = false
-
-  -- Auto-resize window
-  if toc_state.toc_winnr and vim.api.nvim_win_is_valid(toc_state.toc_winnr) then
-    local win_width = math.min(max_len + TOC_WINDOW_PADDING, math.floor(vim.o.columns * TOC_MAX_WIDTH_RATIO))
-    vim.api.nvim_win_set_width(toc_state.toc_winnr, win_width)
-  end
-end
-
---- Expand a header to show its children
-local function expand_header()
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local line = cursor[1]
-
-  if line > #toc_state.visible_headers then
-    return
-  end
-
-  local visible_header = toc_state.visible_headers[line]
-  if not visible_header.has_children then
-    return
-  end
-
-  -- Mark as expanded
-  toc_state.expanded_levels[visible_header.idx] = true
-
-  -- Re-render
-  render_toc()
-end
-
---- Collapse a header to hide its children
-local function collapse_header()
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local line = cursor[1]
-
-  if line > #toc_state.visible_headers then
-    return
-  end
-
-  local visible_header = toc_state.visible_headers[line]
-
-  -- If already collapsed or expanded, collapse it
-  if visible_header.is_expanded then
-    toc_state.expanded_levels[visible_header.idx] = false
-    render_toc()
-    return
-  end
-
-  -- Otherwise, find parent and collapse it
-  local header_idx = visible_header.idx
-  local current_level = visible_header.header.level
-
-  -- Find parent
-  for i = header_idx - 1, 1, -1 do
-    if toc_state.headers[i].level < current_level then
-      -- Found parent, collapse it
-      toc_state.expanded_levels[i] = false
-
-      -- Find the parent's line in visible headers and move cursor there
-      for j, vh in ipairs(toc_state.visible_headers) do
-        if vh.idx == i then
-          render_toc()
-          vim.api.nvim_win_set_cursor(0, { j, 0 })
-          return
-        end
-      end
-
-      render_toc()
-      return
-    end
-  end
-end
-
---- Jump to the header in the source buffer
-local function jump_to_header()
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local line = cursor[1]
-
-  if line > #toc_state.visible_headers then
-    return
-  end
-
-  local visible_header = toc_state.visible_headers[line]
-  local header = visible_header.header
-
-  -- Find the window containing the source buffer
-  for _, win in ipairs(vim.api.nvim_list_wins()) do
-    if vim.api.nvim_win_get_buf(win) == toc_state.source_bufnr then
-      vim.api.nvim_set_current_win(win)
-      vim.api.nvim_win_set_cursor(win, { header.line_num, 0 })
-      vim.cmd("normal! zz") -- Center the line
-      return
-    end
-  end
-end
-
---- Show help popup for TOC window keybindings
-local function show_toc_help()
-  local help_lines = {
-    "╔═══════════════════════════════════════╗",
-    "║       TOC Navigation Help             ║",
-    "╠═══════════════════════════════════════╣",
-    "║                                       ║",
-    "║  Movement:                            ║",
-    "║    j/k       - Move cursor up/down    ║",
-    "║    <Up/Down> - Move cursor up/down    ║",
-    "║                                       ║",
-    "║  Folding:                             ║",
-    "║    l         - Expand header          ║",
-    "║    h         - Collapse or go parent  ║",
-    "║                                       ║",
-    "║  Actions:                             ║",
-    "║    <Enter>   - Jump to header         ║",
-    "║    q         - Close TOC window       ║",
-    "║    ?         - Toggle this help       ║",
-    "║                                       ║",
-    "║  Visual Indicators:                   ║",
-    "║    ▶         - Collapsed (has child)  ║",
-    "║    ▼         - Expanded (showing)     ║",
-    "║    [H1]      - Header level           ║",
-    "║                                       ║",
-    "╚═══════════════════════════════════════╝",
-  }
-
-  -- Calculate popup dimensions
-  local width = 43
-  local height = #help_lines
-  local row = math.floor((vim.o.lines - height) / 2)
-  local col = math.floor((vim.o.columns - width) / 2)
-
-  -- Create buffer for help
-  local buf = vim.api.nvim_create_buf(false, true)
-  vim.api.nvim_buf_set_lines(buf, 0, -1, false, help_lines)
-  vim.bo[buf].modifiable = false
-  vim.bo[buf].bufhidden = "wipe"
-
-  -- Create floating window
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = "editor",
-    width = width,
-    height = height,
-    row = row,
-    col = col,
-    style = "minimal",
-    border = "none",
-  })
-
-  -- Set window options
-  vim.wo[win].winhl = "Normal:Normal,FloatBorder:FloatBorder"
-
-  -- Close on any key press
-  vim.keymap.set("n", "<Esc>", "<cmd>close<cr>", { buffer = buf, nowait = true, desc = "Close help window" })
-  vim.keymap.set("n", "q", "<cmd>close<cr>", { buffer = buf, nowait = true, desc = "Close help window" })
-  vim.keymap.set("n", "?", "<cmd>close<cr>", { buffer = buf, nowait = true, desc = "Close help window" })
-  vim.keymap.set("n", "<CR>", "<cmd>close<cr>", { buffer = buf, nowait = true, desc = "Close help window" })
-end
-
---- Set up keymaps for the TOC buffer
-local function setup_toc_keymaps()
-  local toc_keymaps = {
-    {
-      plug = keymap_helper.plug_name("TocExpand"),
-      fn = expand_header,
-      modes = "n",
-      default_key = "l",
-      desc = "Expand header",
-      force_default = true,
-      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
-    },
-    {
-      plug = keymap_helper.plug_name("TocCollapse"),
-      fn = collapse_header,
-      modes = "n",
-      default_key = "h",
-      desc = "Collapse header",
-      force_default = true,
-      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
-    },
-    {
-      plug = keymap_helper.plug_name("TocJump"),
-      fn = jump_to_header,
-      modes = "n",
-      default_key = "<CR>",
-      desc = "Jump to header",
-      force_default = true,
-      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
-    },
-    {
-      plug = keymap_helper.plug_name("TocClose"),
-      fn = function()
-        vim.cmd("close")
-      end,
-      modes = "n",
-      default_key = "q",
-      desc = "Close TOC",
-      force_default = true,
-      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
-    },
-    {
-      plug = keymap_helper.plug_name("TocHelp"),
-      fn = show_toc_help,
-      modes = "n",
-      default_key = "?",
-      desc = "Show help",
-      force_default = true,
-      default_opts = { buffer = toc_state.toc_bufnr, silent = true, nowait = true },
-    },
-  }
-
-  keymap_helper.setup_keymaps(config, toc_keymaps)
-end
-
---- Check if TOC window is currently open
+---Check if TOC window is currently open
 ---@return boolean
 local function is_toc_open()
-  if toc_state.toc_winnr and vim.api.nvim_win_is_valid(toc_state.toc_winnr) then
+  if toc_state.state.toc_winnr and vim.api.nvim_win_is_valid(toc_state.state.toc_winnr) then
     return true
   end
   return false
 end
 
---- Close the TOC window if it's open
+---Close the TOC window if it's open
 ---@return boolean True if window was closed
 local function close_toc_window()
   if is_toc_open() then
-    vim.api.nvim_win_close(toc_state.toc_winnr, true)
-    toc_state.toc_winnr = nil
+    vim.api.nvim_win_close(toc_state.state.toc_winnr, true)
+    toc_state.state.toc_winnr = nil
     return true
   end
   return false
 end
 
---- Get the TOC statusline string
----@return string
-local function get_toc_statusline()
-  return "%#StatusLine# TOC %#StatusLineNC#│ l=expand  h=collapse  ⏎=jump  q=close  ?=help"
+---Auto-expand headers below initial_depth that have children
+---@param headers table[] Parsed headers
+---@param initial_depth number Depth threshold
+local function auto_expand_headers(headers, initial_depth)
+  for i, header in ipairs(headers) do
+    if header.level < initial_depth then
+      local has_children = false
+      for j = i + 1, #headers do
+        if headers[j].level > header.level then
+          has_children = true
+          break
+        elseif headers[j].level <= header.level then
+          break
+        end
+      end
+      if has_children then
+        toc_state.state.expanded_levels[i] = true
+      end
+    end
+  end
 end
 
---- Set up syntax highlighting for TOC buffer
-local function setup_toc_highlights()
-  -- Define highlight groups (global)
-  vim.cmd([[
-    highlight default link TocLevel Comment
-    highlight default link TocMarkerClosed Special
-    highlight default link TocMarkerOpen Special
-    highlight default link TocH1 Title
-    highlight default link TocH2 Function
-    highlight default link TocH3 String
-    highlight default link TocH4 Type
-    highlight default link TocH5 Identifier
-    highlight default link TocH6 Constant
-  ]])
+---Create or reuse the TOC scratch buffer
+---@return nil
+local function ensure_toc_buffer()
+  if toc_state.state.toc_bufnr and vim.api.nvim_buf_is_valid(toc_state.state.toc_bufnr) then
+    return
+  end
 
-  -- Set up syntax matches in the TOC buffer context
-  vim.api.nvim_buf_call(toc_state.toc_bufnr, function()
-    -- Enable syntax
-    vim.cmd("syntax enable")
-    vim.cmd("syntax clear")
+  toc_state.state.toc_bufnr = vim.api.nvim_create_buf(false, true)
 
-    -- Match markers first (so they can be contained)
-    vim.cmd([[syntax match TocMarkerClosed "▶" contained]])
-    vim.cmd([[syntax match TocMarkerOpen "▼" contained]])
-    vim.cmd([[syntax match TocLevel "\[H[1-6]\]" contained]])
+  vim.bo[toc_state.state.toc_bufnr].buftype = "nofile"
+  vim.bo[toc_state.state.toc_bufnr].bufhidden = "hide"
+  vim.bo[toc_state.state.toc_bufnr].swapfile = false
+  vim.bo[toc_state.state.toc_bufnr].modifiable = false
+  vim.bo[toc_state.state.toc_bufnr].filetype = "markdown-toc"
 
-    -- Match full lines by header level
-    -- Use consistent pattern for all levels to handle whitespace/markers
-    vim.cmd([[syntax match TocH1 "^.*\[H1\].*$" contains=TocLevel,TocMarkerClosed,TocMarkerOpen]])
-    vim.cmd([[syntax match TocH2 "^.*\[H2\].*$" contains=TocLevel,TocMarkerClosed,TocMarkerOpen]])
-    vim.cmd([[syntax match TocH3 "^.*\[H3\].*$" contains=TocLevel,TocMarkerClosed,TocMarkerOpen]])
-    vim.cmd([[syntax match TocH4 "^.*\[H4\].*$" contains=TocLevel,TocMarkerClosed,TocMarkerOpen]])
-    vim.cmd([[syntax match TocH5 "^.*\[H5\].*$" contains=TocLevel,TocMarkerClosed,TocMarkerOpen]])
-    vim.cmd([[syntax match TocH6 "^.*\[H6\].*$" contains=TocLevel,TocMarkerClosed,TocMarkerOpen]])
-  end)
+  vim.api.nvim_buf_set_name(
+    toc_state.state.toc_bufnr,
+    "TOC: " .. vim.fn.fnamemodify(vim.api.nvim_buf_get_name(toc_state.state.source_bufnr), ":t")
+  )
 end
 
---- Open a navigable TOC in a custom buffer window
+---Open the TOC split/tab window and configure its options
+---@param window_type string Window type: 'vertical', 'horizontal', or 'tab'
+local function open_toc_split(window_type)
+  if window_type == "horizontal" then
+    vim.cmd("split")
+  elseif window_type == "vertical" then
+    vim.cmd("vsplit")
+  elseif window_type == "tab" then
+    vim.cmd("tabnew")
+  end
+
+  toc_state.state.toc_winnr = vim.api.nvim_get_current_win()
+  vim.api.nvim_win_set_buf(toc_state.state.toc_winnr, toc_state.state.toc_bufnr)
+
+  vim.wo[toc_state.state.toc_winnr].number = false
+  vim.wo[toc_state.state.toc_winnr].relativenumber = false
+  vim.wo[toc_state.state.toc_winnr].cursorline = true
+  vim.wo[toc_state.state.toc_winnr].wrap = false
+  vim.wo[toc_state.state.toc_winnr].signcolumn = "no"
+  vim.wo[toc_state.state.toc_winnr].foldcolumn = "0"
+  vim.wo[toc_state.state.toc_winnr].colorcolumn = ""
+
+  vim.wo[toc_state.state.toc_winnr].statusline = toc_render.get_toc_statusline()
+end
+
+---Position cursor at the header closest to the source buffer cursor
+---@param headers table[] Parsed headers
+---@param source_cursor_line number Line number in the source buffer
+local function position_cursor_at_closest(headers, source_cursor_line)
+  local closest_idx = 1
+
+  for i, header in ipairs(headers) do
+    if header.line_num <= source_cursor_line then
+      closest_idx = i
+    else
+      break
+    end
+  end
+
+  for i, visible_header in ipairs(toc_state.state.visible_headers) do
+    if visible_header.idx == closest_idx then
+      vim.api.nvim_win_set_cursor(toc_state.state.toc_winnr, { i, 0 })
+      break
+    end
+  end
+end
+
+---Open a navigable TOC in a custom buffer window
 ---@param window_type? string Window type: 'vertical', 'horizontal', or 'tab' (default: 'vertical')
 ---@return nil
 function M.open_toc_window(window_type)
@@ -466,105 +148,24 @@ function M.open_toc_window(window_type)
 
   -- Capture cursor position in source buffer before switching windows
   local source_cursor_line = vim.fn.line(".")
+  local initial_depth = config.toc and config.toc.initial_depth or toc_state.TOC_DEFAULT_MAX_DEPTH
 
-  -- Get initial_depth from config
-  local initial_depth = config.toc and config.toc.initial_depth or TOC_DEFAULT_MAX_DEPTH
+  -- Initialize state
+  toc_state.state.source_bufnr = vim.api.nvim_get_current_buf()
+  toc_state.state.headers = headers
+  toc_state.state.expanded_levels = {}
+  toc_state.state.visible_headers = {}
+  toc_state.state.max_depth = initial_depth
 
-  -- Store state
-  toc_state.source_bufnr = vim.api.nvim_get_current_buf()
-  toc_state.headers = headers
-  toc_state.expanded_levels = {}
-  toc_state.visible_headers = {}
-  toc_state.max_depth = initial_depth
+  auto_expand_headers(headers, initial_depth)
+  ensure_toc_buffer()
+  open_toc_split(window_type)
 
-  -- Auto-expand headers below initial_depth that have children
-  for i, header in ipairs(headers) do
-    if header.level < initial_depth then
-      -- Check if this header has children
-      local has_children = false
-      for j = i + 1, #headers do
-        if headers[j].level > header.level then
-          has_children = true
-          break
-        elseif headers[j].level <= header.level then
-          break
-        end
-      end
-      if has_children then
-        toc_state.expanded_levels[i] = true
-      end
-    end
-  end
+  toc_render.setup_toc_highlights()
+  toc_actions.setup_toc_keymaps(config)
+  toc_render.render_toc()
 
-  -- Create or reuse TOC buffer
-  if not toc_state.toc_bufnr or not vim.api.nvim_buf_is_valid(toc_state.toc_bufnr) then
-    toc_state.toc_bufnr = vim.api.nvim_create_buf(false, true)
-
-    -- Set buffer options
-    vim.bo[toc_state.toc_bufnr].buftype = "nofile"
-    vim.bo[toc_state.toc_bufnr].bufhidden = "hide"
-    vim.bo[toc_state.toc_bufnr].swapfile = false
-    vim.bo[toc_state.toc_bufnr].modifiable = false
-    vim.bo[toc_state.toc_bufnr].filetype = "markdown-toc"
-
-    -- Set buffer name
-    vim.api.nvim_buf_set_name(
-      toc_state.toc_bufnr,
-      "TOC: " .. vim.fn.fnamemodify(vim.api.nvim_buf_get_name(toc_state.source_bufnr), ":t")
-    )
-  end
-
-  -- Open window
-  if window_type == "horizontal" then
-    vim.cmd("split")
-  elseif window_type == "vertical" then
-    vim.cmd("vsplit")
-  elseif window_type == "tab" then
-    vim.cmd("tabnew")
-  end
-
-  toc_state.toc_winnr = vim.api.nvim_get_current_win()
-  vim.api.nvim_win_set_buf(toc_state.toc_winnr, toc_state.toc_bufnr)
-
-  -- Set window options
-  vim.wo[toc_state.toc_winnr].number = false
-  vim.wo[toc_state.toc_winnr].relativenumber = false
-  vim.wo[toc_state.toc_winnr].cursorline = true
-  vim.wo[toc_state.toc_winnr].wrap = false
-  vim.wo[toc_state.toc_winnr].signcolumn = "no"
-  vim.wo[toc_state.toc_winnr].foldcolumn = "0"
-  vim.wo[toc_state.toc_winnr].colorcolumn = ""
-
-  -- Set a helpful status line
-  vim.wo[toc_state.toc_winnr].statusline = get_toc_statusline()
-
-  -- Set up syntax highlighting
-  setup_toc_highlights()
-
-  -- Set up keymaps
-  setup_toc_keymaps()
-
-  -- Initial render
-  render_toc()
-
-  -- Position cursor at header closest to source buffer cursor position
-  local closest_idx = 1
-
-  for i, header in ipairs(headers) do
-    if header.line_num <= source_cursor_line then
-      closest_idx = i
-    else
-      break
-    end
-  end
-
-  -- Find the visible header index
-  for i, visible_header in ipairs(toc_state.visible_headers) do
-    if visible_header.idx == closest_idx then
-      vim.api.nvim_win_set_cursor(toc_state.toc_winnr, { i, 0 })
-      break
-    end
-  end
+  position_cursor_at_closest(headers, source_cursor_line)
 end
 
 return M
