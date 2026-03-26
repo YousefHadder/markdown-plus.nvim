@@ -649,5 +649,125 @@ describe("markdown-plus links", function()
         )
       end)
     end)
+
+    describe("_extract_url_host", function()
+      it("extracts domain from simple URL", function()
+        assert.equals("example.com", smart_paste._extract_url_host("https://example.com/path"))
+      end)
+
+      it("extracts domain from http URL", function()
+        assert.equals("example.com", smart_paste._extract_url_host("http://example.com"))
+      end)
+
+      it("lowercases the host", function()
+        assert.equals("example.com", smart_paste._extract_url_host("https://EXAMPLE.COM/path"))
+      end)
+
+      it("strips port from host", function()
+        assert.equals("example.com", smart_paste._extract_url_host("https://example.com:8080/path"))
+      end)
+
+      it("strips userinfo from URL", function()
+        assert.equals("example.com", smart_paste._extract_url_host("https://user:pass@example.com/path"))
+      end)
+
+      it("extracts IPv4 host", function()
+        assert.equals("192.168.1.1", smart_paste._extract_url_host("https://192.168.1.1/path"))
+      end)
+
+      it("extracts IPv6 host without brackets", function()
+        assert.equals("::1", smart_paste._extract_url_host("https://[::1]/path"))
+      end)
+
+      it("extracts IPv6 host and strips zone identifier", function()
+        assert.equals("fe80::1", smart_paste._extract_url_host("https://[fe80::1%25eth0]/path"))
+      end)
+
+      it("returns nil for empty IPv6 brackets", function()
+        assert.is_nil(smart_paste._extract_url_host("https://[]/path"))
+      end)
+
+      it("returns nil for non-HTTP URL", function()
+        assert.is_nil(smart_paste._extract_url_host("ftp://example.com"))
+      end)
+
+      it("returns nil for empty string", function()
+        assert.is_nil(smart_paste._extract_url_host(""))
+      end)
+
+      it("handles URL with query string", function()
+        assert.equals("example.com", smart_paste._extract_url_host("https://example.com?q=test"))
+      end)
+
+      it("handles URL with fragment", function()
+        assert.equals("example.com", smart_paste._extract_url_host("https://example.com#section"))
+      end)
+    end)
+
+    describe("_get_clipboard_url", function()
+      local orig_getreg
+
+      before_each(function()
+        orig_getreg = vim.fn.getreg
+      end)
+
+      after_each(function()
+        vim.fn.getreg = orig_getreg
+      end)
+
+      it("returns URL from + register", function()
+        vim.fn.getreg = function(reg)
+          if reg == "+" then
+            return "https://example.com"
+          end
+          return ""
+        end
+        assert.equals("https://example.com", smart_paste._get_clipboard_url())
+      end)
+
+      it("falls back to unnamed register", function()
+        vim.fn.getreg = function(reg)
+          if reg == "+" then
+            return ""
+          end
+          if reg == '"' then
+            return "https://fallback.com"
+          end
+          return ""
+        end
+        assert.equals("https://fallback.com", smart_paste._get_clipboard_url())
+      end)
+
+      it("returns nil for non-URL clipboard content", function()
+        vim.fn.getreg = function()
+          return "not a url"
+        end
+        assert.is_nil(smart_paste._get_clipboard_url())
+      end)
+
+      it("returns nil for multi-line clipboard content", function()
+        vim.fn.getreg = function()
+          return "https://example.com\nhttps://other.com"
+        end
+        assert.is_nil(smart_paste._get_clipboard_url())
+      end)
+
+      it("returns nil for empty clipboard", function()
+        vim.fn.getreg = function()
+          return ""
+        end
+        assert.is_nil(smart_paste._get_clipboard_url())
+      end)
+
+      it("trims whitespace from clipboard URL", function()
+        vim.fn.getreg = function(reg)
+          if reg == "+" then
+            return "  https://example.com  "
+          end
+          return ""
+        end
+        assert.equals("https://example.com", smart_paste._get_clipboard_url())
+      end)
+    end)
   end)
 end)
