@@ -2,6 +2,10 @@
 -- Converts pasted URLs into markdown links with fetched page titles
 local M = {}
 
+local url_security = require("markdown-plus.links.url_security")
+local html_parser = require("markdown-plus.links.html_parser")
+local http_fetch = require("markdown-plus.links.http_fetch")
+
 ---@type markdown-plus.InternalConfig
 local config = {}
 
@@ -9,139 +13,6 @@ local config = {}
 local ns_id = vim.api.nvim_create_namespace("markdown_plus_smart_paste")
 local MAX_TITLE_LENGTH = 300
 local MAX_SMART_PASTE_TIMEOUT = 30
-local CURL_MAX_FILESIZE_BYTES = 1024 * 1024
-local CURL_MAX_REDIRECTS = 5
-
--- =============================================================================
--- HTML Parsing Helpers
--- =============================================================================
-
----Unescape common HTML entities
----@param s string HTML string
----@return string Unescaped string
-local function html_unescape(s)
-  s = s:gsub("&amp;", "&")
-  s = s:gsub("&lt;", "<")
-  s = s:gsub("&gt;", ">")
-  s = s:gsub("&quot;", '"')
-  s = s:gsub("&#39;", "'")
-  s = s:gsub("&apos;", "'")
-  s = s:gsub("&#x27;", "'")
-  s = s:gsub("&nbsp;", " ")
-  return s
-end
-
----Check if a string is a valid HTTP(S) URL
----@param s string String to check
----@return boolean True if string is a URL
-local function is_url(s)
-  return type(s) == "string" and s:match("^https?://") ~= nil
-end
-
----Extract host from an HTTP(S) URL
----@param url string
----@return string|nil host Lowercased host (IPv6 without brackets), or nil if unavailable
-local function extract_url_host(url)
-  local authority = url:match("^https?://([^/%?#]+)")
-  if not authority then
-    return nil
-  end
-
-  -- Strip optional userinfo
-  authority = authority:gsub("^.-@", "")
-
-  -- IPv6 host is wrapped in []
-  if authority:sub(1, 1) == "[" then
-    local ipv6_host = authority:match("^%[([^%]]+)%]")
-    if not ipv6_host or ipv6_host == "" then
-      return nil
-    end
-    return ipv6_host:lower():gsub("%%.*$", "") -- strip zone identifier (e.g. %eth0)
-  end
-
-  -- IPv4/domain with optional :port
-  local host = authority:match("^([^:]+)")
-  if not host or host == "" then
-    return nil
-  end
-  return host:lower()
-end
-
----Check whether host is in private/local IPv4 ranges
----@param host string
----@return boolean
-local function is_private_ipv4(host)
-  local a, b, c, d = host:match("^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
-  if not a then
-    return false
-  end
-
-  a, b, c, d = tonumber(a), tonumber(b), tonumber(c), tonumber(d)
-  if not a or not b or not c or not d then
-    return false
-  end
-  if a > 255 or b > 255 or c > 255 or d > 255 then
-    return false
-  end
-
-  return a == 10
-    or a == 127
-    or (a == 169 and b == 254)
-    or (a == 172 and b >= 16 and b <= 31)
-    or (a == 192 and b == 168)
-    or a == 0
-end
-
----Check whether host is a local/private IPv6 address
----@param host string
----@return boolean
-local function is_local_ipv6(host)
-  local normalized = host:lower()
-  if normalized == "::1" or normalized == "::" then
-    return true
-  end
-
-  -- fc00::/7 (unique local), fe80::/10 (link-local)
-  return normalized:match("^f[cd]") ~= nil or normalized:match("^fe[89ab]") ~= nil
-end
-
----Extract embedded IPv4 from IPv6-mapped IPv4 hosts (e.g. ::ffff:127.0.0.1)
----@param host string
----@return string|nil
-local function extract_mapped_ipv4(host)
-  local normalized = host:lower()
-  return normalized:match("^::ffff:(%d+%.%d+%.%d+%.%d+)$")
-end
-
----Check whether URL host should be blocked for smart fetch
----@param url string
----@return boolean is_blocked
----@return string|nil reason
-local function is_blocked_url(url)
-  local host = extract_url_host(url)
-  if not host then
-    return true, "invalid URL host"
-  end
-
-  if host == "localhost" or host:match("%.localhost$") then
-    return true, "localhost is not allowed"
-  end
-
-  if is_private_ipv4(host) then
-    return true, "private IPv4 addresses are not allowed"
-  end
-
-  local mapped_ipv4 = host:find(":", 1, true) and extract_mapped_ipv4(host) or nil
-  if mapped_ipv4 and is_private_ipv4(mapped_ipv4) then
-    return true, "IPv6-mapped private IPv4 addresses are not allowed"
-  end
-
-  if host:find(":", 1, true) and is_local_ipv6(host) then
-    return true, "local/private IPv6 addresses are not allowed"
-  end
-
-  return false, nil
-end
 
 ---Clamp smart-paste timeout to a safe range
 ---@param timeout number|nil
@@ -165,60 +36,6 @@ local function truncate_title(title)
     return title
   end
   return title:sub(1, MAX_TITLE_LENGTH - 3) .. "..."
-end
-
----Extract title from HTML content
----Tries og:title, twitter:title, then <title> tag
----@param html string HTML content
----@return string|nil Title or nil if not found
-local function parse_title(html)
-  if not html or html == "" then
-    return nil
-  end
-
-  -- Normalize newlines
-  local h = html:gsub("\r\n", "\n")
-
-  ---Try to extract content from a meta tag pattern
-  ---@param pattern string Lua pattern
-  ---@return string|nil
-  local function meta_content(pattern)
-    local content = h:match(pattern)
-    if content then
-      content = vim.trim(html_unescape(content))
-      if content ~= "" then
-        return content
-      end
-    end
-    return nil
-  end
-
-  -- Try og:title (property=) - handles different attribute orders
-  local og = meta_content("<meta[^>]-property=[\"']og:title[\"'][^>]-content=[\"']([^\"']-)[\"'][^>]->")
-    or meta_content("<meta[^>]-content=[\"']([^\"']-)[\"'][^>]-property=[\"']og:title[\"'][^>]->")
-
-  if og then
-    return og
-  end
-
-  -- Try twitter:title (name=)
-  local tw = meta_content("<meta[^>]-name=[\"']twitter:title[\"'][^>]-content=[\"']([^\"']-)[\"'][^>]->")
-    or meta_content("<meta[^>]-content=[\"']([^\"']-)[\"'][^>]-name=[\"']twitter:title[\"'][^>]->")
-
-  if tw then
-    return tw
-  end
-
-  -- Try <title> tag (case-insensitive)
-  local t = h:match("<[Tt][Ii][Tt][Ll][Ee][^>]*>(.-)</[Tt][Ii][Tt][Ll][Ee]>")
-  if t then
-    t = vim.trim(html_unescape(t:gsub("%s+", " ")))
-    if t ~= "" then
-      return t
-    end
-  end
-
-  return nil
 end
 
 ---Check if URL needs angle bracket wrapping for markdown
@@ -255,7 +72,7 @@ local function get_clipboard_url()
     -- Trim whitespace
     content = vim.trim(content)
     -- Check if it's a single-line URL
-    if not content:match("\n") and is_url(content) then
+    if not content:match("\n") and url_security.is_url(content) then
       return content
     end
   end
@@ -264,65 +81,27 @@ local function get_clipboard_url()
 end
 
 -- =============================================================================
--- Async Fetch
--- =============================================================================
-
----Fetch HTML content from URL asynchronously
----@param url string URL to fetch
----@param timeout number Timeout in seconds
----@param callback fun(html: string|nil, err: string|nil) Callback with result
-local function fetch_html_async(url, timeout, callback)
-  local cmd = {
-    "curl",
-    "-fsSL",
-    "--compressed",
-    "-m",
-    tostring(timeout),
-    "--max-filesize",
-    tostring(CURL_MAX_FILESIZE_BYTES),
-    "--max-redirs",
-    tostring(CURL_MAX_REDIRECTS),
-    "-A",
-    "Mozilla/5.0 (compatible; markdown-plus.nvim)",
-    url,
-  }
-
-  vim.system(cmd, { text = true }, function(out)
-    if out.code ~= 0 then
-      local err = string.format("curl failed (%d): %s", out.code, vim.trim(out.stderr or ""))
-      callback(nil, err)
-    else
-      callback(out.stdout, nil)
-    end
-  end)
-end
-
--- =============================================================================
 -- Core Smart Paste Logic
 -- =============================================================================
 
----Replace placeholder with final link text
+---Replace text at an extmark position and delete the extmark
 ---@param bufnr number Buffer number
 ---@param mark_id number Extmark ID
----@param url string Original URL
----@param title string Title for the link
-local function replace_placeholder(bufnr, mark_id, url, title)
-  -- Check buffer is still valid
+---@param text string Replacement text
+---@return boolean success Whether the replacement was performed
+local function replace_at_mark(bufnr, mark_id, text)
   if not vim.api.nvim_buf_is_valid(bufnr) then
-    return
+    return false
   end
 
-  -- Check buffer is modifiable
   if not vim.bo[bufnr].modifiable then
     vim.notify("markdown-plus: Buffer is not modifiable", vim.log.levels.WARN)
-    return
+    return false
   end
 
-  -- Get extmark position
   local mark = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns_id, mark_id, { details = true })
   if not mark or #mark == 0 then
-    -- Extmark was deleted (user may have undone)
-    return
+    return false
   end
 
   local row = mark[1]
@@ -330,29 +109,31 @@ local function replace_placeholder(bufnr, mark_id, url, title)
   local details = mark[3]
   local end_col = details and details.end_col or start_col
 
-  -- Get current line
   local lines = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)
   if #lines == 0 then
-    return
+    return false
   end
 
   local line = lines[1]
-
-  -- Escape ] in title for markdown link text
-  local safe_title = truncate_title(title):gsub("%]", "\\]")
-  -- Format URL for markdown (wrap in angle brackets if contains special chars)
-  local safe_url = format_url_for_markdown(url)
-  local new_link = string.format("[%s](%s)", safe_title, safe_url)
-
-  -- Replace the placeholder
   local before = line:sub(1, start_col)
   local after = line:sub(end_col + 1)
-  local new_line = before .. new_link .. after
+  local new_line = before .. text .. after
 
   vim.api.nvim_buf_set_lines(bufnr, row, row + 1, false, { new_line })
-
-  -- Delete the extmark
   vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
+  return true
+end
+
+---Replace placeholder with final link text
+---@param bufnr number Buffer number
+---@param mark_id number Extmark ID
+---@param url string Original URL
+---@param title string Title for the link
+local function replace_placeholder(bufnr, mark_id, url, title)
+  local safe_title = truncate_title(title):gsub("%]", "\\]")
+  local safe_url = format_url_for_markdown(url)
+  local new_link = string.format("[%s](%s)", safe_title, safe_url)
+  replace_at_mark(bufnr, mark_id, new_link)
 end
 
 ---Prompt user for title input
@@ -368,43 +149,9 @@ local function prompt_for_title(bufnr, mark_id, url, err_msg)
   vim.ui.input({ prompt = "Link title: " }, function(input)
     vim.schedule(function()
       if input and input ~= "" then
-        -- User provided a title
         replace_placeholder(bufnr, mark_id, url, input)
       else
-        -- User cancelled - replace with raw URL
-        -- Get extmark to find placeholder position
-        if not vim.api.nvim_buf_is_valid(bufnr) then
-          return
-        end
-
-        -- Check buffer is modifiable
-        if not vim.bo[bufnr].modifiable then
-          vim.notify("markdown-plus: Buffer is not modifiable", vim.log.levels.WARN)
-          return
-        end
-
-        local mark = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns_id, mark_id, { details = true })
-        if not mark or #mark == 0 then
-          return
-        end
-
-        local row = mark[1]
-        local start_col = mark[2]
-        local details = mark[3]
-        local end_col = details and details.end_col or start_col
-
-        local lines = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)
-        if #lines == 0 then
-          return
-        end
-
-        local line = lines[1]
-        local before = line:sub(1, start_col)
-        local after = line:sub(end_col + 1)
-        local new_line = before .. url .. after
-
-        vim.api.nvim_buf_set_lines(bufnr, row, row + 1, false, { new_line })
-        vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
+        replace_at_mark(bufnr, mark_id, url)
       end
     end)
   end)
@@ -424,7 +171,7 @@ function M.smart_paste()
     return
   end
 
-  local is_blocked, reason = is_blocked_url(url)
+  local is_blocked, reason = url_security.is_blocked_url(url)
   if is_blocked then
     vim.notify("markdown-plus: Refusing to fetch URL (" .. (reason or "blocked host") .. ")", vim.log.levels.WARN)
     return
@@ -466,14 +213,14 @@ function M.smart_paste()
 
   -- Fetch title asynchronously
   local timeout = clamp_timeout(config.links.smart_paste.timeout or 5)
-  fetch_html_async(url, timeout, function(html, err)
+  http_fetch.fetch_html_async(url, timeout, function(html, err)
     vim.schedule(function()
       if err then
         prompt_for_title(bufnr, mark_id, url, "Failed to fetch page: " .. err)
         return
       end
 
-      local title = parse_title(html)
+      local title = html_parser.parse_title(html)
       if title then
         replace_placeholder(bufnr, mark_id, url, title)
       else
@@ -494,14 +241,14 @@ function M.setup(cfg)
 end
 
 -- Expose helpers for testing
-M._html_unescape = html_unescape
-M._is_url = is_url
-M._parse_title = parse_title
+M._html_unescape = html_parser.html_unescape
+M._is_url = url_security.is_url
+M._parse_title = html_parser.parse_title
 M._get_clipboard_url = get_clipboard_url
 M._url_needs_brackets = url_needs_brackets
 M._format_url_for_markdown = format_url_for_markdown
-M._extract_url_host = extract_url_host
-M._is_blocked_url = is_blocked_url
+M._extract_url_host = url_security.extract_url_host
+M._is_blocked_url = url_security.is_blocked_url
 M._clamp_timeout = clamp_timeout
 M._truncate_title = truncate_title
 
