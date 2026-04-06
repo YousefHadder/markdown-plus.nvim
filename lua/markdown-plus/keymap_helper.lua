@@ -2,6 +2,9 @@
 -- Centralizes keymap setup logic to reduce duplication across feature modules
 local M = {}
 
+-- Track which <Plug> mappings have been registered to avoid redundant global re-registration
+local registered_plugs = {}
+
 ---Keymap definition
 ---@class markdown-plus.KeymapDef
 ---@field plug string The <Plug> mapping name (e.g., "MarkdownPlusBold")
@@ -31,25 +34,30 @@ function M.setup_keymaps(config, keymaps)
     end
 
     for idx, mode in ipairs(modes) do
-      -- Always create <Plug> mapping (regardless of keymaps.enabled)
       local plug_name = "<Plug>(" .. keymap.plug .. ")"
-      local fn = keymap.fn
+      local plug_key = plug_name .. ":" .. mode
 
-      -- If fn is a table, use the function for this mode index
-      if type(fn) == "table" then
-        fn = fn[idx]
+      -- Register <Plug> mapping once per mode (global, not buffer-local)
+      if not registered_plugs[plug_key] then
+        local fn = keymap.fn
+
+        -- If fn is a table, use the function for this mode index
+        if type(fn) == "table" then
+          fn = fn[idx]
+        end
+
+        -- Determine if this mode uses expr mapping
+        local is_expr = exprs and exprs[idx] or false
+
+        local plug_opts = vim.tbl_extend("force", {
+          silent = true,
+          desc = keymap.desc,
+          expr = is_expr,
+        }, keymap.map_opts or {})
+
+        vim.keymap.set(mode, plug_name, fn, plug_opts)
+        registered_plugs[plug_key] = true
       end
-
-      -- Determine if this mode uses expr mapping
-      local is_expr = exprs and exprs[idx] or false
-
-      local plug_opts = vim.tbl_extend("force", {
-        silent = true,
-        desc = keymap.desc,
-        expr = is_expr,
-      }, keymap.map_opts or {})
-
-      vim.keymap.set(mode, plug_name, fn, plug_opts)
 
       local should_set_default = config.keymaps and config.keymaps.enabled
       if keymap.force_default then
