@@ -12,9 +12,12 @@
 - **Link management:** Insert, edit, convert inline/reference, auto-link URLs
 
 ### Architecture
-- `lua/markdown-plus/` - Core modules (init.lua, list/, format/, headers/, links/, utils.lua, types.lua, config/validate.lua)
+- `lua/markdown-plus/` - Core modules (70 Lua files across 14 directories):
+  - Feature modules: list/, format/, headers/, links/, table/, footnotes/, callouts/, quote/, images/, code_block/, thematic_break/
+  - Shared: utils/ (buffer, text, selection, element, html), treesitter/, config/
+  - Root: init.lua, types.lua, utils.lua, keymap_helper.lua, health.lua
 - `plugin/markdown-plus.lua` - Entry point with lazy initialization guard
-- `spec/` - Busted test suites
+- `spec/` - 26 Busted test suites
 - `doc/` - Vimdoc help files
 - `rockspecs/` - LuaRocks package specifications
 
@@ -23,7 +26,7 @@
 - **Linting:** .luacheckrc
 - **Formatting:** .stylua.toml
 - **Type checking:** .luarc.json (Lua 5.1 runtime)
-- **Testing:** Busted + Plenary (~85% coverage)
+- **Testing:** Busted + Plenary (26 spec files, ~85% coverage)
 
 ---
 
@@ -47,7 +50,7 @@
 2. **Configuration Changes**
    - New config keys must be added to: `types.lua`, `config/validate.lua`, README, vimdoc, and tests
    - Use `vim.validate()` wrapped with `pcall` for validation
-   - Support both `require('markdown-plus').setup(opts)` AND `vim.g.markdown_plus`
+   - Use `require('markdown-plus').setup(opts)` (v2.0 removed `vim.g.markdown_plus`)
    - Provide helpful error messages for invalid configurations
 
 3. **Keymaps**
