@@ -84,12 +84,16 @@ local function get_fenced_code_block_lines(lines)
 end
 
 ---Check if a line breaks list continuity
----@param line string
+---@param line string|nil
 ---@param line_num number|nil 1-indexed line number (provide with `lines` for continuation checks)
 ---@param lines string[]|nil All buffer lines (provide with `line_num` for continuation checks)
 ---@return boolean
 function M.is_list_breaking_line(line, line_num, lines)
-  if not line or line:match("^%s*$") then
+  if not line then
+    return true
+  end
+
+  if line:match("^%s*$") then
     if line_num and lines and shared.is_continuation_line(line, line_num, lines) then
       return false
     end
