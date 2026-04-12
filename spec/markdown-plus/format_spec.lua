@@ -1392,4 +1392,50 @@ describe("markdown-plus format", function()
       assert.equals("bold and italic", result)
     end)
   end)
+
+  describe("toggle_format_word", function()
+    local toggle = require("markdown-plus.format.toggle")
+
+    it("applies bold formatting to current word", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "hello world" })
+      vim.fn.cursor(1, 1) -- cursor on 'h' of 'hello'
+
+      toggle.toggle_format_word("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("**hello** world", line)
+    end)
+
+    it("removes bold formatting from already bold word", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "**hello** world" })
+      vim.fn.cursor(1, 3) -- cursor inside the bold markers, on 'h'
+
+      toggle.toggle_format_word("bold")
+
+      local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+      assert.equals("hello world", line)
+    end)
+  end)
+
+  describe("setup/enable/setup_keymaps", function()
+    it("setup stores config", function()
+      format.setup({ enabled = true, features = { text_formatting = true }, custom_key = "val" })
+      assert.equals(true, format.config.enabled)
+      assert.equals("val", format.config.custom_key)
+    end)
+
+    it("enable on non-markdown buffer is no-op", function()
+      vim.bo.filetype = "lua"
+      format.enable()
+      -- No Plug mappings should be set for a non-markdown buffer
+      assert.equals(0, vim.fn.hasmapto("<Plug>(MarkdownPlusBold)", "n"))
+    end)
+
+    it("enable on markdown buffer sets up keymaps", function()
+      vim.bo.filetype = "markdown"
+      format.setup({ enabled = true, features = { text_formatting = true }, keymaps = { enabled = true } })
+      format.enable()
+      assert.equals(1, vim.fn.hasmapto("<Plug>(MarkdownPlusBold)", "n"))
+    end)
+  end)
 end)

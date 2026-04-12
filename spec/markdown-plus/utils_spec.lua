@@ -1217,4 +1217,86 @@ describe("markdown-plus utils", function()
       assert.are.equal("delta", utils.get_line(4))
     end)
   end)
+
+  describe("find_pattern_at_cursor", function()
+    it("finds match when cursor is inside pattern", function()
+      local b = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, { "[text](https://example.com)" })
+      vim.api.nvim_set_current_buf(b)
+      -- Place cursor inside the link (col 3 = on 'x' of 'text')
+      vim.api.nvim_win_set_cursor(0, { 1, 3 })
+
+      local result = utils.find_pattern_at_cursor("%[(.-)%]%((.-)%)")
+      assert.is_not_nil(result)
+      assert.are.equal(1, result.start_pos)
+      assert.are.equal(1, result.line_num)
+
+      vim.api.nvim_buf_delete(b, { force = true })
+    end)
+
+    it("returns nil when cursor is not on a match", function()
+      local b = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, { "just plain text here" })
+      vim.api.nvim_set_current_buf(b)
+      vim.api.nvim_win_set_cursor(0, { 1, 5 })
+
+      local result = utils.find_pattern_at_cursor("%[(.-)%]%((.-)%)")
+      assert.is_nil(result)
+
+      vim.api.nvim_buf_delete(b, { force = true })
+    end)
+
+    it("uses extractor function when provided", function()
+      local b = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, { "[hello](http://test.com)" })
+      vim.api.nvim_set_current_buf(b)
+      vim.api.nvim_win_set_cursor(0, { 1, 2 })
+
+      local result = utils.find_pattern_at_cursor("%[(.-)%]%((.-)%)", function(match)
+        local link_text, url = match:match("^%[(.-)%]%((.-)%)$")
+        if link_text then
+          return { link_text = link_text, url = url }
+        end
+      end)
+
+      assert.is_not_nil(result)
+      assert.are.equal("hello", result.link_text)
+      assert.are.equal("http://test.com", result.url)
+
+      vim.api.nvim_buf_delete(b, { force = true })
+    end)
+  end)
+
+  describe("find_patterns_at_cursor", function()
+    it("returns first matching pattern", function()
+      local b = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, { "**bold text**" })
+      vim.api.nvim_set_current_buf(b)
+      vim.api.nvim_win_set_cursor(0, { 1, 4 })
+
+      local result = utils.find_patterns_at_cursor({
+        { pattern = "%[(.-)%]%((.-)%)" },
+        { pattern = "%*%*(.-)%*%*" },
+      })
+      assert.is_not_nil(result)
+      assert.are.equal(1, result.start_pos)
+
+      vim.api.nvim_buf_delete(b, { force = true })
+    end)
+
+    it("returns nil when no pattern matches", function()
+      local b = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(b, 0, -1, false, { "plain text" })
+      vim.api.nvim_set_current_buf(b)
+      vim.api.nvim_win_set_cursor(0, { 1, 3 })
+
+      local result = utils.find_patterns_at_cursor({
+        { pattern = "%[(.-)%]%((.-)%)" },
+        { pattern = "%*%*(.-)%*%*" },
+      })
+      assert.is_nil(result)
+
+      vim.api.nvim_buf_delete(b, { force = true })
+    end)
+  end)
 end)

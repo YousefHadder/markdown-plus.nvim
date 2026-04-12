@@ -386,6 +386,127 @@ describe("health check", function()
     end)
   end)
 
+  describe("smart paste and dependency checks", function()
+    -- Helper to capture health calls
+    local function capture_health_calls(fn)
+      local health_calls = {}
+      local orig_ok, orig_warn, orig_error, orig_info, orig_start =
+        vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start
+      vim.health.ok = function(msg)
+        table.insert(health_calls, { type = "ok", msg = msg })
+      end
+      vim.health.warn = function(msg, ...)
+        table.insert(health_calls, { type = "warn", msg = msg })
+      end
+      vim.health.error = function(msg, ...)
+        table.insert(health_calls, { type = "error", msg = msg })
+      end
+      vim.health.info = function(msg, ...)
+        table.insert(health_calls, { type = "info", msg = msg })
+      end
+      vim.health.start = function(msg)
+        table.insert(health_calls, { type = "start", msg = msg })
+      end
+
+      fn()
+
+      vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start =
+        orig_ok, orig_warn, orig_error, orig_info, orig_start
+      return health_calls
+    end
+
+    it("checks curl availability when smart paste is enabled", function()
+      markdown_plus.setup({
+        links = { smart_paste = { enabled = true, timeout = 5 } },
+      })
+
+      local health_calls = capture_health_calls(function()
+        health_module.check()
+      end)
+
+      local found_curl = false
+      for _, call in ipairs(health_calls) do
+        if call.msg and call.msg:find("curl") then
+          found_curl = true
+          break
+        end
+      end
+      assert.is_true(found_curl, "Expected health check to mention curl when smart paste is enabled")
+    end)
+
+    it("checks Neovim version for vim.system when smart paste is enabled", function()
+      markdown_plus.setup({
+        links = { smart_paste = { enabled = true, timeout = 5 } },
+      })
+
+      local health_calls = capture_health_calls(function()
+        health_module.check()
+      end)
+
+      local found_system = false
+      for _, call in ipairs(health_calls) do
+        if call.msg and (call.msg:find("vim%.system") or call.msg:find("Neovim 0%.10")) then
+          found_system = true
+          break
+        end
+      end
+      assert.is_true(found_system, "Expected health check to mention vim.system() or Neovim 0.10+ for smart paste")
+    end)
+
+    it("reports treesitter markdown parser status", function()
+      local health_calls = capture_health_calls(function()
+        health_module.check()
+      end)
+
+      local found_ts = false
+      for _, call in ipairs(health_calls) do
+        if call.msg and call.msg:find("Treesitter markdown parser") then
+          found_ts = true
+          break
+        end
+      end
+      assert.is_true(found_ts, "Expected health check to report treesitter markdown parser status")
+    end)
+
+    it("reports configured filetypes", function()
+      markdown_plus.setup({
+        filetypes = { "markdown" },
+      })
+
+      local health_calls = capture_health_calls(function()
+        health_module.check()
+      end)
+
+      local found_ft = false
+      for _, call in ipairs(health_calls) do
+        if call.msg and call.msg:find("markdown") and call.msg:find("filetype") then
+          found_ft = true
+          break
+        end
+      end
+      assert.is_true(found_ft, "Expected health check to mention configured filetypes including 'markdown'")
+    end)
+
+    it("reports tool availability in recommendations section", function()
+      local health_calls = capture_health_calls(function()
+        health_module.check()
+      end)
+
+      local found_stylua = false
+      local found_luacheck = false
+      for _, call in ipairs(health_calls) do
+        if call.msg and call.msg:find("stylua") then
+          found_stylua = true
+        end
+        if call.msg and call.msg:find("luacheck") then
+          found_luacheck = true
+        end
+      end
+      assert.is_true(found_stylua, "Expected health check to mention stylua in recommendations")
+      assert.is_true(found_luacheck, "Expected health check to mention luacheck in recommendations")
+    end)
+  end)
+
   describe("module accessibility", function()
     it("exposes check function", function()
       assert.is_function(health_module.check, "Should expose check function")

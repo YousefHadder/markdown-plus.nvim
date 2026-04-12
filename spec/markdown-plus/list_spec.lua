@@ -2416,4 +2416,55 @@ describe("markdown-plus list management", function()
       renumber.set_html_awareness(true)
     end)
   end)
+
+  describe("shared helpers", function()
+    local shared = require("markdown-plus.list.shared")
+    local parser = require("markdown-plus.list.parser")
+
+    it("extract_list_content from checkbox item returns content after marker", function()
+      local line = "- [x] Task done"
+      local info = parser.parse_list_line(line, 1)
+      assert.is_not_nil(info)
+      local content = shared.extract_list_content(line, info)
+      assert.are.equal("Task done", content)
+    end)
+
+    it("find_parent_list_at_indent finds parent at target indent", function()
+      local lines = {
+        [1] = "1. parent",
+        [2] = "   1. child",
+        [3] = "   2. child two",
+      }
+      local parent_info, parent_row = shared.find_parent_list_at_indent(3, 0, lines)
+      assert.is_not_nil(parent_info)
+      assert.are.equal(1, parent_row)
+      assert.are.equal("ordered", parent_info.type)
+    end)
+
+    it("find_parent_list_at_indent returns nil when no parent exists", function()
+      local lines = {
+        [1] = "- unordered",
+        [2] = "   1. child",
+      }
+      local parent_info = shared.find_parent_list_at_indent(2, 0, lines)
+      assert.is_nil(parent_info)
+    end)
+  end)
+
+  describe("renumber_from", function()
+    it("correctly renumbers misnumbered ordered list", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "1. a",
+        "1. b",
+        "1. c",
+      })
+
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. a", result[1])
+      assert.are.equal("2. b", result[2])
+      assert.are.equal("3. c", result[3])
+    end)
+  end)
 end)
