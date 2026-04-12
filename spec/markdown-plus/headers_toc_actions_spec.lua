@@ -260,6 +260,71 @@ describe("markdown-plus toc_actions", function()
     end)
   end)
 
+  describe("jump_to_header", function()
+    it("jumps to source buffer line for valid visible header", function()
+      -- Create a source buffer with content
+      local source_buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(source_buf, 0, -1, false, {
+        "# Header One",
+        "",
+        "Some text",
+        "",
+        "## Header Two",
+        "",
+        "More text",
+      })
+
+      -- Open source buffer in a window and note the window
+      local source_win = vim.api.nvim_get_current_win()
+      vim.api.nvim_win_set_buf(source_win, source_buf)
+
+      -- Create TOC buffer in a split
+      vim.cmd("vsplit")
+      local toc_win = vim.api.nvim_get_current_win()
+      toc_bufnr = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_win_set_buf(toc_win, toc_bufnr)
+
+      -- Set up state
+      toc_state.state.source_bufnr = source_buf
+      toc_state.state.toc_bufnr = toc_bufnr
+      toc_state.state.toc_winnr = toc_win
+
+      setup_state({
+        { level = 1, text = "Header One", line_num = 1 },
+        { level = 2, text = "Header Two", line_num = 5 },
+      }, { [1] = true }, 2)
+
+      -- Put lines in TOC buffer so cursor can be positioned
+      local lines = {}
+      for i = 1, #toc_state.state.visible_headers do
+        lines[i] = "line " .. i
+      end
+      vim.api.nvim_buf_set_lines(toc_bufnr, 0, -1, false, lines)
+
+      -- Find H2 line in visible headers
+      local h2_line = nil
+      for i, vh in ipairs(toc_state.state.visible_headers) do
+        if vh.header.text == "Header Two" then
+          h2_line = i
+          break
+        end
+      end
+      assert.is_not_nil(h2_line)
+      vim.api.nvim_win_set_cursor(toc_win, { h2_line, 0 })
+
+      -- Jump
+      toc_actions.jump_to_header()
+
+      -- Verify we're now in the source window at line 5
+      assert.are.equal(source_win, vim.api.nvim_get_current_win())
+      local cursor = vim.api.nvim_win_get_cursor(source_win)
+      assert.are.equal(5, cursor[1])
+
+      -- Cleanup
+      vim.api.nvim_buf_delete(source_buf, { force = true })
+    end)
+  end)
+
   describe("setup_toc_keymaps", function()
     it("registers plug mappings for TOC actions", function()
       local config = {

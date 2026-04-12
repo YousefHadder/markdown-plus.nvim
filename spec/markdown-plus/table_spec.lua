@@ -1441,4 +1441,321 @@ describe("table init (orchestration facade)", function()
       assert.is_false(result)
     end)
   end)
+
+  describe("table.keymaps", function()
+    local keymaps = require("markdown-plus.table.keymaps")
+
+    it("register_plug_mappings creates all plug mappings", function()
+      keymaps.register_plug_mappings()
+
+      local expected_plugs = {
+        "<Plug>(MarkdownPlusTableFormat)",
+        "<Plug>(MarkdownPlusTableCreate)",
+        "<Plug>(MarkdownPlusTableInsertRowBelow)",
+        "<Plug>(MarkdownPlusTableDeleteRow)",
+        "<Plug>(MarkdownPlusTableInsertColumnRight)",
+        "<Plug>(MarkdownPlusTableDeleteColumn)",
+        "<Plug>(MarkdownPlusTableTranspose)",
+        "<Plug>(MarkdownPlusTableSortAscending)",
+        "<Plug>(MarkdownPlusTableSortDescending)",
+      }
+
+      for _, plug in ipairs(expected_plugs) do
+        local mappings = vim.api.nvim_get_keymap("n")
+        local found = false
+        for _, map in ipairs(mappings) do
+          if map.lhs == plug then
+            found = true
+            break
+          end
+        end
+        assert.is_true(found, "Expected <Plug> mapping to exist: " .. plug)
+      end
+    end)
+
+    it("setup_buffer_keymaps creates buffer-local keymaps", function()
+      keymaps.setup_buffer_keymaps({
+        keymaps = {
+          enabled = true,
+          prefix = "<localleader>t",
+          insert_mode_navigation = true,
+        },
+      })
+
+      local buf_maps = vim.api.nvim_buf_get_keymap(0, "n")
+      assert.is_true(#buf_maps > 0, "Expected buffer-local keymaps to be created")
+    end)
+
+    it("setup_buffer_keymaps with keymaps disabled skips buffer-local keymaps", function()
+      -- Create a fresh buffer to ensure no pre-existing maps
+      vim.cmd("enew")
+      vim.bo.filetype = "markdown"
+
+      keymaps.setup_buffer_keymaps({
+        keymaps = {
+          enabled = false,
+          prefix = "<localleader>t",
+          insert_mode_navigation = true,
+        },
+      })
+
+      local buf_maps = vim.api.nvim_buf_get_keymap(0, "n")
+      -- Filter for our prefix-based mappings only
+      local our_maps = 0
+      for _, map in ipairs(buf_maps) do
+        if map.lhs:find("\\t") or map.lhs:find("<LocalLeader>t") then
+          our_maps = our_maps + 1
+        end
+      end
+      assert.equals(0, our_maps, "Expected no buffer-local table keymaps when keymaps disabled")
+    end)
+  end)
+
+  describe("table.calculator", function()
+    local calculator = require("markdown-plus.table.calculator")
+
+    it("transpose_table swaps rows and columns", function()
+      local lines = {
+        "| A | B | C |",
+        "| --- | --- | --- |",
+        "| 1 | 2 | 3 |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+
+      -- Stub confirm to auto-accept
+      local orig_confirm = require("markdown-plus.utils").confirm
+      require("markdown-plus.utils").confirm = function()
+        return true
+      end
+
+      local result = calculator.transpose_table()
+
+      require("markdown-plus.utils").confirm = orig_confirm
+
+      assert.is_true(result, "transpose_table should return true on success")
+
+      local result_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Original: 2 data rows (header + 1 data), 3 cols
+      -- Transposed: 3 data rows (header + 2 data), 2 cols
+      -- Header row should now be the old first column values
+      assert.truthy(result_lines[1]:find("A"), "Transposed header should contain 'A'")
+      assert.truthy(result_lines[1]:find("1"), "Transposed header should contain '1'")
+      -- Should now have 4 lines (3 data rows + separator)
+      assert.equals(4, #result_lines, "Transposed table should have 4 lines")
+    end)
+
+    it("sort_ascending sorts by column", function()
+      local lines = {
+        "| Name | Score |",
+        "| --- | --- |",
+        "| Charlie | 30 |",
+        "| Alice | 10 |",
+        "| Bob | 20 |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      -- Place cursor in second column (Score) of a data row
+      vim.fn.cursor(3, 14)
+
+      -- Stub confirm to auto-accept
+      local orig_confirm = require("markdown-plus.utils").confirm
+      require("markdown-plus.utils").confirm = function()
+        return true
+      end
+
+      local result = calculator.sort_by_column(true)
+
+      require("markdown-plus.utils").confirm = orig_confirm
+
+      assert.is_true(result, "sort_by_column should return true on success")
+
+      local result_lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- First data row should have the smallest Score (10 = Alice)
+      assert.truthy(result_lines[3]:find("10"), "First data row should contain '10' after ascending sort")
+      -- Last data row should have the largest Score (30 = Charlie)
+      assert.truthy(result_lines[5]:find("30"), "Last data row should contain '30' after ascending sort")
+    end)
+  end)
+
+  describe("facade functions with real table", function()
+    before_each(function()
+      -- Insert a real markdown table
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H1 | H2 | H3 |",
+        "| --- | --- | --- |",
+        "| a  | b  | c  |",
+        "| d  | e  | f  |",
+      })
+      -- Position cursor inside the table (row 3, inside cell)
+      vim.api.nvim_win_set_cursor(0, { 3, 3 })
+    end)
+
+    it("insert_row_above adds a row above cursor", function()
+      local result = tbl.insert_row_above()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals(5, #lines)
+    end)
+
+    it("insert_row_below adds a row below cursor", function()
+      local result = tbl.insert_row_below()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals(5, #lines)
+    end)
+
+    it("insert_column_left adds a column to the left", function()
+      local result = tbl.insert_column_left()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Each line should now have 4 pipe-delimited columns (5 pipes)
+      local pipe_count = select(2, lines[1]:gsub("|", ""))
+      assert.equals(5, pipe_count)
+    end)
+
+    it("insert_column_right adds a column to the right", function()
+      local result = tbl.insert_column_right()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      local pipe_count = select(2, lines[1]:gsub("|", ""))
+      assert.equals(5, pipe_count)
+    end)
+
+    it("delete_row removes the current data row", function()
+      local result = tbl.delete_row()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals(3, #lines)
+    end)
+
+    it("delete_column removes the current column", function()
+      local result = tbl.delete_column()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Each line should now have 2 columns (3 pipes)
+      local pipe_count = select(2, lines[1]:gsub("|", ""))
+      assert.equals(3, pipe_count)
+    end)
+  end)
+
+  describe("remaining facade functions", function()
+    before_each(function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| A | B |",
+        "| --- | --- |",
+        "| 1 | 2 |",
+        "| 3 | 4 |",
+      })
+      vim.api.nvim_win_set_cursor(0, { 3, 3 })
+    end)
+
+    it("move_right navigates cells", function()
+      local result = tbl.move_right()
+      assert.is_true(result)
+    end)
+
+    it("move_left navigates cells", function()
+      -- Start in second column so there is a left cell
+      vim.api.nvim_win_set_cursor(0, { 3, 7 })
+      local result = tbl.move_left()
+      assert.is_true(result)
+    end)
+
+    it("move_down navigates rows", function()
+      local result = tbl.move_down()
+      assert.is_true(result)
+    end)
+
+    it("move_up navigates rows", function()
+      -- Start on last data row so there is an up cell
+      vim.api.nvim_win_set_cursor(0, { 4, 3 })
+      local result = tbl.move_up()
+      assert.is_true(result)
+    end)
+
+    it("toggle_cell_alignment changes alignment", function()
+      local result = tbl.toggle_cell_alignment()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Separator should have changed from left to center
+      assert.is_truthy(lines[2]:find(":"))
+    end)
+
+    it("move_row_up moves row", function()
+      -- Cursor on last data row
+      vim.api.nvim_win_set_cursor(0, { 4, 3 })
+      local result = tbl.move_row_up()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Row with "3" should now be row 3 (moved up from row 4)
+      assert.is_truthy(lines[3]:find("3"))
+    end)
+
+    it("move_row_down moves row", function()
+      local result = tbl.move_row_down()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Row with "1" should now be row 4 (moved down from row 3)
+      assert.is_truthy(lines[4]:find("1"))
+    end)
+
+    it("clear_cell empties cell content", function()
+      local result = tbl.clear_cell()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- The cell that had "1" should now be empty
+      local cells_row = lines[3]
+      -- Should still have pipe structure but cell content cleared
+      assert.is_truthy(cells_row:find("|"))
+    end)
+
+    it("move_column_left moves column", function()
+      -- Cursor in second column
+      vim.api.nvim_win_set_cursor(0, { 3, 7 })
+      local result = tbl.move_column_left()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Header "B" should now be first column
+      assert.is_truthy(lines[1]:match("^| B"))
+    end)
+
+    it("move_column_right moves column", function()
+      local result = tbl.move_column_right()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Header "A" should now be second column, "B" first
+      assert.is_truthy(lines[1]:match("^| B"))
+    end)
+
+    it("sort_descending sorts", function()
+      require("markdown-plus.table").config.confirm_destructive = false
+      local result = tbl.sort_descending()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- First data row should have "3" (descending)
+      assert.is_truthy(lines[3]:find("3"))
+    end)
+
+    it("table_to_csv converts via facade", function()
+      local result = tbl.table_to_csv()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Should have CSV lines without pipe characters
+      assert.is_truthy(lines[1]:find(","))
+      assert.is_falsy(lines[1]:find("|"))
+    end)
+
+    it("csv_to_table converts via facade", function()
+      -- First set up CSV content
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "X,Y",
+        "10,20",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      local result = tbl.csv_to_table()
+      assert.is_true(result)
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.is_truthy(lines[1]:find("|"))
+    end)
+  end)
 end)

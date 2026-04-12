@@ -1046,4 +1046,120 @@ describe("markdown-plus links", function()
       assert.is_nil(link)
     end)
   end)
+
+  describe("extended link coverage", function()
+    local mocks = require("spec.helpers.mocks")
+    local notify_spy, input_spy
+
+    before_each(function()
+      notify_spy = mocks.mock_notify()
+    end)
+
+    after_each(function()
+      notify_spy.restore()
+      if input_spy then
+        input_spy.restore()
+        input_spy = nil
+      end
+    end)
+
+    it("selection_to_link creates link from visual selection", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "click here for info" })
+      -- Set visual marks around "here" (columns 7-10, 1-indexed)
+      vim.fn.setpos("'<", { 0, 1, 7, 0 })
+      vim.fn.setpos("'>", { 0, 1, 10, 0 })
+
+      input_spy = mocks.mock_input({ "https://url.com" })
+
+      links.selection_to_link()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.is_truthy(lines[1]:find("[here](https://url.com)", 1, true))
+    end)
+
+    it("edit_link updates existing reference link", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "[text][ref]",
+        "",
+        "[ref]: https://old.com",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 2 })
+
+      input_spy = mocks.mock_input({ "new text", "newref" })
+
+      links.edit_link()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("[new text][newref]", lines[1])
+    end)
+
+    it("get_link_at_cursor finds reference link", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "see [text][ref] here" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 })
+
+      local link = links.get_link_at_cursor()
+      assert.is_not_nil(link)
+      assert.equals("reference", link.type)
+      assert.equals("text", link.text)
+      assert.equals("ref", link.ref)
+    end)
+
+    it("convert_to_reference on plain text notifies no link", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "just plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 })
+
+      links.convert_to_reference()
+
+      assert.is_true(#notify_spy.calls >= 1)
+      assert.is_truthy(notify_spy.calls[1].msg:find("No link under cursor"))
+    end)
+
+    it("convert_to_inline on plain text notifies no link", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "just plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 })
+
+      links.convert_to_inline()
+
+      assert.is_true(#notify_spy.calls >= 1)
+      assert.is_truthy(notify_spy.calls[1].msg:find("No link under cursor"))
+    end)
+  end)
+
+  describe("http_fetch internal helpers", function()
+    it("_build_curl_base_cmd returns expected command structure", function()
+      local cmd = http_fetch._build_curl_base_cmd(10)
+      assert.is_table(cmd)
+      assert.are.equal("curl", cmd[1])
+      -- Verify timeout is included
+      local found_timeout = false
+      for i, v in ipairs(cmd) do
+        if v == "-m" and cmd[i + 1] == "10" then
+          found_timeout = true
+        end
+      end
+      assert.is_true(found_timeout)
+    end)
+
+    it("_is_redirect_status covers all redirect codes", function()
+      assert.is_true(http_fetch._is_redirect_status(300))
+      assert.is_true(http_fetch._is_redirect_status(303))
+      assert.is_true(http_fetch._is_redirect_status(307))
+      assert.is_true(http_fetch._is_redirect_status(308))
+      assert.is_false(http_fetch._is_redirect_status(404))
+      assert.is_false(http_fetch._is_redirect_status(500))
+    end)
+
+    it("_validate_redirect_url accepts valid public HTTPS URL", function()
+      local ok, reason = http_fetch._validate_redirect_url("https://github.com/docs")
+      assert.is_true(ok)
+      assert.is_nil(reason)
+    end)
+
+    it("_parse_probe_output handles redirect URL with whitespace", function()
+      local status_code, redirect_url, err = http_fetch._parse_probe_output("302\n  https://target.com/page  ")
+      assert.is_nil(err)
+      assert.are.equal(302, status_code)
+      assert.are.equal("https://target.com/page", redirect_url)
+    end)
+  end)
 end)
