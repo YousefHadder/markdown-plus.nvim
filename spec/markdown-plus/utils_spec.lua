@@ -1173,4 +1173,48 @@ describe("markdown-plus utils", function()
       assert.are.equal("![](url)", utils.build_markdown_image("", "url"))
     end)
   end)
+
+  describe("buffer utility coverage", function()
+    local buf
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
+    it("insert_after_cursor inserts text at cursor position", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "helloworld" })
+      vim.api.nvim_win_set_cursor(0, { 1, 4 }) -- cursor on 'o'
+
+      utils.insert_after_cursor(" ")
+
+      assert.are.equal("hello world", utils.get_line(1))
+    end)
+
+    it("replace_in_line replaces a range within a line", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "foo bar baz" })
+
+      utils.replace_in_line(1, 5, 7, "qux")
+
+      assert.are.equal("foo qux baz", utils.get_line(1))
+    end)
+
+    it("split_after_cursor splits line correctly", function()
+      local before, after = utils.split_after_cursor("hello world", 4)
+      assert.are.equal("hello", before)
+      assert.are.equal(" world", after)
+    end)
+
+    it("get_line returns correct line from multi-line buffer", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "alpha", "beta", "gamma", "delta" })
+
+      assert.are.equal("alpha", utils.get_line(1))
+      assert.are.equal("gamma", utils.get_line(3))
+      assert.are.equal("delta", utils.get_line(4))
+    end)
+  end)
 end)

@@ -107,6 +107,241 @@ describe("health check", function()
 
       assert.is_true(found_deprecation_warning, "Expected warning for deprecated vim.g.markdown_plus configuration")
     end)
+
+    it("warns when plugin is not loaded", function()
+      local health_calls = {}
+      local orig_ok, orig_warn, orig_error, orig_info, orig_start =
+        vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start
+      vim.health.ok = function(msg)
+        table.insert(health_calls, { type = "ok", msg = msg })
+      end
+      vim.health.warn = function(msg, ...)
+        table.insert(health_calls, { type = "warn", msg = msg })
+      end
+      vim.health.error = function(msg, ...)
+        table.insert(health_calls, { type = "error", msg = msg })
+      end
+      vim.health.info = function(msg, ...)
+        table.insert(health_calls, { type = "info", msg = msg })
+      end
+      vim.health.start = function(msg)
+        table.insert(health_calls, { type = "start", msg = msg })
+      end
+
+      vim.g.loaded_markdown_plus = nil
+
+      health_module.check()
+
+      vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start =
+        orig_ok, orig_warn, orig_error, orig_info, orig_start
+
+      local found = false
+      for _, call in ipairs(health_calls) do
+        if call.type == "warn" and call.msg:find("not loaded") then
+          found = true
+        end
+      end
+      assert.is_true(found, "Expected warning about plugin not loaded")
+    end)
+
+    it("warns about deprecated vim.g.markdown_plus with v2.0 message", function()
+      local health_calls = {}
+      local orig_ok, orig_warn, orig_error, orig_info, orig_start =
+        vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start
+      vim.health.ok = function(msg)
+        table.insert(health_calls, { type = "ok", msg = msg })
+      end
+      vim.health.warn = function(msg, ...)
+        table.insert(health_calls, { type = "warn", msg = msg })
+      end
+      vim.health.error = function(msg, ...)
+        table.insert(health_calls, { type = "error", msg = msg })
+      end
+      vim.health.info = function(msg, ...)
+        table.insert(health_calls, { type = "info", msg = msg })
+      end
+      vim.health.start = function(msg)
+        table.insert(health_calls, { type = "start", msg = msg })
+      end
+
+      vim.g.markdown_plus = {}
+
+      health_module.check()
+
+      vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start =
+        orig_ok, orig_warn, orig_error, orig_info, orig_start
+      vim.g.markdown_plus = nil
+
+      local found = false
+      for _, call in ipairs(health_calls) do
+        if call.type == "warn" and call.msg:find("v2%.0") then
+          found = true
+        end
+      end
+      assert.is_true(found, "Expected warning mentioning v2.0 for deprecated vim.g.markdown_plus")
+    end)
+
+    it("warns when no features are enabled", function()
+      local health_calls = {}
+      local orig_ok, orig_warn, orig_error, orig_info, orig_start =
+        vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start
+      vim.health.ok = function(msg)
+        table.insert(health_calls, { type = "ok", msg = msg })
+      end
+      vim.health.warn = function(msg, ...)
+        table.insert(health_calls, { type = "warn", msg = msg })
+      end
+      vim.health.error = function(msg, ...)
+        table.insert(health_calls, { type = "error", msg = msg })
+      end
+      vim.health.info = function(msg, ...)
+        table.insert(health_calls, { type = "info", msg = msg })
+      end
+      vim.health.start = function(msg)
+        table.insert(health_calls, { type = "start", msg = msg })
+      end
+
+      markdown_plus.setup({
+        features = {
+          list_management = false,
+          headers_toc = false,
+          text_formatting = false,
+          links = false,
+          quotes = false,
+          table = false,
+          footnotes = false,
+          callouts = false,
+          images = false,
+          code_block = false,
+          thematic_break = false,
+          html_block_awareness = false,
+        },
+      })
+
+      health_module.check()
+
+      vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start =
+        orig_ok, orig_warn, orig_error, orig_info, orig_start
+
+      local found = false
+      for _, call in ipairs(health_calls) do
+        if call.type == "warn" and call.msg:find("No features are enabled") then
+          found = true
+        end
+      end
+      assert.is_true(found, "Expected warning about no features enabled")
+    end)
+
+    it("shows info when keymaps are disabled", function()
+      local health_calls = {}
+      local orig_ok, orig_warn, orig_error, orig_info, orig_start =
+        vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start
+      vim.health.ok = function(msg)
+        table.insert(health_calls, { type = "ok", msg = msg })
+      end
+      vim.health.warn = function(msg, ...)
+        table.insert(health_calls, { type = "warn", msg = msg })
+      end
+      vim.health.error = function(msg, ...)
+        table.insert(health_calls, { type = "error", msg = msg })
+      end
+      vim.health.info = function(msg, ...)
+        table.insert(health_calls, { type = "info", msg = msg })
+      end
+      vim.health.start = function(msg)
+        table.insert(health_calls, { type = "start", msg = msg })
+      end
+
+      markdown_plus.setup({
+        keymaps = { enabled = false },
+      })
+
+      health_module.check()
+
+      vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start =
+        orig_ok, orig_warn, orig_error, orig_info, orig_start
+
+      local found = false
+      for _, call in ipairs(health_calls) do
+        if call.type == "info" and call.msg:find("custom keymaps") then
+          found = true
+        end
+      end
+      assert.is_true(found, "Expected info message about custom keymaps when keymaps disabled")
+    end)
+
+    it("warns about vim-markdown conflict", function()
+      local health_calls = {}
+      local orig_ok, orig_warn, orig_error, orig_info, orig_start =
+        vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start
+      vim.health.ok = function(msg)
+        table.insert(health_calls, { type = "ok", msg = msg })
+      end
+      vim.health.warn = function(msg, ...)
+        table.insert(health_calls, { type = "warn", msg = msg })
+      end
+      vim.health.error = function(msg, ...)
+        table.insert(health_calls, { type = "error", msg = msg })
+      end
+      vim.health.info = function(msg, ...)
+        table.insert(health_calls, { type = "info", msg = msg })
+      end
+      vim.health.start = function(msg)
+        table.insert(health_calls, { type = "start", msg = msg })
+      end
+
+      vim.g.loaded_vim_markdown = 1
+
+      health_module.check()
+
+      vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start =
+        orig_ok, orig_warn, orig_error, orig_info, orig_start
+      vim.g.loaded_vim_markdown = nil
+
+      local found = false
+      for _, call in ipairs(health_calls) do
+        if call.type == "warn" and call.msg:find("vim%-markdown") then
+          found = true
+        end
+      end
+      assert.is_true(found, "Expected warning about vim-markdown conflict")
+    end)
+
+    it("shows info when not in a markdown buffer", function()
+      local health_calls = {}
+      local orig_ok, orig_warn, orig_error, orig_info, orig_start =
+        vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start
+      vim.health.ok = function(msg)
+        table.insert(health_calls, { type = "ok", msg = msg })
+      end
+      vim.health.warn = function(msg, ...)
+        table.insert(health_calls, { type = "warn", msg = msg })
+      end
+      vim.health.error = function(msg, ...)
+        table.insert(health_calls, { type = "error", msg = msg })
+      end
+      vim.health.info = function(msg, ...)
+        table.insert(health_calls, { type = "info", msg = msg })
+      end
+      vim.health.start = function(msg)
+        table.insert(health_calls, { type = "start", msg = msg })
+      end
+
+      vim.bo.filetype = ""
+
+      health_module.check()
+
+      vim.health.ok, vim.health.warn, vim.health.error, vim.health.info, vim.health.start =
+        orig_ok, orig_warn, orig_error, orig_info, orig_start
+
+      local found = false
+      for _, call in ipairs(health_calls) do
+        if call.type == "info" and call.msg:find("Not in markdown buffer") then
+          found = true
+        end
+      end
+      assert.is_true(found, "Expected info message about not being in a markdown buffer")
+    end)
   end)
 
   describe("error handling", function()

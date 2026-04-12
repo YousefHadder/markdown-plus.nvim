@@ -292,6 +292,59 @@ describe("markdown-plus headers", function()
       assert.is_false(toc_has_deep) -- Should not include H4 in TOC
     end)
 
+    it("disambiguates duplicate header anchors", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Main Title",
+        "",
+        "## Repeat",
+        "## Repeat",
+        "## Repeat",
+      })
+
+      headers.generate_toc()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local has_first = false
+      local has_second = false
+      local has_third = false
+
+      for _, line in ipairs(lines) do
+        if line:match("%[Repeat%]%(%#repeat%)") then
+          has_first = true
+        elseif line:match("%[Repeat%]%(%#repeat%-1%)") then
+          has_second = true
+        elseif line:match("%[Repeat%]%(%#repeat%-2%)") then
+          has_third = true
+        end
+      end
+
+      assert.is_true(has_first)
+      assert.is_true(has_second)
+      assert.is_true(has_third)
+    end)
+
+    it("accounts for skipped headings when deduplicating anchors", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# API",
+        "",
+        "## API",
+      })
+
+      headers.generate_toc()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local has_h2_entry = false
+
+      for _, line in ipairs(lines) do
+        if line:match("%[API%]%(%#api%-1%)") then
+          has_h2_entry = true
+          break
+        end
+      end
+
+      assert.is_true(has_h2_entry)
+    end)
+
     it("update_toc respects initial_depth config", function()
       local toc_mod = require("markdown-plus.headers.toc")
       toc_mod.set_config({ toc = { initial_depth = 2 } })
@@ -339,6 +392,35 @@ describe("markdown-plus headers", function()
       assert.is_true(toc_has_section1)
       assert.is_true(toc_has_section2)
       assert.is_false(toc_has_subsection) -- Should not include H3 in TOC with depth=2
+    end)
+
+    it("update_toc keeps duplicate anchors deterministic", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "# Main Title",
+        "<!-- TOC -->",
+        "- [Old Entry](#old)",
+        "<!-- /TOC -->",
+        "",
+        "## API",
+        "## API",
+      })
+
+      headers.update_toc()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      local has_first = false
+      local has_second = false
+
+      for _, line in ipairs(lines) do
+        if line:match("%[API%]%(%#api%)") then
+          has_first = true
+        elseif line:match("%[API%]%(%#api%-1%)") then
+          has_second = true
+        end
+      end
+
+      assert.is_true(has_first)
+      assert.is_true(has_second)
     end)
   end)
 
@@ -642,6 +724,36 @@ describe("markdown-plus headers", function()
 
       local toggle_map = vim.fn.maparg("<localleader>ms", "n", false, true)
       assert.are.equal("<Plug>(MarkdownPlusToggleAtxSetext)", toggle_map.rhs)
+    end)
+
+    it("can register TOC commands repeatedly without duplicate command errors", function()
+      headers.setup({
+        keymaps = { enabled = true },
+      })
+
+      assert.has_no.errors(function()
+        headers.setup_keymaps()
+        headers.setup_keymaps()
+      end)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_not_nil(commands.Toc)
+      assert.is_not_nil(commands.Toch)
+      assert.is_not_nil(commands.Toct)
+    end)
+
+    it("removes TOC commands during disable", function()
+      headers.setup({
+        keymaps = { enabled = true },
+      })
+      headers.setup_keymaps()
+
+      headers.disable(buf)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_nil(commands.Toc)
+      assert.is_nil(commands.Toch)
+      assert.is_nil(commands.Toct)
     end)
   end)
 

@@ -143,6 +143,9 @@ end)
 # Run all tests
 make test
 
+# Run tests with coverage threshold checks
+make test-coverage
+
 # Run specific test file
 make test-file FILE=spec/markdown-plus/your_spec.lua
 
@@ -163,7 +166,8 @@ make format-check
 - All public functions should have tests
 - Test both success and error cases
 - Test edge cases (empty input, nil values, etc.)
-- Aim for 100% test success rate
+- CI enforces a minimum total line coverage threshold (85%)
+- CI enforces a minimum threshold for critical files (80%)
 
 ## Quality Checks
 
@@ -173,6 +177,9 @@ Before submitting a PR, ensure:
 # All tests pass
 make test
 # Expected: 34/34 tests passing
+
+# Coverage thresholds pass
+make test-coverage
 
 # No linting errors
 make lint

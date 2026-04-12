@@ -1343,4 +1343,53 @@ describe("markdown-plus format", function()
       assert.equals("**word**", lines[2])
     end)
   end)
+
+  describe("clear_formatting (unit)", function()
+    it("removes bold formatting from text", function()
+      local result = format.strip_all_formatting("**hello**")
+      assert.equals("hello", result)
+    end)
+
+    it("returns unformatted text unchanged", function()
+      local result = format.strip_all_formatting("hello world")
+      assert.equals("hello world", result)
+    end)
+  end)
+
+  describe("toggle detection on already formatted text", function()
+    it("has_formatting detects and remove_formatting strips bold", function()
+      local text = "**text**"
+      assert.is_true(format.has_formatting(text, "bold"))
+      local result = format.remove_formatting(text, "bold")
+      assert.equals("text", result)
+    end)
+
+    it("has_formatting detects and remove_formatting strips italic", function()
+      local text = "*text*"
+      assert.is_true(format.has_formatting(text, "italic"))
+      local result = format.remove_formatting(text, "italic")
+      assert.equals("text", result)
+    end)
+  end)
+
+  describe("nested formatting detection", function()
+    it("detects bold wrapping content in ***text***", function()
+      local text = "***text***"
+      -- ***text*** is bold+italic combined
+      assert.is_true(format.contains_formatting(text, "bold"))
+      assert.is_true(format.contains_formatting(text, "italic"))
+    end)
+
+    it("detects bold containing strikethrough: **~~text~~**", function()
+      local text = "**~~text~~**"
+      assert.is_true(format.has_formatting(text, "bold"))
+      assert.is_true(format.contains_formatting(text, "strikethrough"))
+    end)
+
+    it("strip_all_formatting removes nested bold+italic", function()
+      local text = "***bold and italic***"
+      local result = format.strip_all_formatting(text)
+      assert.equals("bold and italic", result)
+    end)
+  end)
 end)

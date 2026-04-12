@@ -82,4 +82,116 @@ describe("markdown-plus treesitter", function()
     assert.is_not_nil(treesitter.get_parser())
     assert.equals(2, parser_calls)
   end)
+
+  describe("find_ancestor", function()
+    it("returns nil when node is nil", function()
+      assert.is_nil(treesitter.find_ancestor(nil, "heading"))
+    end)
+
+    it("returns nil when node is nil with table of types", function()
+      assert.is_nil(treesitter.find_ancestor(nil, { "heading", "paragraph" }))
+    end)
+
+    it("returns matching node with string type", function()
+      local mock_node = {
+        type = function()
+          return "heading"
+        end,
+        parent = function()
+          return nil
+        end,
+      }
+      local result = treesitter.find_ancestor(mock_node, "heading")
+      assert.is_not_nil(result)
+      assert.equals("heading", result:type())
+    end)
+
+    it("returns matching node with table of types", function()
+      local mock_node = {
+        type = function()
+          return "paragraph"
+        end,
+        parent = function()
+          return nil
+        end,
+      }
+      local result = treesitter.find_ancestor(mock_node, { "heading", "paragraph" })
+      assert.is_not_nil(result)
+      assert.equals("paragraph", result:type())
+    end)
+
+    it("walks up the tree to find ancestor", function()
+      local parent_node = {
+        type = function()
+          return "list"
+        end,
+        parent = function()
+          return nil
+        end,
+      }
+      local child_node = {
+        type = function()
+          return "list_item"
+        end,
+        parent = function()
+          return parent_node
+        end,
+      }
+      local result = treesitter.find_ancestor(child_node, "list")
+      assert.is_not_nil(result)
+      assert.equals("list", result:type())
+    end)
+
+    it("returns nil when no ancestor matches", function()
+      local mock_node = {
+        type = function()
+          return "paragraph"
+        end,
+        parent = function()
+          return nil
+        end,
+      }
+      local result = treesitter.find_ancestor(mock_node, "heading")
+      assert.is_nil(result)
+    end)
+  end)
+
+  describe("is_available", function()
+    it("returns a boolean value", function()
+      local result = treesitter.is_available()
+      assert.is_true(type(result) == "boolean")
+    end)
+  end)
+
+  describe("node type constants", function()
+    it("has FENCED_CODE_BLOCK as a string", function()
+      assert.equals("string", type(treesitter.nodes.FENCED_CODE_BLOCK))
+      assert.equals("fenced_code_block", treesitter.nodes.FENCED_CODE_BLOCK)
+    end)
+
+    it("has HEADING as a string", function()
+      assert.equals("string", type(treesitter.nodes.HEADING))
+      assert.equals("heading", treesitter.nodes.HEADING)
+    end)
+
+    it("has PARAGRAPH as a string", function()
+      assert.equals("string", type(treesitter.nodes.PARAGRAPH))
+      assert.equals("paragraph", treesitter.nodes.PARAGRAPH)
+    end)
+
+    it("has LIST as a string", function()
+      assert.equals("string", type(treesitter.nodes.LIST))
+      assert.equals("list", treesitter.nodes.LIST)
+    end)
+
+    it("has PIPE_TABLE as a string", function()
+      assert.equals("string", type(treesitter.nodes.PIPE_TABLE))
+      assert.equals("pipe_table", treesitter.nodes.PIPE_TABLE)
+    end)
+
+    it("has BLOCK_QUOTE as a string", function()
+      assert.equals("string", type(treesitter.nodes.BLOCK_QUOTE))
+      assert.equals("block_quote", treesitter.nodes.BLOCK_QUOTE)
+    end)
+  end)
 end)

@@ -7,6 +7,45 @@ local TOC_DEFAULT_MAX_DEPTH = 2 -- Default depth for TOC generation
 ---@type markdown-plus.InternalConfig
 local config = {}
 
+---@param header_text string
+---@param slug_counts table<string, integer>
+---@return string
+local function next_unique_slug(header_text, slug_counts)
+  local base_slug = parser.generate_slug(header_text)
+  local slug_index = slug_counts[base_slug] or 0
+  slug_counts[base_slug] = slug_index + 1
+
+  if slug_index == 0 then
+    return base_slug
+  end
+
+  return base_slug .. "-" .. slug_index
+end
+
+---@param headers table[]
+---@param max_depth number
+---@return string[] toc_entries
+---@return integer entry_count
+local function build_toc_entries(headers, max_depth)
+  local toc_entries = {}
+  local entry_count = 0
+  local slug_counts = {}
+
+  for _, header in ipairs(headers) do
+    local slug = next_unique_slug(header.text, slug_counts)
+
+    -- Skip H1 (usually the document title) and headers beyond max_depth
+    if header.level > 1 and header.level <= max_depth then
+      local indent = string.rep("  ", header.level - 2)
+      local toc_line = indent .. "- [" .. header.text .. "](#" .. slug .. ")"
+      table.insert(toc_entries, toc_line)
+      entry_count = entry_count + 1
+    end
+  end
+
+  return toc_entries, entry_count
+end
+
 ---Set module configuration
 ---@param cfg markdown-plus.InternalConfig
 function M.set_config(cfg)
@@ -162,17 +201,8 @@ function M.generate_toc()
     "",
   }
 
-  local entry_count = 0
-  for _, header in ipairs(headers) do
-    -- Skip H1 (usually the document title) and headers beyond max_depth
-    if header.level > 1 and header.level <= max_depth then
-      local indent = string.rep("  ", header.level - 2)
-      local slug = parser.generate_slug(header.text)
-      local toc_line = indent .. "- [" .. header.text .. "](#" .. slug .. ")"
-      table.insert(toc_lines, toc_line)
-      entry_count = entry_count + 1
-    end
-  end
+  local toc_entries, entry_count = build_toc_entries(headers, max_depth)
+  vim.list_extend(toc_lines, toc_entries)
 
   table.insert(toc_lines, "")
   table.insert(toc_lines, "<!-- /TOC -->")
@@ -211,17 +241,8 @@ function M.update_toc()
     "",
   }
 
-  local entry_count = 0
-  for _, header in ipairs(headers) do
-    -- Skip H1 (usually the document title) and headers beyond max_depth
-    if header.level > 1 and header.level <= max_depth then
-      local indent = string.rep("  ", header.level - 2)
-      local slug = parser.generate_slug(header.text)
-      local toc_line = indent .. "- [" .. header.text .. "](#" .. slug .. ")"
-      table.insert(toc_lines, toc_line)
-      entry_count = entry_count + 1
-    end
-  end
+  local toc_entries, entry_count = build_toc_entries(headers, max_depth)
+  vim.list_extend(toc_lines, toc_entries)
 
   table.insert(toc_lines, "")
 
