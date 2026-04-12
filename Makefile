@@ -1,10 +1,11 @@
-.PHONY: test test-file test-watch lint format format-check check demo help
+.PHONY: test test-coverage test-file test-watch lint format format-check check demo help
 
 # Default target
 help:
 	@echo "markdown-plus.nvim - Makefile commands:"
 	@echo ""
 	@echo "  make test          - Run all tests"
+	@echo "  make test-coverage - Run tests with coverage threshold checks"
 	@echo "  make test-file     - Run specific test file (FILE=spec/path/to/file_spec.lua)"
 	@echo "  make test-watch    - Watch files and run tests on change (requires entr)"
 	@echo "  make lint          - Run luacheck linter"
@@ -36,6 +37,11 @@ test:
 	fi
 	@nvim --headless --noplugin -u spec/minimal_init.lua \
 		-c "lua require('plenary.test_harness').test_directory('spec/', { minimal_init = 'spec/minimal_init.lua' })"
+
+# Run tests with coverage threshold checks
+test-coverage:
+	@echo "Running tests with coverage checks..."
+	@MARKDOWN_PLUS_ENFORCE_COVERAGE=1 ./scripts/test
 
 # Run a specific test file
 test-file:

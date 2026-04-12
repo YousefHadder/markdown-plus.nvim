@@ -1,6 +1,66 @@
 #!/bin/bash
 set -e
 
+ensure_luacov() {
+  local luacov_module="${HOME}/.luarocks/share/lua/5.1/luacov.lua"
+  if [ -f "$luacov_module" ]; then
+    return
+  fi
+
+  if ! command -v luarocks >/dev/null 2>&1; then
+    echo "Error: 'luarocks' is required for coverage checks"
+    exit 1
+  fi
+
+  echo "Installing luacov (Lua 5.1) to ~/.luarocks..."
+  luarocks --lua-version=5.1 --local install luacov
+}
+
+assert_minimum_coverage() {
+  local total_coverage="$1"
+  local min_coverage="$2"
+  local critical_min_coverage="$3"
+  local report_file="$4"
+
+  if ! awk -v total="$total_coverage" -v min="$min_coverage" \
+    'BEGIN { exit ((total + 0) >= (min + 0) ? 0 : 1) }'; then
+    echo "Coverage check failed: total coverage ${total_coverage}% is below ${min_coverage}%"
+    exit 1
+  fi
+
+  local critical_files=(
+    "lua/markdown-plus/headers/init.lua"
+    "lua/markdown-plus/list/init.lua"
+    "lua/markdown-plus/links/http_fetch.lua"
+    "lua/markdown-plus/headers/toc.lua"
+  )
+
+  local file
+  for file in "${critical_files[@]}"; do
+    local file_coverage
+    file_coverage=$(awk -v target="$file" '$4 ~ /%$/ && index($1, target) > 0 { gsub("%", "", $4); print $4; exit }' "$report_file")
+
+    if [ -z "$file_coverage" ]; then
+      echo "Coverage check failed: could not find coverage entry for ${file}"
+      exit 1
+    fi
+
+    if ! awk -v total="$file_coverage" -v min="$critical_min_coverage" \
+      'BEGIN { exit ((total + 0) >= (min + 0) ? 0 : 1) }'; then
+      echo "Coverage check failed: ${file} coverage ${file_coverage}% is below ${critical_min_coverage}%"
+      exit 1
+    fi
+  done
+}
+
+run_tests_for_coverage() {
+  local spec_file
+  while IFS= read -r spec_file; do
+    nvim --headless --noplugin -u spec/minimal_init.lua \
+      -c "lua require('plenary.busted').run('${spec_file}')"
+  done < <(find spec -name "*_spec.lua" | sort)
+}
+
 # Install plenary.nvim if not present
 PLENARY_DIR="${PLENARY_DIR:-.tests/plenary.nvim}"
 if [ ! -d "$PLENARY_DIR" ]; then
@@ -10,4 +70,46 @@ if [ ! -d "$PLENARY_DIR" ]; then
 fi
 
 export PLENARY_DIR
-make test
+
+run_coverage=0
+if [ "${MARKDOWN_PLUS_ENFORCE_COVERAGE:-0}" = "1" ]; then
+  run_coverage=1
+  ensure_luacov
+
+  export PATH="${HOME}/.luarocks/bin:${PATH}"
+  export LUA_PATH="${HOME}/.luarocks/share/lua/5.1/?.lua;${HOME}/.luarocks/share/lua/5.1/?/init.lua;${LUA_PATH:-;;}"
+  export LUA_CPATH="${HOME}/.luarocks/lib/lua/5.1/?.so;${LUA_CPATH:-;;}"
+  export MARKDOWN_PLUS_ENABLE_COVERAGE=1
+  export MARKDOWN_PLUS_ROOT="$(pwd)"
+  export LUACOV_CONFIG="${MARKDOWN_PLUS_ROOT}/.luacov"
+
+  rm -f luacov.stats.out luacov.report.out
+fi
+
+if [ "$run_coverage" = "1" ]; then
+  run_tests_for_coverage
+else
+  make test
+fi
+
+if [ "$run_coverage" = "1" ]; then
+  local_report_file="luacov.report.out"
+  min_coverage="${MARKDOWN_PLUS_COVERAGE_MIN:-85}"
+  critical_min_coverage="${MARKDOWN_PLUS_CRITICAL_COVERAGE_MIN:-80}"
+
+  if ! command -v luacov >/dev/null 2>&1; then
+    echo "Error: 'luacov' not found after installation"
+    exit 1
+  fi
+
+  luacov
+
+  total_coverage=$(awk '/^Total[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+\.[0-9]+%/ { gsub("%", "", $4); print $4 }' "$local_report_file")
+  if [ -z "$total_coverage" ]; then
+    echo "Coverage check failed: unable to parse total coverage from ${local_report_file}"
+    exit 1
+  fi
+
+  assert_minimum_coverage "$total_coverage" "$min_coverage" "$critical_min_coverage" "$local_report_file"
+  echo "Coverage check passed: total=${total_coverage}% (min=${min_coverage}%), critical files >= ${critical_min_coverage}%"
+fi

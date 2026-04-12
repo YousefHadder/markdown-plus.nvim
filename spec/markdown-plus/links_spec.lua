@@ -1,6 +1,7 @@
 -- Tests for markdown-plus links module
 describe("markdown-plus links", function()
   local links = require("markdown-plus.links")
+  local http_fetch = require("markdown-plus.links.http_fetch")
   local smart_paste = require("markdown-plus.links.smart_paste")
 
   before_each(function()
@@ -286,6 +287,135 @@ describe("markdown-plus links", function()
   end)
 
   describe("smart_paste", function()
+    describe("http_fetch redirect hardening", function()
+      it("parses redirect probe output", function()
+        local status_code, redirect_url, err = http_fetch._parse_probe_output("301\nhttps://example.com/final")
+        assert.is_nil(err)
+        assert.equals(301, status_code)
+        assert.equals("https://example.com/final", redirect_url)
+      end)
+
+      it("handles probe output without redirect URL", function()
+        local status_code, redirect_url, err = http_fetch._parse_probe_output("200\n")
+        assert.is_nil(err)
+        assert.equals(200, status_code)
+        assert.is_nil(redirect_url)
+      end)
+
+      it("returns an error for malformed probe output", function()
+        local _, _, err = http_fetch._parse_probe_output("not-a-status")
+        assert.is_not_nil(err)
+      end)
+
+      it("detects redirect status codes", function()
+        assert.is_true(http_fetch._is_redirect_status(301))
+        assert.is_true(http_fetch._is_redirect_status(302))
+        assert.is_false(http_fetch._is_redirect_status(200))
+      end)
+
+      it("blocks private redirect targets", function()
+        local ok, reason = http_fetch._validate_redirect_url("https://127.0.0.1/admin")
+        assert.is_false(ok)
+        assert.matches("not allowed", reason)
+      end)
+
+      it("rejects non-http redirect targets", function()
+        local ok, reason = http_fetch._validate_redirect_url("ftp://example.com/private")
+        assert.is_false(ok)
+        assert.matches("HTTP%(S%)", reason)
+      end)
+
+      it("allows public redirect targets", function()
+        local ok, reason = http_fetch._validate_redirect_url("https://example.com/docs")
+        assert.is_true(ok)
+        assert.is_nil(reason)
+      end)
+
+      it("aborts fetch when redirect target is blocked", function()
+        local original_system = vim.system
+        local calls = 0
+        local callback_html
+        local callback_err
+
+        vim.system = function(cmd, _, callback)
+          calls = calls + 1
+
+          if vim.tbl_contains(cmd, "-w") then
+            callback({
+              code = 0,
+              stdout = "302\nhttps://127.0.0.1/admin",
+              stderr = "",
+            })
+          else
+            callback({
+              code = 0,
+              stdout = "<html><title>unexpected</title></html>",
+              stderr = "",
+            })
+          end
+        end
+
+        http_fetch.fetch_html_async("https://example.com/start", 5, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.system = original_system
+
+        assert.is_nil(callback_html)
+        assert.matches("redirect target blocked", callback_err)
+        assert.equals(1, calls)
+      end)
+
+      it("follows safe redirects and fetches final HTML", function()
+        local original_system = vim.system
+        local callback_html
+        local callback_err
+        local fetch_url
+
+        vim.system = function(cmd, _, callback)
+          local is_probe = vim.tbl_contains(cmd, "-w")
+          local url = cmd[#cmd]
+
+          if is_probe and url == "https://example.com/start" then
+            callback({
+              code = 0,
+              stdout = "301\nhttps://example.com/final",
+              stderr = "",
+            })
+            return
+          end
+
+          if is_probe and url == "https://example.com/final" then
+            callback({
+              code = 0,
+              stdout = "200\n",
+              stderr = "",
+            })
+            return
+          end
+
+          fetch_url = url
+          callback({
+            code = 0,
+            stdout = "<html><title>final</title></html>",
+            stderr = "",
+          })
+        end
+
+        http_fetch.fetch_html_async("https://example.com/start", 5, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.system = original_system
+
+        assert.is_nil(callback_err)
+        assert.equals("https://example.com/final", fetch_url)
+        assert.matches("<title>final</title>", callback_html)
+      end)
+    end)
+
     describe("_is_url", function()
       it("returns true for http URLs", function()
         assert.is_true(smart_paste._is_url("http://example.com"))
@@ -768,6 +898,152 @@ describe("markdown-plus links", function()
         end
         assert.equals("https://example.com", smart_paste._get_clipboard_url())
       end)
+    end)
+  end)
+
+  describe("insert_link with mocked input", function()
+    local mocks = require("spec.helpers.mocks")
+    local notify_spy, input_spy
+
+    before_each(function()
+      notify_spy = mocks.mock_notify()
+    end)
+
+    after_each(function()
+      notify_spy.restore()
+      if input_spy then
+        input_spy.restore()
+      end
+    end)
+
+    it("does nothing when text input is cancelled", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "original" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      input_spy = mocks.mock_input({ nil })
+
+      links.insert_link()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("original", lines[1])
+    end)
+
+    it("does nothing when url input is cancelled", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "original" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      input_spy = mocks.mock_input({ "text", nil })
+
+      links.insert_link()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("original", lines[1])
+    end)
+
+    it("inserts link with text and url", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      input_spy = mocks.mock_input({ "my link", "https://example.com" })
+
+      links.insert_link()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("[my link](https://example.com)", lines[1])
+    end)
+
+    it("notifies when editing link with no link at cursor", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "just plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 5 })
+
+      links.edit_link()
+
+      assert.equals(1, #notify_spy.calls)
+      assert.is_truthy(notify_spy.calls[1].msg:find("No link under cursor"))
+      assert.equals(vim.log.levels.WARN, notify_spy.calls[1].level)
+    end)
+  end)
+
+  describe("additional link coverage", function()
+    local mocks = require("spec.helpers.mocks")
+    local notify_spy, input_spy
+
+    before_each(function()
+      notify_spy = mocks.mock_notify()
+    end)
+
+    after_each(function()
+      notify_spy.restore()
+      if input_spy then
+        input_spy.restore()
+        input_spy = nil
+      end
+    end)
+
+    it("auto_link_url converts bare URL to markdown link", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Visit https://example.com today" })
+      vim.api.nvim_win_set_cursor(0, { 1, 10 })
+
+      input_spy = mocks.mock_input({ "Example" })
+
+      links.auto_link_url()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("Visit [Example](https://example.com) today", lines[1])
+    end)
+
+    it("convert_to_reference converts inline link to reference style", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "Click [here](https://url.com) for info",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+      links.convert_to_reference()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.matches("%[here%]%[here%]", lines[1])
+      local all = table.concat(lines, "\n")
+      assert.matches("%[here%]: https://url.com", all)
+    end)
+
+    it("convert_to_inline converts reference link to inline", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "Click [here][ref] for info",
+        "",
+        "[ref]: https://url.com",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 8 })
+
+      links.convert_to_inline()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("Click [here](https://url.com) for info", lines[1])
+    end)
+
+    it("build_markdown_link includes title when provided", function()
+      local utils = require("markdown-plus.utils")
+      local link = utils.build_markdown_link("text", "https://url.com", "My Title")
+      assert.equals('[text](https://url.com "My Title")', link)
+    end)
+
+    it("edit_link updates existing inline link", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "[old](https://old.com)" })
+      vim.api.nvim_win_set_cursor(0, { 1, 2 })
+
+      input_spy = mocks.mock_input({ "new text", "https://new.com" })
+
+      links.edit_link()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.equals("[new text](https://new.com)", lines[1])
+    end)
+
+    it("get_link_at_cursor returns nil on plain text", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "just text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 4 })
+
+      local link = links.get_link_at_cursor()
+      assert.is_nil(link)
     end)
   end)
 end)

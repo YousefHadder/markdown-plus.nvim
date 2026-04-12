@@ -10,6 +10,7 @@ local toc = require("markdown-plus.headers.toc")
 local toc_window = require("markdown-plus.headers.toc_window")
 
 local M = {}
+local TOC_BUFFER_COMMANDS = { "Toc", "Toch", "Toct" }
 
 ---@type markdown-plus.InternalConfig
 M.config = {}
@@ -125,18 +126,42 @@ function M.setup_keymaps()
 
   keymap_helper.setup_keymaps(M.config, keymaps)
 
+  local bufnr = vim.api.nvim_get_current_buf()
+  local commands = vim.api.nvim_buf_get_commands(bufnr, {})
+
   -- User commands for TOC window
-  vim.api.nvim_buf_create_user_command(0, "Toc", function()
-    toc_window.open_toc_window("vertical")
-  end, { desc = "Open TOC in vertical window" })
+  if not commands.Toc then
+    vim.api.nvim_buf_create_user_command(bufnr, "Toc", function()
+      toc_window.open_toc_window("vertical")
+    end, { desc = "Open TOC in vertical window" })
+  end
 
-  vim.api.nvim_buf_create_user_command(0, "Toch", function()
-    toc_window.open_toc_window("horizontal")
-  end, { desc = "Open TOC in horizontal window" })
+  if not commands.Toch then
+    vim.api.nvim_buf_create_user_command(bufnr, "Toch", function()
+      toc_window.open_toc_window("horizontal")
+    end, { desc = "Open TOC in horizontal window" })
+  end
 
-  vim.api.nvim_buf_create_user_command(0, "Toct", function()
-    toc_window.open_toc_window("tab")
-  end, { desc = "Open TOC in new tab" })
+  if not commands.Toct then
+    vim.api.nvim_buf_create_user_command(bufnr, "Toct", function()
+      toc_window.open_toc_window("tab")
+    end, { desc = "Open TOC in new tab" })
+  end
+end
+
+---@param bufnr number
+---@return nil
+function M.disable(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  local commands = vim.api.nvim_buf_get_commands(bufnr, {})
+  for _, command in ipairs(TOC_BUFFER_COMMANDS) do
+    if commands[command] then
+      vim.api.nvim_buf_del_user_command(bufnr, command)
+    end
+  end
 end
 
 -- Re-export functions from sub-modules for backwards compatibility

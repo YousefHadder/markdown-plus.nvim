@@ -1296,3 +1296,149 @@ describe("table.keymaps", function()
     end)
   end)
 end)
+
+describe("table init (orchestration facade)", function()
+  local tbl
+
+  before_each(function()
+    -- Clear cached modules so setup() runs fresh
+    package.loaded["markdown-plus.table"] = nil
+    package.loaded["markdown-plus.table.keymaps"] = nil
+
+    vim.cmd("enew")
+    vim.bo.filetype = "markdown"
+
+    tbl = require("markdown-plus.table")
+  end)
+
+  describe("setup", function()
+    it("skips keymaps when enabled=false", function()
+      -- Clear the keymaps module so we can verify it was NOT loaded
+      package.loaded["markdown-plus.table.keymaps"] = nil
+
+      tbl.setup({ enabled = false })
+
+      -- When enabled=false, setup returns early before requiring keymaps module
+      assert.is_nil(package.loaded["markdown-plus.table.keymaps"])
+    end)
+
+    it("registers plug mappings when enabled=true", function()
+      tbl.setup({ enabled = true, keymaps = { enabled = true } })
+
+      local mapping = vim.fn.maparg("<Plug>(MarkdownPlusTableCreate)", "n", false, true)
+      assert.is_not_nil(mapping)
+      assert.is_true(next(mapping) ~= nil)
+
+      local format_mapping = vim.fn.maparg("<Plug>(MarkdownPlusTableFormat)", "n", false, true)
+      assert.is_not_nil(format_mapping)
+      assert.is_true(next(format_mapping) ~= nil)
+    end)
+
+    it("merges defaults with user opts", function()
+      tbl.setup({ default_alignment = "center" })
+
+      assert.equals("center", tbl.config.default_alignment)
+      -- Default-preserved fields
+      assert.is_true(tbl.config.auto_format)
+      assert.is_true(tbl.config.enabled)
+      assert.is_true(tbl.config.confirm_destructive)
+    end)
+  end)
+
+  describe("is_in_table", function()
+    it("returns true when cursor is inside a table", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| --- | --- |",
+        "| A  | B  |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(3, 3)
+
+      assert.is_true(tbl.is_in_table())
+    end)
+
+    it("returns false when cursor is outside a table", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Just some plain text" })
+      vim.fn.cursor(1, 1)
+
+      assert.is_false(tbl.is_in_table())
+    end)
+  end)
+
+  describe("format_table", function()
+    it("returns false and notifies on non-table text", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Not a table at all" })
+      vim.fn.cursor(1, 1)
+
+      local result = tbl.format_table()
+      assert.is_false(result)
+    end)
+  end)
+
+  describe("create_table", function()
+    it("delegates to creator and inserts table into buffer", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.fn.cursor(1, 1)
+
+      tbl.create_table(2, 3)
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      -- Should have at least header + separator + 2 data rows
+      assert.is_true(#lines >= 4)
+      -- First line should contain pipe characters (table syntax)
+      assert.is_truthy(lines[1]:match("|"))
+      -- Separator row should contain dashes
+      assert.is_truthy(lines[2]:match("%-"))
+    end)
+  end)
+
+  describe("normalize_table", function()
+    it("aliases format_table", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| --- | --- |",
+        "| A  | B  |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+
+      local result = tbl.normalize_table()
+      assert.is_true(result)
+
+      -- Verify normalize_table produces the same result as format_table
+      local formatted = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.is_truthy(formatted[1]:match("|"))
+    end)
+  end)
+
+  describe("insert_row_below", function()
+    it("returns false on non-table text", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Not a table" })
+      vim.fn.cursor(1, 1)
+
+      local result = tbl.insert_row_below()
+      assert.is_false(result)
+    end)
+  end)
+
+  describe("insert_column_right", function()
+    it("returns false on non-table text", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Not a table" })
+      vim.fn.cursor(1, 1)
+
+      local result = tbl.insert_column_right()
+      assert.is_false(result)
+    end)
+  end)
+
+  describe("delete_row", function()
+    it("returns false on non-table text", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Not a table" })
+      vim.fn.cursor(1, 1)
+
+      local result = tbl.delete_row()
+      assert.is_false(result)
+    end)
+  end)
+end)

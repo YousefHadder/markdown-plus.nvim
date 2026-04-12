@@ -21,6 +21,7 @@ local ORDERABLE_LIST_TYPES = {
   letter_lower_paren = true,
   letter_upper_paren = true,
 }
+local RENUMBER_AUGROUP_PREFIX = "MarkdownPlusListRenumber_"
 
 ---@type markdown-plus.InternalConfig
 M.config = {}
@@ -134,7 +135,7 @@ end
 ---Set up autocommands for auto-renumbering
 function M.setup_renumber_autocmds()
   local current_bufnr = vim.api.nvim_get_current_buf()
-  local group = vim.api.nvim_create_augroup("MarkdownPlusListRenumber_" .. current_bufnr, { clear = true })
+  local group = vim.api.nvim_create_augroup(RENUMBER_AUGROUP_PREFIX .. current_bufnr, { clear = true })
 
   local function get_cursor_row_for_buffer(bufnr)
     if vim.api.nvim_get_current_buf() == bufnr then
@@ -223,6 +224,35 @@ function M.setup_renumber_autocmds()
       stop_debounce_timer(args.buf)
     end,
   })
+end
+
+---Teardown list-specific runtime state
+---@return nil
+function M.teardown()
+  local bufnrs = {}
+  for bufnr in pairs(renumber_timers) do
+    table.insert(bufnrs, bufnr)
+  end
+  for _, bufnr in ipairs(bufnrs) do
+    local timer_id = renumber_timers[bufnr]
+    if timer_id then
+      pcall(vim.fn.timer_stop, timer_id)
+    end
+    renumber_timers[bufnr] = nil
+  end
+
+  local autocmds = vim.api.nvim_get_autocmds({})
+  local groups = {}
+  for _, autocmd in ipairs(autocmds) do
+    local group_name = autocmd.group_name
+    if group_name and group_name:sub(1, #RENUMBER_AUGROUP_PREFIX) == RENUMBER_AUGROUP_PREFIX then
+      groups[group_name] = true
+    end
+  end
+
+  for group_name in pairs(groups) do
+    vim.api.nvim_del_augroup_by_name(group_name)
+  end
 end
 
 -- Re-export functions from sub-modules for backwards compatibility

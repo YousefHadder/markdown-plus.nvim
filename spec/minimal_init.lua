@@ -1,6 +1,21 @@
 -- spec/minimal_init.lua
 -- Minimal init for running tests
 
+if os.getenv("MARKDOWN_PLUS_ENABLE_COVERAGE") == "1" then
+  local ok, err = pcall(require, "luacov")
+  if not ok then
+    error("Failed to load luacov: " .. err)
+  end
+
+  local runner = require("luacov.runner")
+  vim.api.nvim_create_autocmd("VimLeavePre", {
+    callback = function()
+      runner.save_stats()
+      runner.shutdown()
+    end,
+  })
+end
+
 -- Set runtimepath to include plenary and this plugin
 local root = vim.fn.fnamemodify(vim.fn.getcwd(), ":p")
 
@@ -34,6 +49,9 @@ vim.opt.rtp:prepend(plenary_dir)
 vim.opt.swapfile = false
 vim.opt.backup = false
 vim.opt.writebackup = false
+
+-- Make spec/ loadable so helpers can be required as spec.helpers
+package.path = root .. "?.lua;" .. root .. "?/init.lua;" .. package.path
 
 -- Ensure plugin files are loaded
 vim.cmd("runtime! plugin/**/*.vim")

@@ -12,6 +12,10 @@ describe("markdown-plus configuration", function()
   end)
 
   after_each(function()
+    if markdown_plus.teardown then
+      markdown_plus.teardown()
+    end
+
     -- Restore original config
     markdown_plus.config = original_config
   end)
@@ -66,6 +70,61 @@ describe("markdown-plus configuration", function()
           unknown_field = true,
         })
       end)
+    end)
+
+    it("resets omitted feature toggles on subsequent setup calls", function()
+      markdown_plus.setup({
+        features = {
+          list_management = false,
+        },
+      })
+      assert.is_false(markdown_plus.config.features.list_management)
+
+      markdown_plus.setup({})
+      assert.is_true(markdown_plus.config.features.list_management)
+    end)
+
+    it("clears module refs when a feature is disabled on re-setup", function()
+      markdown_plus.setup({
+        features = {
+          list_management = true,
+        },
+      })
+      assert.is_not_nil(markdown_plus.list)
+
+      markdown_plus.setup({
+        features = {
+          list_management = false,
+        },
+      })
+      assert.is_nil(markdown_plus.list)
+    end)
+
+    it("does not duplicate root FileType autocmds on repeated setup", function()
+      markdown_plus.setup({})
+      markdown_plus.setup({})
+
+      local autocmds = vim.api.nvim_get_autocmds({
+        group = "MarkdownPlus",
+        event = "FileType",
+      })
+      assert.are.equal(1, #autocmds)
+    end)
+
+    it("rejects unsupported top-level keymap entries", function()
+      local original_list = markdown_plus.list
+      markdown_plus.list = nil
+
+      pcall(function()
+        markdown_plus.setup({
+          keymaps = {
+            promote_header = "<localleader>h+",
+          },
+        })
+      end)
+
+      assert.is_nil(markdown_plus.list)
+      markdown_plus.list = original_list
     end)
   end)
 
@@ -782,6 +841,67 @@ describe("markdown-plus configuration", function()
           },
         })
       end)
+    end)
+  end)
+
+  describe("documentation alignment", function()
+    it("documents supported top-level keymaps configuration", function()
+      local doc = table.concat(vim.fn.readfile("doc/markdown-plus.txt"), "\n")
+      local keymaps_section = doc:match("KEYMAPS.-OPTIONS")
+
+      assert.is_not_nil(keymaps_section)
+      assert.is_truthy(keymaps_section:match("keymaps%s*=%s*%b{}"))
+      assert.is_truthy(keymaps_section:match("enabled%s*="))
+      assert.is_nil(keymaps_section:match("promote_header%s*="))
+      assert.is_nil(keymaps_section:match("toggle_bold%s*="))
+      assert.is_nil(keymaps_section:match("table_create%s*="))
+    end)
+
+    it("keeps README keymap config examples aligned with schema", function()
+      local readme = table.concat(vim.fn.readfile("README.md"), "\n")
+      local table_block = readme:match("table%s*=%s*(%b{})")
+
+      assert.is_truthy(readme:match("keymaps%s*=%s*%b{}"))
+      assert.is_truthy(readme:match("enabled%s*=%s*true"))
+      assert.is_not_nil(table_block)
+      assert.is_truthy(table_block:match("keymaps%s*=%s*%b{}"))
+      assert.is_nil(readme:match("promote_header%s*="))
+      assert.is_nil(readme:match("toggle_bold%s*="))
+      assert.is_nil(readme:match("table_create%s*="))
+    end)
+  end)
+
+  describe("validation edge cases", function()
+    it("warns on unknown top-level key", function()
+      local original_notify = vim.notify
+      local error_msg = nil
+      vim.notify = function(msg, level)
+        if level == vim.log.levels.ERROR then
+          error_msg = msg
+        end
+      end
+
+      markdown_plus.setup({ unknown_key = true })
+
+      vim.notify = original_notify
+      assert.is_not_nil(error_msg)
+      assert.is_truthy(error_msg:match("unknown field 'unknown_key'"))
+    end)
+
+    it("errors on invalid filetypes type", function()
+      local original_notify = vim.notify
+      local error_msg = nil
+      vim.notify = function(msg, level)
+        if level == vim.log.levels.ERROR then
+          error_msg = msg
+        end
+      end
+
+      markdown_plus.setup({ filetypes = "not-a-table" })
+
+      vim.notify = original_notify
+      assert.is_not_nil(error_msg)
+      assert.is_truthy(error_msg:match("must be an array"))
     end)
   end)
 end)

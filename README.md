@@ -93,6 +93,23 @@ That's it! The plugin will automatically activate with default keymaps when you 
 
 See [Configuration](https://github.com/YousefHadder/markdown-plus.nvim/wiki/3.Configuration) for all available options.
 
+For keymaps, the supported config shape is:
+
+```lua
+opts = {
+  keymaps = {
+    enabled = true, -- master toggle for default markdown-plus keymaps
+  },
+  table = {
+    keymaps = {
+      enabled = true, -- table feature keymaps
+    },
+  },
+}
+```
+
+Use `<Plug>(MarkdownPlus...)` mappings for custom remaps instead of undocumented top-level `keymaps.*` action keys.
+
 ## License
 
 MIT License - see [LICENSE](./LICENSE) file for details.

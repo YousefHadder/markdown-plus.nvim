@@ -1,0 +1,16 @@
+-- LuaCov configuration for markdown-plus.nvim
+-- Run via: MARKDOWN_PLUS_ENFORCE_COVERAGE=1 ./scripts/test
+
+return {
+  statsfile = "luacov.stats.out",
+  reportfile = "luacov.report.out",
+
+  include = {
+    "lua/markdown%-plus/.+",
+  },
+
+  exclude = {
+    "spec/",
+    "plugin/",
+  },
+}

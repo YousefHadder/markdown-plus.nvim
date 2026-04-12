@@ -27,3 +27,4 @@ docs/
 demo
 .github/agents
 .claude
+.tests/

@@ -73,7 +73,7 @@ function M.setup_keymaps(config, keymaps)
         if not has_buffer_mapping then
           local default_opts = vim.tbl_extend("force", {
             buffer = true,
-            desc = keymap.desc,
+            desc = "markdown-plus: " .. keymap.desc,
           }, keymap.default_opts or {})
 
           vim.keymap.set(mode, default_keys[idx], plug_name, default_opts)

@@ -2,7 +2,7 @@
 local M = {}
 
 ---@type markdown-plus.InternalConfig
-M.config = {
+local DEFAULT_CONFIG = {
   enabled = true,
   features = {
     list_management = true,
@@ -70,6 +70,9 @@ M.config = {
   },
 }
 
+---@type markdown-plus.InternalConfig
+M.config = vim.deepcopy(DEFAULT_CONFIG)
+
 -- Module references
 M.list = nil
 M.format = nil
@@ -82,6 +85,86 @@ M.callouts = nil
 M.code_block = nil
 M.table = nil
 M.footnotes = nil
+
+---Reset all loaded module references
+---@return nil
+local function reset_module_refs()
+  M.list = nil
+  M.format = nil
+  M.thematic_break = nil
+  M.links = nil
+  M.images = nil
+  M.headers = nil
+  M.quotes = nil
+  M.callouts = nil
+  M.code_block = nil
+  M.table = nil
+  M.footnotes = nil
+end
+
+---@param feature_module table|nil
+---@return nil
+local function disable_feature_for_loaded_buffers(feature_module)
+  if not feature_module or type(feature_module.disable) ~= "function" then
+    return
+  end
+
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      feature_module.disable(bufnr)
+    end
+  end
+end
+
+---Clear buffer-local keymaps created by markdown-plus default mappings.
+---Only mappings tagged with the "markdown-plus: " description prefix are removed,
+---preserving any user-defined custom mappings to <Plug>(MarkdownPlus...) targets.
+---@return nil
+local function clear_plugin_default_keymaps()
+  local modes = { "n", "i", "x", "v" }
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      for _, mode in ipairs(modes) do
+        for _, map in ipairs(vim.api.nvim_buf_get_keymap(bufnr, mode)) do
+          if
+            type(map.rhs) == "string"
+            and map.rhs:match("^<Plug>%((MarkdownPlus[^)]+)%)$")
+            and type(map.desc) == "string"
+            and map.desc:find("^markdown%-plus: ") ~= nil
+          then
+            vim.keymap.del(mode, map.lhs, { buffer = bufnr })
+          end
+        end
+      end
+    end
+  end
+end
+
+---Clear markdown-plus root autocmd group if present.
+---@return nil
+local function clear_root_augroup()
+  local ok, markdown_plus_autocmds = pcall(vim.api.nvim_get_autocmds, { group = "MarkdownPlus" })
+  if ok and #markdown_plus_autocmds > 0 then
+    vim.api.nvim_del_augroup_by_name("MarkdownPlus")
+  end
+end
+
+---Tear down markdown-plus runtime state.
+---Clears plugin autocmds and buffer-local defaults, then resets config and module refs.
+---@return nil
+function M.teardown()
+  disable_feature_for_loaded_buffers(M.headers)
+  disable_feature_for_loaded_buffers(M.footnotes)
+
+  if M.list and type(M.list.teardown) == "function" then
+    M.list.teardown()
+  end
+
+  clear_root_augroup()
+  clear_plugin_default_keymaps()
+  reset_module_refs()
+  M.config = vim.deepcopy(DEFAULT_CONFIG)
+end
 
 ---Setup markdown-plus.nvim with user configuration
 ---Configuration priority: setup(opts) overrides defaults
@@ -98,8 +181,10 @@ function M.setup(opts)
     return
   end
 
+  M.teardown()
+
   -- Merge validated config with defaults
-  M.config = vim.tbl_deep_extend("force", M.config, merged_opts)
+  M.config = vim.tbl_deep_extend("force", vim.deepcopy(DEFAULT_CONFIG), merged_opts)
 
   -- Only load if enabled
   if not M.config.enabled then
@@ -169,10 +254,17 @@ function M.setup(opts)
   -- Set up autocommands for markdown files
   M.setup_autocmds()
 
-  -- If we're already in a markdown buffer, enable features immediately
-  -- This handles the case where setup() is called via lazy-loading after FileType event
-  if vim.tbl_contains(M.config.filetypes, vim.bo.filetype) then
-    M.enable_features_for_buffer()
+  -- Re-enable features for all already-open buffers matching config.filetypes
+  -- This handles the case where setup() is called again after teardown()
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(bufnr) and vim.api.nvim_buf_is_loaded(bufnr) then
+      local ft = vim.bo[bufnr].filetype
+      if vim.tbl_contains(M.config.filetypes, ft) then
+        vim.api.nvim_buf_call(bufnr, function()
+          M.enable_features_for_buffer()
+        end)
+      end
+    end
   end
 end
 

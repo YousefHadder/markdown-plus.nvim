@@ -334,4 +334,144 @@ describe("markdown-plus callouts", function()
       assert.are.equal("WARNING", default)
     end)
   end)
+
+  describe("insert_callout_prompt", function()
+    it("does not change buffer when cancelled", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Hello world" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      local select_spy = mocks.mock_select(nil)
+      callouts.insert_callout_prompt()
+      select_spy.restore()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.are.equal(1, #lines)
+      assert.are.equal("Hello world", lines[1])
+    end)
+
+    it("inserts NOTE callout when first option selected", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      local select_spy = mocks.mock_select(1)
+      local cmd_spy = mocks.mock_cmd(false)
+      callouts.insert_callout_prompt()
+      cmd_spy.restore()
+      select_spy.restore()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.are.equal("> [!NOTE]", lines[1])
+    end)
+  end)
+
+  describe("cycle_callout", function()
+    it("cycles NOTE to TIP", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "> [!NOTE]",
+        "> Content here",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      local notify_spy = mocks.mock_notify()
+      callouts.toggle_callout_type()
+      notify_spy.restore()
+
+      local line = utils.get_line(1)
+      assert.are.equal("> [!TIP]", line)
+    end)
+
+    it("notifies when cursor is on non-callout line", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "Plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      local notify_spy = mocks.mock_notify()
+      callouts.toggle_callout_type()
+      notify_spy.restore()
+
+      assert.is_true(#notify_spy.calls > 0)
+      assert.are.equal("Not in a callout block", notify_spy.calls[1].msg)
+      assert.are.equal(vim.log.levels.WARN, notify_spy.calls[1].level)
+    end)
+  end)
+
+  describe("toggle_callout", function()
+    it("removes callout markers", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "> [!WARNING]",
+        "> Some text",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      local notify_spy = mocks.mock_notify()
+      callouts.convert_to_blockquote()
+      notify_spy.restore()
+
+      local line = utils.get_line(1)
+      assert.are.equal(">", line)
+      local line2 = utils.get_line(2)
+      assert.are.equal("> Some text", line2)
+    end)
+
+    it("adds callout to plain blockquote", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "> Some text",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      local select_spy = mocks.mock_select(1)
+      local notify_spy = mocks.mock_notify()
+      callouts.convert_to_callout()
+      notify_spy.restore()
+      select_spy.restore()
+
+      local line = utils.get_line(1)
+      assert.are.equal("> [!NOTE] Some text", line)
+    end)
+  end)
+
+  describe("wrap_selection_in_callout", function()
+    it("wraps selected lines as callout", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "Line one",
+        "Line two",
+        "Line three",
+      })
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 2, 1, 0 })
+
+      local select_spy = mocks.mock_select(1)
+      callouts.wrap_selection_in_callout()
+      select_spy.restore()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.are.equal("> [!NOTE] Line one", lines[1])
+      assert.are.equal("> Line two", lines[2])
+      assert.are.equal("Line three", lines[3])
+    end)
+
+    it("does not change buffer when cancelled", function()
+      local mocks = require("spec.helpers.mocks")
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "Line one",
+        "Line two",
+      })
+      vim.fn.setpos("'<", { 0, 1, 1, 0 })
+      vim.fn.setpos("'>", { 0, 2, 1, 0 })
+
+      local select_spy = mocks.mock_select(nil)
+      callouts.wrap_selection_in_callout()
+      select_spy.restore()
+
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      assert.are.equal("Line one", lines[1])
+      assert.are.equal("Line two", lines[2])
+    end)
+  end)
 end)
