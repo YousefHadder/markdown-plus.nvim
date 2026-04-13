@@ -79,7 +79,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ needs.find-pr.outputs.head_ref }}
-      - uses: JohnnyMorganz/stylua-action@v4
+      - uses: JohnnyMorganz/stylua-action@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           version: latest
