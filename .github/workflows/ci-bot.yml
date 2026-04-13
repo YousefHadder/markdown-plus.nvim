@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Find PR created by workflow
         id: find
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             // Map triggering workflow to the title prefix it uses
@@ -139,7 +139,7 @@ jobs:
             echo "description=CI checks failed (stylua=${{ needs.stylua.result }}, luacheck=${{ needs.luacheck.result }}, tests=${{ needs.tests.result }})" >> "$GITHUB_OUTPUT"
           fi
       - name: Set commit status on PR
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9.0.0
         with:
           script: |
             await github.rest.repos.createCommitStatus({
