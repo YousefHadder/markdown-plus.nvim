@@ -292,7 +292,7 @@ end
 ---@return boolean True if the line contains only the marker with no trailing content
 local function is_empty_marker(line, list_info)
   local after_marker = line:sub(#list_info.indent + #list_info.full_marker + 1)
-  return after_marker:match("^%s*$") ~= nil
+  return after_marker == ""
 end
 
 ---Parse a line to detect list information
