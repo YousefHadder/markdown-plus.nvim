@@ -101,23 +101,50 @@ local PATTERN_CONFIG = {
   { pattern = "unordered", type = "unordered", delimiter = "", has_checkbox = false },
   -- Empty item patterns (marker at EOL without trailing space)
   -- These are checked last to prefer matching with content when possible
-  { pattern = "ordered_empty", type = "ordered", delimiter = DELIMITER_DOT, has_checkbox = false },
-  { pattern = "letter_lower_empty", type = "letter_lower", delimiter = DELIMITER_DOT, has_checkbox = false },
-  { pattern = "letter_upper_empty", type = "letter_upper", delimiter = DELIMITER_DOT, has_checkbox = false },
-  { pattern = "ordered_paren_empty", type = "ordered_paren", delimiter = DELIMITER_PAREN, has_checkbox = false },
+  -- is_empty allows callers to skip these when scanning for group membership
+  {
+    pattern = "ordered_empty",
+    type = "ordered",
+    delimiter = DELIMITER_DOT,
+    has_checkbox = false,
+    is_empty = true,
+  },
+  {
+    pattern = "letter_lower_empty",
+    type = "letter_lower",
+    delimiter = DELIMITER_DOT,
+    has_checkbox = false,
+    is_empty = true,
+  },
+  {
+    pattern = "letter_upper_empty",
+    type = "letter_upper",
+    delimiter = DELIMITER_DOT,
+    has_checkbox = false,
+    is_empty = true,
+  },
+  {
+    pattern = "ordered_paren_empty",
+    type = "ordered_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = false,
+    is_empty = true,
+  },
   {
     pattern = "letter_lower_paren_empty",
     type = "letter_lower_paren",
     delimiter = DELIMITER_PAREN,
     has_checkbox = false,
+    is_empty = true,
   },
   {
     pattern = "letter_upper_paren_empty",
     type = "letter_upper_paren",
     delimiter = DELIMITER_PAREN,
     has_checkbox = false,
+    is_empty = true,
   },
-  { pattern = "unordered_empty", type = "unordered", delimiter = "", has_checkbox = false },
+  { pattern = "unordered_empty", type = "unordered", delimiter = "", has_checkbox = false, is_empty = true },
 }
 
 ---Build list info object from parsed components
@@ -226,13 +253,21 @@ local function parse_list_line_ts(row)
   })
 end
 
+---@class markdown-plus.list.ParseOpts
+---@field skip_empty_patterns? boolean When true, skip empty-marker patterns (marker at EOL without trailing space)
+
 ---Parse list info using regex patterns
 ---Used as fallback when treesitter is unavailable or for letter lists
 ---@param line string Line to parse
+---@param opts? markdown-plus.list.ParseOpts Optional parsing options
 ---@return markdown-plus.ListInfo|nil
-local function parse_list_line_regex(line)
+local function parse_list_line_regex(line, opts)
+  local skip_empty = opts and opts.skip_empty_patterns
   -- Try each pattern in order (checkbox variants first, then regular)
   for _, config in ipairs(PATTERN_CONFIG) do
+    if skip_empty and config.is_empty then
+      goto next_pattern
+    end
     local pattern = M.patterns[config.pattern]
     if config.has_checkbox then
       local indent, marker, checkbox = line:match(pattern)
@@ -245,24 +280,41 @@ local function parse_list_line_regex(line)
         return build_list_info(indent, marker, nil, config)
       end
     end
+    ::next_pattern::
   end
 
   return nil
+end
+
+---Check whether a parsed list item is an empty marker (marker at EOL, no trailing content)
+---@param line string The line text
+---@param list_info markdown-plus.ListInfo The parsed list info
+---@return boolean True if the line contains only the marker with no trailing content
+local function is_empty_marker(line, list_info)
+  local after_marker = line:sub(#list_info.indent + #list_info.full_marker + 1)
+  return after_marker == ""
 end
 
 ---Parse a line to detect list information
 ---Uses treesitter when row is provided and available, falls back to regex
 ---@param line string Line to parse
 ---@param row? number Optional 1-indexed row for treesitter
+---@param opts? markdown-plus.list.ParseOpts Optional parsing options (e.g., skip_empty_patterns)
 ---@return markdown-plus.ListInfo|nil List info or nil if not a list
-function M.parse_list_line(line, row)
+function M.parse_list_line(line, row, opts)
   if not line then
     return nil
   end
 
+  local skip_empty = opts and opts.skip_empty_patterns
+
   -- Try treesitter first (if row provided)
   local ts_result = row and parse_list_line_ts(row) or nil
   if ts_result then
+    -- When skipping empty patterns, reject markers at EOL with no trailing content
+    if skip_empty and is_empty_marker(line, ts_result) then
+      return nil
+    end
     return ts_result
   end
 
@@ -270,7 +322,7 @@ function M.parse_list_line(line, row)
   -- (handles letter lists, ts unavailable, continuation lines, etc.)
 
   -- Fallback to regex
-  return parse_list_line_regex(line)
+  return parse_list_line_regex(line, opts)
 end
 
 ---Check if a list item is empty (only contains marker)

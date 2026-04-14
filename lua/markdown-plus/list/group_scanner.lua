@@ -5,6 +5,7 @@ local shared = require("markdown-plus.list.shared")
 local code_block_parser = require("markdown-plus.code_block.parser")
 local M = {}
 
+local SKIP_EMPTY_OPTS = { skip_empty_patterns = true }
 local html_awareness = true
 
 ---Set HTML block awareness state
@@ -100,7 +101,9 @@ function M.is_list_breaking_line(line, line_num, lines)
     return true
   end
 
-  if parser.parse_list_line(line, line_num) then
+  -- Skip empty-marker patterns so bare markers (e.g. "E.", "1.") without
+  -- trailing space are treated as non-list lines that break group continuity
+  if parser.parse_list_line(line, line_num, SKIP_EMPTY_OPTS) then
     return false
   end
 
@@ -122,7 +125,7 @@ local function can_merge_between(lines, start_line, end_line, parent_indent)
   for line_num = start_line + 1, end_line - 1 do
     local line = lines[line_num] or ""
     if not line:match("^%s*$") then
-      local list_info = parser.parse_list_line(line, line_num)
+      local list_info = parser.parse_list_line(line, line_num, SKIP_EMPTY_OPTS)
       if list_info then
         if #list_info.indent <= parent_indent then
           return false
@@ -197,7 +200,7 @@ function M.find_list_groups(lines)
       end
       goto continue
     end
-    local list_info = parser.parse_list_line(line)
+    local list_info = parser.parse_list_line(line, nil, SKIP_EMPTY_OPTS)
     if list_info and shared.is_orderable_type(list_info.type) then
       local indent_level = #list_info.indent
       local list_type = list_info.type
