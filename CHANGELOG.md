@@ -5,6 +5,21 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.0.0...v2.0.1) (2026-04-14)
+
+
+### Bug Fixes
+
+* **config:** align timeout range descriptions with validator ([#259](https://github.com/YousefHadder/markdown-plus.nvim/issues/259)) ([c65df5a](https://github.com/YousefHadder/markdown-plus.nvim/commit/c65df5a1feead4dca7c46626bb7fbd220c4bda83))
+* **list:** handle outdent when indent is less than shiftwidth ([#248](https://github.com/YousefHadder/markdown-plus.nvim/issues/248)) ([447b963](https://github.com/YousefHadder/markdown-plus.nvim/commit/447b96310a49a94eea61dcaf181e4f30baa0cc34))
+* **list:** require trailing space for list marker recognition ([#285](https://github.com/YousefHadder/markdown-plus.nvim/issues/285)) ([3ace747](https://github.com/YousefHadder/markdown-plus.nvim/commit/3ace747682b36675e4954429fccf49721237e218))
+* **smart paste:** harden smart paste redirects, add teardown lifecycle, and fix toc anchor collisions ([#277](https://github.com/YousefHadder/markdown-plus.nvim/issues/277)) ([0c9ff39](https://github.com/YousefHadder/markdown-plus.nvim/commit/0c9ff39e1e92ba966c1af07b81fd1f233e4e31b4))
+
+
+### Performance Improvements
+
+* **keymaps:** skip redundant &lt;Plug&gt; re-registration across buffers ([#272](https://github.com/YousefHadder/markdown-plus.nvim/issues/272)) ([7fd942c](https://github.com/YousefHadder/markdown-plus.nvim/commit/7fd942ca68c9c7534eb6393571a611e91462bd92))
+
 ## [2.0.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v1.11.0...v2.0.0) (2026-03-08)
 
 
