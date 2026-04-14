@@ -12,12 +12,12 @@
 - **Link management:** Insert, edit, convert inline/reference, auto-link URLs
 
 ### Architecture
-- `lua/markdown-plus/` - Core modules (70 Lua files across 14 directories):
+- `lua/markdown-plus/` - Core modules (74 Lua files across 14 directories):
   - Feature modules: list/, format/, headers/, links/, table/, footnotes/, callouts/, quote/, images/, code_block/, thematic_break/
   - Shared: utils/ (buffer, text, selection, element, html), treesitter/, config/
   - Root: init.lua, types.lua, utils.lua, keymap_helper.lua, health.lua
 - `plugin/markdown-plus.lua` - Entry point with lazy initialization guard
-- `spec/` - 26 Busted test suites
+- `spec/` - 38 Busted test suites
 - `doc/` - Vimdoc help files
 - `rockspecs/` - LuaRocks package specifications
 
@@ -26,7 +26,7 @@
 - **Linting:** .luacheckrc
 - **Formatting:** .stylua.toml
 - **Type checking:** .luarc.json (Lua 5.1 runtime)
-- **Testing:** Busted + Plenary (26 spec files, ~85% coverage)
+- **Testing:** Busted + Plenary (38 spec files, ~85% coverage)
 
 ---
 
@@ -84,6 +84,7 @@
 ```bash
 # Testing
 make test              # Run all tests
+make test-coverage     # Run tests with coverage enforcement (85% overall, 80% critical)
 make test-file         # Run tests for a specific file (set FILE=path/to/spec.lua)
 make test-watch        # Run tests in watch mode
 
