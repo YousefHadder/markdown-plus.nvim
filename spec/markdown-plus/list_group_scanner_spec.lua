@@ -2,6 +2,7 @@
 ---Tests list breaking line detection and list group discovery
 ---@diagnostic disable: undefined-field
 local group_scanner = require("markdown-plus.list.group_scanner")
+local parser = require("markdown-plus.list.parser")
 
 describe("markdown-plus list group scanner", function()
   local buf
@@ -159,6 +160,111 @@ describe("markdown-plus list group scanner", function()
       assert.are.equal(2, #groups)
       assert.are.equal(2, #groups[1].items) -- 1. First, 2. Second
       assert.are.equal(1, #groups[2].items) -- 3. Third
+    end)
+  end)
+
+  describe("empty marker exclusion from groups", function()
+    it("does not include standalone empty alpha marker in any group", function()
+      local lines = {
+        "E.",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      assert.are.equal(0, #groups)
+    end)
+
+    it("does not include standalone empty numeric marker in any group", function()
+      local lines = {
+        "1.",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      assert.are.equal(0, #groups)
+    end)
+
+    it("does not include standalone empty unordered marker in any group", function()
+      local lines = {
+        "-",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      assert.are.equal(0, #groups)
+    end)
+
+    it("includes marker with trailing space and content in groups", function()
+      local lines = {
+        "E. text",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      assert.are.equal(1, #groups)
+      assert.are.equal(1, #groups[1].items)
+      assert.are.equal("letter_upper", groups[1].list_type)
+    end)
+
+    it("groups multi-item alpha list correctly", function()
+      local lines = {
+        "A. first",
+        "B. second",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      assert.are.equal(1, #groups)
+      assert.are.equal(2, #groups[1].items)
+      assert.are.equal("letter_upper", groups[1].list_type)
+    end)
+
+    it("treats empty marker as list-breaking between real list items", function()
+      local lines = {
+        "A. first",
+        "E.",
+        "B. third",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      -- E. without trailing space is not a list item and breaks the group
+      assert.are.equal(2, #groups)
+      assert.are.equal(1, #groups[1].items)
+      assert.are.equal(1, #groups[2].items)
+    end)
+
+    it("treats empty numeric marker as list-breaking", function()
+      local lines = {
+        "1. first",
+        "2.",
+        "3. third",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      -- 2. without trailing space breaks the group
+      assert.are.equal(2, #groups)
+      assert.are.equal(1, #groups[1].items)
+      assert.are.equal(1, #groups[2].items)
+    end)
+
+    it("treats empty paren marker as list-breaking", function()
+      local lines = {
+        "1) first",
+        "2)",
+        "3) third",
+      }
+      local groups = group_scanner.find_list_groups(lines)
+      assert.are.equal(2, #groups)
+      assert.are.equal(1, #groups[1].items)
+      assert.are.equal(1, #groups[2].items)
+    end)
+
+    it("still recognizes empty markers via parse_list_line without opts", function()
+      -- The enter handler path calls parse_list_line without opts,
+      -- so empty markers should still parse for break-out-of-list behavior
+      local info = parser.parse_list_line("B.", nil)
+      assert.is_not_nil(info)
+      assert.are.equal("letter_upper", info.type)
+    end)
+
+    it("does not recognize empty markers when skip_empty_patterns is set", function()
+      local info = parser.parse_list_line("B.", nil, { skip_empty_patterns = true })
+      assert.is_nil(info)
+    end)
+
+    it("is_list_breaking_line treats empty markers as breaking", function()
+      -- Empty markers without trailing space should break list continuity
+      assert.is_true(group_scanner.is_list_breaking_line("E."))
+      assert.is_true(group_scanner.is_list_breaking_line("1."))
+      assert.is_true(group_scanner.is_list_breaking_line("-"))
     end)
   end)
 

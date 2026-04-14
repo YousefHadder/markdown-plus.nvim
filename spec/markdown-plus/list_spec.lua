@@ -652,12 +652,11 @@ describe("markdown-plus list management", function()
         '   echo "Hello"',
         "   ```",
         "3. Hello",
-        "4.",
       }
       local groups = list.find_list_groups(lines)
 
       assert.are.equal(1, #groups)
-      assert.are.equal(4, #groups[1].items)
+      assert.are.equal(3, #groups[1].items)
     end)
 
     it("handles indented code block without surrounding blank lines", function()
@@ -1014,9 +1013,10 @@ describe("markdown-plus list management", function()
       assert.are.equal("3. [x] Task 3", result[4]) -- Should remain as 3
     end)
 
-    it("keeps empty list items without trailing space in same group", function()
-      -- This tests the fix for issue #17
-      -- Empty items like "3." (without trailing space) should still be in the same group
+    it("treats empty list items without trailing space as group-breaking", function()
+      -- Fix for issue #282: bare markers like "3." (no trailing space)
+      -- should NOT be recognized as list items in group scanning,
+      -- preventing false renumbering when typing "E." or "I." at SOL
       local lines = {
         "1. A",
         "2. b",
@@ -1029,12 +1029,14 @@ describe("markdown-plus list management", function()
       list.renumber_ordered_lists()
 
       local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-      -- Numbers should stay sequential (not restart at 1 after empty item)
-      assert.is_not_nil(result[1]:match("^1%."))
-      assert.is_not_nil(result[2]:match("^2%."))
-      assert.is_not_nil(result[3]:match("^3%."))
-      assert.is_not_nil(result[4]:match("^4%."))
-      assert.is_not_nil(result[5]:match("^5%."))
+      -- "3." and "5." break groups, so we get 3 separate groups:
+      -- Group 1: items 1-2, Group 2: item 4 (renumbered to 1)
+      -- "3." and "5." are unchanged (not recognized as list items)
+      assert.are.equal("1. A", result[1])
+      assert.are.equal("2. b", result[2])
+      assert.are.equal("3.", result[3]) -- Unchanged, not a list item
+      assert.are.equal("1. c", result[4]) -- Renumbered: new group starts at 1
+      assert.are.equal("5.", result[5]) -- Unchanged, not a list item
     end)
 
     it("does not reset numbering across indented fenced code block", function()
