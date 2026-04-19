@@ -276,13 +276,10 @@ Add comprehensive tests for each new file:
 
 Your output MUST either:
 
-1. **If largest file < 400 lines**: Output a simple status message
-   ```
-   ✅ All files are healthy! Largest file: [FILE_PATH] ([LINE_COUNT] lines)
-   No refactoring needed today.
-   ```
+1. **If largest file < 400 lines**: Call the `noop` safe-output tool with this status message:
+   `✅ All files are healthy! Largest file: [FILE_PATH] ([LINE_COUNT] lines). No refactoring needed today.`
 
-2. **If largest file ≥ 400 lines**: Create an issue with the detailed description above
+2. **If largest file ≥ 400 lines**: Call the `create_issue` safe-output tool with the detailed description above
 
 ## Important Guidelines
 
@@ -293,5 +290,6 @@ Your output MUST either:
 - **Estimate effort realistically**: Large files may require significant refactoring effort
 - **Respect the module pattern**: Every new file must follow `local M = {} ... return M`
 - **Maintain backwards compatibility**: Parent `init.lua` must re-export functions from new sub-modules
+- **Always produce a safe output**: Never finish with plain text only; use `noop` or `create_issue`
 
 Begin your analysis now. Find the largest Lua source file, assess if it needs refactoring, and create an issue only if necessary.
