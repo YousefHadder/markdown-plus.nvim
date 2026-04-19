@@ -574,20 +574,21 @@ A successful run:
 
 ## Output Requirements
 
-Your output MUST either:
+You MUST finish by calling exactly one safe-output tool. Do not end with plain text only.
+
+Your safe output MUST be exactly one of:
 
 1. **If no changes in last 24 hours**:
-   ```
-   ✅ No code changes detected in the last 24 hours.
-   Code simplifier has nothing to process today.
-   ```
+   Call `noop` with:
+   - `message`: `✅ No code changes detected in the last 24 hours.\nCode simplifier has nothing to process today.`
 
 2. **If no simplifications beneficial**:
-   ```
-   ✅ Code analyzed from last 24 hours.
-   No simplifications needed - code already meets quality standards.
-   ```
+   Call `noop` with:
+   - `message`: `✅ Code analyzed from last 24 hours.\nNo simplifications needed - code already meets quality standards.`
 
-3. **If simplifications made**: Create a PR with the changes using safe-outputs
+3. **If simplifications made**:
+   Call `create_pull_request` with the title/body/branch for your changes.
+
+If you do not create a PR, `noop` is required.
 
 Begin your analysis now. Find recently modified code, perform semantic function analysis on changed modules, apply simplifications and structural fixes while preserving functionality, validate changes, and create a PR if beneficial.
