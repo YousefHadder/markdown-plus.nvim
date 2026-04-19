@@ -199,10 +199,9 @@ For fields present in multiple files, verify:
 
 If every field path is present in all four files with consistent types and defaults:
 
-```
-✅ Config sync check passed — all fields are consistent across types.lua, validate.lua, init.lua, and doc/markdown-plus.txt.
-No issue needed.
-```
+- Call the safe-outputs `noop` tool exactly once with this message:
+  `✅ Config sync check passed — all fields are consistent across types.lua, validate.lua, init.lua, and doc/markdown-plus.txt. No issue needed.`
+- Do not call `create_issue` in this case.
 
 ### 3.2 Inconsistencies Found — Create Issue
 
