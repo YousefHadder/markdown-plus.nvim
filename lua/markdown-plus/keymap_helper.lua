@@ -4,6 +4,42 @@ local M = {}
 
 -- Track which <Plug> mappings have been registered to avoid redundant global re-registration
 local registered_plugs = {}
+local DEFAULT_KEYMAPS_VAR = "markdown_plus_default_keymaps"
+
+---@class markdown-plus.DefaultKeymapRecord
+---@field mode string Keymap mode
+---@field lhs string Default keymap left-hand side
+---@field rhs string Default keymap right-hand side
+---@field desc string Default keymap description
+
+---Get default keymap records tracked on a buffer.
+---@param bufnr integer Buffer handle
+---@return markdown-plus.DefaultKeymapRecord[]
+local function get_default_keymap_records(bufnr)
+  local ok, records = pcall(vim.api.nvim_buf_get_var, bufnr, DEFAULT_KEYMAPS_VAR)
+  if ok and type(records) == "table" then
+    return records
+  end
+  return {}
+end
+
+---Remember a buffer-local default keymap so teardown does not depend on the visible description text.
+---@param mode string Keymap mode
+---@param lhs string Default keymap left-hand side
+---@param rhs string Default keymap right-hand side
+---@param desc string Default keymap description
+---@return nil
+local function track_default_keymap(mode, lhs, rhs, desc)
+  local bufnr = vim.api.nvim_get_current_buf()
+  local records = get_default_keymap_records(bufnr)
+  table.insert(records, {
+    mode = mode,
+    lhs = lhs,
+    rhs = rhs,
+    desc = desc,
+  })
+  vim.api.nvim_buf_set_var(bufnr, DEFAULT_KEYMAPS_VAR, records)
+end
 
 ---Keymap definition
 ---@class markdown-plus.KeymapDef
@@ -73,11 +109,41 @@ function M.setup_keymaps(config, keymaps)
         if not has_buffer_mapping then
           local default_opts = vim.tbl_extend("force", {
             buffer = true,
-            desc = "markdown-plus: " .. keymap.desc,
+            desc = keymap.desc,
           }, keymap.default_opts or {})
 
           vim.keymap.set(mode, default_keys[idx], plug_name, default_opts)
+          track_default_keymap(mode, default_keys[idx], plug_name, default_opts.desc)
         end
+      end
+    end
+  end
+end
+
+---Clear buffer-local default keymaps created through this helper.
+---User mappings to <Plug>(MarkdownPlus...) targets are preserved because only tracked defaults are removed.
+---@return nil
+function M.clear_default_keymaps()
+  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(bufnr) then
+      local records = get_default_keymap_records(bufnr)
+      if #records > 0 then
+        vim.api.nvim_buf_call(bufnr, function()
+          for _, record in ipairs(records) do
+            if type(record.lhs) == "string" and type(record.mode) == "string" then
+              local existing = vim.fn.maparg(record.lhs, record.mode, false, true)
+              local is_same_default = type(existing) == "table"
+                and next(existing) ~= nil
+                and existing.buffer == 1
+                and existing.rhs == record.rhs
+                and existing.desc == record.desc
+              if is_same_default then
+                pcall(vim.keymap.del, record.mode, record.lhs, { buffer = bufnr })
+              end
+            end
+          end
+        end)
+        pcall(vim.api.nvim_buf_del_var, bufnr, DEFAULT_KEYMAPS_VAR)
       end
     end
   end

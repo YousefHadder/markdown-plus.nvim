@@ -117,10 +117,12 @@ local function disable_feature_for_loaded_buffers(feature_module)
 end
 
 ---Clear buffer-local keymaps created by markdown-plus default mappings.
----Only mappings tagged with the "markdown-plus: " description prefix are removed,
----preserving any user-defined custom mappings to <Plug>(MarkdownPlus...) targets.
+---Tracked defaults are removed through keymap_helper. Legacy description-tagged
+---maps are also cleaned up for compatibility with older runtime state.
 ---@return nil
 local function clear_plugin_default_keymaps()
+  require("markdown-plus.keymap_helper").clear_default_keymaps()
+
   local modes = { "n", "i", "x", "v" }
   for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
     if vim.api.nvim_buf_is_valid(bufnr) then
