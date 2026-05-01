@@ -180,6 +180,25 @@ describe("markdown-plus configuration", function()
       assert.is_false(markdown_plus.config.keymaps.enabled)
     end)
 
+    it("uses short default keymap descriptions and clears them on teardown", function()
+      local buf = vim.api.nvim_create_buf(false, true)
+      vim.bo[buf].filetype = "markdown"
+      vim.api.nvim_set_current_buf(buf)
+
+      markdown_plus.setup({})
+
+      local mapping = vim.fn.maparg("<localleader>mb", "n", false, true)
+      assert.are.equal("<Plug>(MarkdownPlusBold)", mapping.rhs)
+      assert.are.equal("Toggle bold formatting", mapping.desc)
+
+      markdown_plus.teardown()
+
+      local cleared_mapping = vim.fn.maparg("<localleader>mb", "n", false, true)
+      assert.is_true(next(cleared_mapping) == nil)
+
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
     it("disables ALL keymaps including table keymaps when keymaps.enabled = false", function()
       -- Create a markdown buffer
       local buf = vim.api.nvim_create_buf(false, true)
@@ -243,6 +262,7 @@ describe("markdown-plus configuration", function()
     end)
 
     after_each(function()
+      keymap_helper.clear_default_keymaps()
       if vim.api.nvim_buf_is_valid(buf) then
         vim.api.nvim_buf_delete(buf, { force = true })
       end
@@ -267,6 +287,7 @@ describe("markdown-plus configuration", function()
       local mapping = vim.fn.maparg("<C-x>", "i", false, true)
       assert.is_not_nil(mapping)
       assert.are.equal(1, mapping.buffer)
+      assert.are.equal("Test action", mapping.desc)
     end)
 
     it("does not create default keymaps when buffer-local mappings already exist", function()
@@ -317,6 +338,34 @@ describe("markdown-plus configuration", function()
       local mapping = vim.fn.maparg("<C-z>", "i", false, true)
       assert.is_not_nil(mapping)
       assert.are.equal(1, mapping.buffer)
+    end)
+
+    it("clears tracked default keymaps while preserving user mappings", function()
+      local test_config = {
+        keymaps = { enabled = true },
+      }
+
+      keymap_helper.setup_keymaps(test_config, {
+        {
+          plug = "MarkdownPlusTrackedDefault",
+          fn = function() end,
+          modes = "n",
+          default_key = "<localleader>td",
+          desc = "Tracked default",
+        },
+      })
+      vim.keymap.set("n", "<localleader>tu", "<Plug>(MarkdownPlusUserMapping)", {
+        buffer = true,
+        desc = "User mapping",
+      })
+
+      keymap_helper.clear_default_keymaps()
+
+      local default_mapping = vim.fn.maparg("<localleader>td", "n", false, true)
+      local user_mapping = vim.fn.maparg("<localleader>tu", "n", false, true)
+      assert.is_true(next(default_mapping) == nil)
+      assert.are.equal("<Plug>(MarkdownPlusUserMapping)", user_mapping.rhs)
+      assert.are.equal("User mapping", user_mapping.desc)
     end)
   end)
 

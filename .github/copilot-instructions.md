@@ -12,12 +12,12 @@
 - **Link management:** Insert, edit, convert inline/reference, auto-link URLs
 
 ### Architecture
-- `lua/markdown-plus/` - Core modules (70 Lua files across 14 directories):
+- `lua/markdown-plus/` - Core modules (74 Lua files across 14 directories):
   - Feature modules: list/, format/, headers/, links/, table/, footnotes/, callouts/, quote/, images/, code_block/, thematic_break/
   - Shared: utils/ (buffer, text, selection, element, html), treesitter/, config/
   - Root: init.lua, types.lua, utils.lua, keymap_helper.lua, health.lua
 - `plugin/markdown-plus.lua` - Entry point with lazy initialization guard
-- `spec/` - 26 Busted test suites
+- `spec/` - 38 Busted test suites
 - `doc/` - Vimdoc help files
 - `rockspecs/` - LuaRocks package specifications
 
@@ -26,7 +26,7 @@
 - **Linting:** .luacheckrc
 - **Formatting:** .stylua.toml
 - **Type checking:** .luarc.json (Lua 5.1 runtime)
-- **Testing:** Busted + Plenary (26 spec files, ~85% coverage)
+- **Testing:** Busted + Plenary (38 spec files, ~85% coverage)
 
 ---
 
@@ -49,13 +49,13 @@
 
 2. **Configuration Changes**
    - New config keys must be added to: `types.lua`, `config/validate.lua`, README, vimdoc, and tests
-   - Use `vim.validate()` wrapped with `pcall` for validation
+   - Extend the schema in `config/validate.lua`; it rejects unknown fields and returns user-facing error messages
    - Use `require('markdown-plus').setup(opts)` (v2.0 removed `vim.g.markdown_plus`)
    - Provide helpful error messages for invalid configurations
 
 3. **Keymaps**
    - Expose ALL functionality through `<Plug>` mappings
-   - Use `hasmapto()` before setting default keymaps
+   - Use `keymap_helper.lua` for defaults; it checks existing buffer-local mappings with `maparg()` before setting them
    - Never create global normal-mode maps that conflict with common user mappings
    - Keep keymaps buffer-local and properly scoped
 
@@ -84,6 +84,7 @@
 ```bash
 # Testing
 make test              # Run all tests
+make test-coverage     # Run tests with coverage threshold checks (85% overall, 80% critical)
 make test-file         # Run tests for a specific file (set FILE=path/to/spec.lua)
 make test-watch        # Run tests in watch mode
 
@@ -104,14 +105,14 @@ make check             # Run lint + format-check + test
 - [ ] Verify Lua 5.1 compatibility (no LuaJIT-only code)
 
 #### Configuration
-- [ ] Validate all user input with `vim.validate()`
-- [ ] Add unknown field warnings
+- [ ] Extend `config/validate.lua` schema for all user-facing options
+- [ ] Preserve unknown-field rejection and clear validation messages
 - [ ] Update config schema in multiple files (types, validate, docs, tests)
 - [ ] Provide sensible defaults
 
 #### Keymaps
 - [ ] Create `<Plug>` mappings for new interactive features
-- [ ] Check `hasmapto()` before setting defaults
+- [ ] Use `keymap_helper.lua` so defaults respect existing buffer-local mappings
 - [ ] Use buffer-local keymaps
 - [ ] Document all keymaps in vimdoc
 
@@ -182,6 +183,7 @@ make check             # Run lint + format-check + test
 - Use buffer-local autocmd groups with clear names
 - Avoid excessive regex scans on every keypress
 - Clear autocmds properly when disabling features
+- Table is special: `init.lua` passes `config.table` to `table.setup()` and installs table keymaps directly without `table.enable()`
 
 ### Versioning (SemVer)
 - **Patch:** Bug fixes, test improvements, internal refactors (no API changes)
