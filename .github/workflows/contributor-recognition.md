@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: weekly
-  skip-if-match: 'is:pr is:open in:title "[contributors]"'
+  skip-if-match: 'is:open in:title "[contributors]"'
 
 permissions:
   contents: read
@@ -30,6 +30,11 @@ safe-outputs:
     reviewers: [YousefHadder]
     draft: true
     auto-merge: false
+  create-issue:
+    expires: 7d
+    title-prefix: "[contributors] "
+    labels: [documentation, automation, contributors]
+    max: 1
 
 tools:
   github:
@@ -63,8 +68,8 @@ You are a contributor-recognition agent for **markdown-plus.nvim**. Your job is 
 - **Do not manually edit the generated badge in `README.md`.** The badge is between `<!-- ALL-CONTRIBUTORS-BADGE:START -->` and `<!-- ALL-CONTRIBUTORS-BADGE:END -->`.
 - **Only modify `.all-contributorsrc` and `README.md`.** Do not edit source code, docs, changelog, workflows, rockspecs, or release files.
 - **Never add bots.** Exclude accounts ending in `[bot]`, `github-actions[bot]`, `dependabot[bot]`, `renovate[bot]`, and automation-only accounts.
-- **Prefer precision over recall.** If a contribution type is unclear, mention it in the PR body under "Needs maintainer review" instead of adding it.
-- **Create at most one PR per run.** If no contributor updates are needed, exit cleanly without creating a PR.
+- **Prefer precision over recall.** If a contribution type is unclear, mention it in the PR body under "Needs maintainer review" when a PR is created, or create a review issue when there are only ambiguous candidates.
+- **Create at most one PR or issue per run.** If no contributor updates or ambiguous candidates are found, exit cleanly without creating an output.
 
 ## Project Context
 
@@ -116,6 +121,7 @@ Use GitHub tools to inspect recent project activity:
 1. Search merged PRs from the last 30 days:
    - Query pattern: `repo:${{ github.repository }} is:pr is:merged merged:>=YYYY-MM-DD`
    - For each PR, read details and changed files.
+   - For each PR, fetch reviews and review comments (`get_reviews` and `get_review_comments`) to identify substantive human review contributions.
 2. Search recently closed bug and feature issues from the last 30 days:
    - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:bug`
    - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:enhancement`
@@ -160,15 +166,17 @@ After all additions, regenerate the README content:
 npx -y all-contributors-cli generate
 ```
 
-Then inspect the diff:
+Then verify that only allowed files changed and inspect the focused diff:
 
 ```bash
+git diff --name-only
+git ls-files --others --exclude-standard
 git diff -- .all-contributorsrc README.md
 ```
 
-If the diff touches any file other than `.all-contributorsrc` or `README.md`, revert those unrelated changes before creating the PR.
+If `git diff --name-only` or `git ls-files --others --exclude-standard` shows any file other than `.all-contributorsrc` or `README.md`, revert those unrelated changes before creating the PR.
 
-### 5. Create Pull Request
+### 5. Create Pull Request or Review Issue
 
 If `.all-contributorsrc` or `README.md` changed, create a draft PR using the safe-outputs `create_pull_request` tool.
 
@@ -205,9 +213,36 @@ Updates All Contributors recognition for recent project activity.
 
 Omit "Contributors Added" or "Needs Maintainer Review" when empty.
 
+If there are ambiguous candidates but no `.all-contributorsrc` or `README.md` changes, create an issue using the safe-outputs `create_issue` tool instead of dropping the findings.
+
+**Issue title**:
+
+```text
+[contributors] Review possible contributor recognition
+```
+
+**Issue body**:
+
+```markdown
+### Summary
+
+Recent project activity produced possible All Contributors updates that need maintainer judgment before they should be added.
+
+### Needs Maintainer Review
+
+| Login | Possible Types | Evidence | Reason not added |
+|-------|----------------|----------|------------------|
+| `user2` | `ideas` | #125 | Ambiguous whether this should be recognized |
+
+### Notes
+
+- No `.all-contributorsrc` or `README.md` changes were made.
+- Add confirmed contributors with the official All Contributors CLI.
+```
+
 ### 6. Exit Cleanly
 
-If there are no changes after scanning recent activity, do not create a PR. Output:
+If there are no changes and no ambiguous candidates after scanning recent activity, do not create a PR or issue. Output:
 
 ```text
 No contributor updates needed.
