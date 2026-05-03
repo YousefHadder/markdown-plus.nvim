@@ -44,6 +44,7 @@ tools:
     - "cat .all-contributorsrc"
     - "cat README.md"
     - "grep -n 'ALL-CONTRIBUTORS' README.md"
+    - "jq"
     - "git"
     - "npx -y all-contributors-cli add"
     - "npx -y all-contributors-cli generate"
@@ -122,20 +123,25 @@ Extract the existing contributor logins from `.all-contributorsrc`. Do not add a
 Use GitHub tools to inspect recent project activity:
 
 1. Search merged PRs from the last 30 days:
-   - Query pattern: `repo:${{ github.repository }} is:pr is:merged merged:>=YYYY-MM-DD`
+   - Use `search_pull_requests` with `owner` and `repo` parameters set; query only: `is:merged merged:>=YYYY-MM-DD`
    - For each PR, read details and changed files.
    - For each PR, fetch reviews and review comments (`get_reviews` and `get_review_comments`) to identify substantive human review contributions.
-2. Search recently closed bug and feature issues from the last 30 days:
-   - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:bug`
-   - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:enhancement`
-   - Also check `feature`, `idea`, or similar labels if present.
-3. Cross-reference external issue authors before deciding there are no updates:
+   - **Mandatory linked-issue pass**: For every merged PR, inspect the title, body, and commits for issue references (`#123`) and closing keywords (`Fixes`, `Closes`, `Resolves`, `implements`, `fixed in`). For each referenced issue, call `issue_read` and evaluate the issue author as a possible `bug` or `ideas` contributor. This pass is required even if every merged PR author is the repo owner or a bot.
+2. Search recently closed bug and feature issues from the last 30 days with narrow, label-specific queries:
+   - Use `search_issues` with `owner` and `repo` parameters set; query only: `closed:>=YYYY-MM-DD label:bug`
+   - Use `search_issues` with `owner` and `repo` parameters set; query only: `closed:>=YYYY-MM-DD label:enhancement`
+   - Repeat for `label:feature` and `label:idea` if those labels exist.
+   - Do **not** rely on one broad `closed:>=YYYY-MM-DD` issue search as the only source; broad output can be truncated or too large to inspect accurately.
+3. Parse GitHub search results accurately:
+   - GitHub MCP search responses are objects with an `items` array. If a response is saved to a temporary file because it is large, parse `.items[]` with `jq`; do not grep for logins or assume the root JSON value is an array.
+   - If a search result is too large to inspect, narrow the query by label or date and retry. Do not conclude there are zero external issue authors from truncated or unparsed output.
+4. Cross-reference external issue authors before deciding there are no updates:
    - For every recently closed bug/enhancement/feature/idea issue authored by a non-bot external user, read the issue and comments.
    - Check whether the issue was closed as completed, confirmed by the reporter, or referenced by a merged PR/commit in the same 30-day window.
    - Search merged PR titles/bodies for closing keywords and issue references (`#ISSUE_NUMBER`, `Fixes`, `Closes`, `Resolves`, `implements`, `fixed in`).
    - Add the issue author as a `bug` candidate for fixed bug reports and an `ideas` candidate for implemented feature/UX requests.
    - Do not discard these candidates just because the implementing PR author is the repo owner.
-4. For each candidate, gather direct evidence:
+5. For each candidate, gather direct evidence:
    - Login
    - Contribution type(s)
    - Source PR/issue number
