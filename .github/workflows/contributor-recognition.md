@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: weekly
-  skip-if-match: 'is:open in:title "docs(contributors): add recent contributors"'
+  skip-if-match: 'is:open in:title "docs(contributors):"'
 
 permissions:
   contents: read
@@ -32,7 +32,7 @@ safe-outputs:
     auto-merge: false
   create-issue:
     expires: 7d
-    title-prefix: "[contributors] "
+    title-prefix: "docs(contributors): "
     labels: [documentation, automation, contributors]
     max: 1
 
@@ -250,7 +250,7 @@ If there are ambiguous candidates but no `.all-contributorsrc` or `README.md` ch
 **Issue title**:
 
 ```text
-[contributors] Review possible contributor recognition
+docs(contributors): review possible contributor recognition
 ```
 
 **Issue body**:
