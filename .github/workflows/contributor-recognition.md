@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: weekly
-  skip-if-match: 'is:open in:title "[contributors]"'
+  skip-if-match: 'is:open in:title "docs(contributors):"'
 
 permissions:
   contents: read
@@ -25,14 +25,14 @@ network:
 safe-outputs:
   create-pull-request:
     expires: 7d
-    title-prefix: "[contributors] "
+    title-prefix: "docs(contributors): "
     labels: [documentation, automation, contributors]
     reviewers: [YousefHadder]
     draft: true
     auto-merge: false
   create-issue:
     expires: 7d
-    title-prefix: "[contributors] "
+    title-prefix: "docs(contributors): "
     labels: [documentation, automation, contributors]
     max: 1
 
@@ -44,6 +44,7 @@ tools:
     - "cat .all-contributorsrc"
     - "cat README.md"
     - "grep -n 'ALL-CONTRIBUTORS' README.md"
+    - "jq"
     - "git"
     - "npx -y all-contributors-cli add"
     - "npx -y all-contributors-cli generate"
@@ -103,6 +104,15 @@ Do not add `maintenance`, `infra`, `tool`, or other less common types unless the
 
 For `bug` and `ideas`, the issue author is the contributor even when the merged fix PR was opened by the repo owner. Treat these as direct evidence when the issue is closed as completed and a merged PR body, title, commit message, or maintainer comment references the issue with language like `Fixes #123`, `Closes #123`, `Resolves #123`, "fixed in #123", or "implemented in #123".
 
+## Maintainer-Provided Backfill Candidates
+
+Some historical issue records may be filtered by workflow integrity policy even when their linked merged PRs are visible. Use this table only for the listed issue/PR pairs, and only when the linked PR is merged, references the issue, and the login is not already listed with the contribution type.
+
+| Login | Type | Issue | Linked merged PR | Rationale |
+|-------|------|-------|------------------|-----------|
+| `jototland` | `bug` | #282 | #285 | Reported a bug that was fixed by the linked PR. |
+| `edvinsyk` | `ideas` | #302 | #303 | Suggested an enhancement that was implemented by the linked PR. |
+
 ## Workflow
 
 ### 1. Load Current Contributor State
@@ -122,20 +132,30 @@ Extract the existing contributor logins from `.all-contributorsrc`. Do not add a
 Use GitHub tools to inspect recent project activity:
 
 1. Search merged PRs from the last 30 days:
-   - Query pattern: `repo:${{ github.repository }} is:pr is:merged merged:>=YYYY-MM-DD`
+   - Use `search_pull_requests` with `owner` and `repo` parameters set; query only: `is:merged merged:>=YYYY-MM-DD`
    - For each PR, read details and changed files.
    - For each PR, fetch reviews and review comments (`get_reviews` and `get_review_comments`) to identify substantive human review contributions.
-2. Search recently closed bug and feature issues from the last 30 days:
-   - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:bug`
-   - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:enhancement`
-   - Also check `feature`, `idea`, or similar labels if present.
-3. Cross-reference external issue authors before deciding there are no updates:
+   - **Mandatory linked-issue pass**: For every merged PR, inspect the title, body, and commits for issue references (`#123`) and closing keywords (`Fixes`, `Closes`, `Resolves`, `implements`, `fixed in`). For each referenced issue, call `issue_read` and evaluate the issue author as a possible `bug` or `ideas` contributor. This pass is required even if every merged PR author is the repo owner or a bot.
+2. Search recently closed bug and feature issues from the last 30 days with narrow, label-specific queries:
+   - Use `search_issues` with `owner` and `repo` parameters set; query only: `closed:>=YYYY-MM-DD label:bug`
+   - Use `search_issues` with `owner` and `repo` parameters set; query only: `closed:>=YYYY-MM-DD label:enhancement`
+   - Repeat for `label:feature` and `label:idea` if those labels exist.
+   - Do **not** rely on one broad `closed:>=YYYY-MM-DD` issue search as the only source; broad output can be truncated or too large to inspect accurately.
+3. Parse GitHub search results accurately:
+   - GitHub MCP search responses are objects with an `items` array. If a response is saved to a temporary file because it is large, parse `.items[]` with `jq`; do not grep for logins or assume the root JSON value is an array.
+   - If a search result is too large to inspect, narrow the query by label or date and retry. Do not conclude there are zero external issue authors from truncated or unparsed output.
+4. Apply the maintainer-provided backfill table when issue metadata is filtered:
+   - If `issue_read` or `search_issues` returns filtered data for one of the listed issue numbers, do not noop solely because the issue author cannot be re-read through GitHub tools.
+   - Verify the linked PR is merged and references the issue number with closing or implementation language.
+   - Treat the listed login and type as an approved candidate when the contributor is not already listed with that type.
+   - Do not extrapolate from the table to other issue numbers. Unlisted filtered issues should go under "Needs maintainer review" or into the review issue fallback.
+5. Cross-reference external issue authors before deciding there are no updates:
    - For every recently closed bug/enhancement/feature/idea issue authored by a non-bot external user, read the issue and comments.
    - Check whether the issue was closed as completed, confirmed by the reporter, or referenced by a merged PR/commit in the same 30-day window.
    - Search merged PR titles/bodies for closing keywords and issue references (`#ISSUE_NUMBER`, `Fixes`, `Closes`, `Resolves`, `implements`, `fixed in`).
    - Add the issue author as a `bug` candidate for fixed bug reports and an `ideas` candidate for implemented feature/UX requests.
    - Do not discard these candidates just because the implementing PR author is the repo owner.
-4. For each candidate, gather direct evidence:
+6. For each candidate, gather direct evidence:
    - Login
    - Contribution type(s)
    - Source PR/issue number
@@ -195,7 +215,7 @@ If `.all-contributorsrc` or `README.md` changed, create a draft PR using the saf
 **PR title**:
 
 ```text
-[contributors] Add recent contributors
+docs(contributors): add recent contributors
 ```
 
 **PR body**:
@@ -230,7 +250,7 @@ If there are ambiguous candidates but no `.all-contributorsrc` or `README.md` ch
 **Issue title**:
 
 ```text
-[contributors] Review possible contributor recognition
+docs(contributors): review possible contributor recognition
 ```
 
 **Issue body**:
