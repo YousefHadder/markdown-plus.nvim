@@ -33,7 +33,7 @@ jobs:
             const prefixMap = {
               "Code Simplifier": "[code-simplifier]",
               "Daily Documentation Updater": "[docs]",
-              "Contributor Recognition": "[contributors]",
+              "Contributor Recognition": "docs(contributors):",
             };
             const workflowName = context.payload.workflow_run?.name || "";
             const expectedPrefix = prefixMap[workflowName];

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: weekly
-  skip-if-match: 'is:open in:title "[contributors]"'
+  skip-if-match: 'is:open in:title "docs(contributors): add recent contributors"'
 
 permissions:
   contents: read
@@ -25,7 +25,7 @@ network:
 safe-outputs:
   create-pull-request:
     expires: 7d
-    title-prefix: "[contributors] "
+    title-prefix: "docs(contributors): "
     labels: [documentation, automation, contributors]
     reviewers: [YousefHadder]
     draft: true
@@ -215,7 +215,7 @@ If `.all-contributorsrc` or `README.md` changed, create a draft PR using the saf
 **PR title**:
 
 ```text
-[contributors] Add recent contributors
+docs(contributors): add recent contributors
 ```
 
 **PR body**:
