@@ -136,6 +136,24 @@
       "contributions": [
         "ideas"
       ]
+    },
+    {
+      "login": "jototland",
+      "name": "jototland",
+      "avatar_url": "https://avatars.githubusercontent.com/u/13568702?v=4",
+      "profile": "https://github.com/jototland",
+      "contributions": [
+        "bug"
+      ]
+    },
+    {
+      "login": "edvinsyk",
+      "name": "edvinsyk",
+      "avatar_url": "https://avatars.githubusercontent.com/u/65397052?v=4",
+      "profile": "https://github.com/edvinsyk",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
