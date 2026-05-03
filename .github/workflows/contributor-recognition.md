@@ -68,6 +68,7 @@ You are a contributor-recognition agent for **markdown-plus.nvim**. Your job is 
 - **Do not manually edit the generated badge in `README.md`.** The badge is between `<!-- ALL-CONTRIBUTORS-BADGE:START -->` and `<!-- ALL-CONTRIBUTORS-BADGE:END -->`.
 - **Only modify `.all-contributorsrc` and `README.md`.** Do not edit source code, docs, changelog, workflows, rockspecs, or release files.
 - **Never add bots.** Exclude accounts ending in `[bot]`, `github-actions[bot]`, `dependabot[bot]`, `renovate[bot]`, and automation-only accounts.
+- **Do not reduce recent activity to PR authors only.** External issue authors count when their bug report or feature idea was fixed, implemented, or clearly shaped a merged PR, even if the implementing PR was authored by the repo owner.
 - **Prefer precision over recall.** If a contribution type is unclear, mention it in the PR body under "Needs maintainer review" when a PR is created, or create a review issue when there are only ambiguous candidates.
 - **Create at most one PR or issue per run.** If no contributor updates or ambiguous candidates are found, exit cleanly without creating an output.
 
@@ -100,6 +101,8 @@ Use the official All Contributors contribution keys. Apply these conservative ma
 
 Do not add `maintenance`, `infra`, `tool`, or other less common types unless the evidence is direct and unambiguous.
 
+For `bug` and `ideas`, the issue author is the contributor even when the merged fix PR was opened by the repo owner. Treat these as direct evidence when the issue is closed as completed and a merged PR body, title, commit message, or maintainer comment references the issue with language like `Fixes #123`, `Closes #123`, `Resolves #123`, "fixed in #123", or "implemented in #123".
+
 ## Workflow
 
 ### 1. Load Current Contributor State
@@ -126,7 +129,13 @@ Use GitHub tools to inspect recent project activity:
    - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:bug`
    - Query pattern: `repo:${{ github.repository }} is:issue closed:>=YYYY-MM-DD label:enhancement`
    - Also check `feature`, `idea`, or similar labels if present.
-3. For each candidate, gather direct evidence:
+3. Cross-reference external issue authors before deciding there are no updates:
+   - For every recently closed bug/enhancement/feature/idea issue authored by a non-bot external user, read the issue and comments.
+   - Check whether the issue was closed as completed, confirmed by the reporter, or referenced by a merged PR/commit in the same 30-day window.
+   - Search merged PR titles/bodies for closing keywords and issue references (`#ISSUE_NUMBER`, `Fixes`, `Closes`, `Resolves`, `implements`, `fixed in`).
+   - Add the issue author as a `bug` candidate for fixed bug reports and an `ideas` candidate for implemented feature/UX requests.
+   - Do not discard these candidates just because the implementing PR author is the repo owner.
+4. For each candidate, gather direct evidence:
    - Login
    - Contribution type(s)
    - Source PR/issue number
@@ -151,6 +160,9 @@ Skip a candidate when:
 - The account is a bot or automation account.
 - The evidence is ambiguous or only social/supportive without a clear All Contributors type.
 - The contribution is internal maintainer housekeeping.
+- The issue was self-closed as user error, support-only, or not tied to a completed fix/implementation.
+
+Do **not** skip a candidate solely because the linked implementation PR was authored by `YousefHadder` or another maintainer. In that case, attribute the issue author with `bug` or `ideas` when their report/request directly led to the merged change.
 
 ### 4. Apply All Contributors Updates
 
@@ -242,10 +254,10 @@ Recent project activity produced possible All Contributors updates that need mai
 
 ### 6. Exit Cleanly
 
-If there are no changes and no ambiguous candidates after scanning recent activity, do not create a PR or issue. Output:
+If there are no changes and no ambiguous candidates after scanning recent activity, do not create a PR or issue. Only use this path after explicitly checking external closed bug/enhancement issues and linked merged PRs. Include the scan counts in the noop message so false negatives are easier to spot.
 
 ```text
-No contributor updates needed.
+No contributor updates needed. Scanned <N> merged PRs, <N> closed issues, and <N> external issue authors.
 ```
 
 ## Validation Checklist
