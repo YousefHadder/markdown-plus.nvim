@@ -7,7 +7,7 @@ name: CI (Bot PRs)
 
 on:
   workflow_run:
-    workflows: ["Code Simplifier", "Daily Documentation Updater"]
+    workflows: ["Code Simplifier", "Daily Documentation Updater", "Contributor Recognition"]
     types: [completed]
 
 permissions:
@@ -33,6 +33,7 @@ jobs:
             const prefixMap = {
               "Code Simplifier": "[code-simplifier]",
               "Daily Documentation Updater": "[docs]",
+              "Contributor Recognition": "[contributors]",
             };
             const workflowName = context.payload.workflow_run?.name || "";
             const expectedPrefix = prefixMap[workflowName];
