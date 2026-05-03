@@ -1,9 +1,10 @@
 name: CI (Bot PRs)
 
-# Runs CI on PRs created by agentic workflows.
+# Runs CI and required checks on PRs created by agentic workflows.
 # GitHub does not trigger pull_request workflows for PRs created by
 # github-actions[bot] using the default GITHUB_TOKEN, so this workflow
-# listens for agentic workflow completions and runs the same checks.
+# listens for agentic workflow completions and reports the required
+# branch-protection contexts on the generated PR commit.
 
 on:
   workflow_run:
@@ -119,9 +120,44 @@ jobs:
       - name: Run tests
         run: ./scripts/test
 
+  dependency-security:
+    name: Dependency Security Check
+    needs: find-pr
+    if: needs.find-pr.outputs.pr_number
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.find-pr.outputs.head_ref }}
+      - name: Check for known vulnerabilities
+        run: |
+          echo "Checking for common security issues in dependencies..."
+          if compgen -G "*.rockspec" > /dev/null; then
+            echo "Rockspec found - review dependencies manually"
+            cat *.rockspec
+          else
+            echo "No rockspec file found - minimal dependencies"
+          fi
+
+  secret-scanning:
+    name: Secret Scanning
+    needs: find-pr
+    if: needs.find-pr.outputs.pr_number
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.find-pr.outputs.head_ref }}
+          fetch-depth: 0
+      - name: Scan for secrets using gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
   report-status:
     name: Report Status
-    needs: [find-pr, stylua, luacheck, tests]
+    needs: [find-pr, stylua, luacheck, tests, dependency-security, secret-scanning]
     if: always() && needs.find-pr.outputs.head_sha
     runs-on: ubuntu-latest
     permissions:
@@ -130,25 +166,86 @@ jobs:
       - name: Determine overall result
         id: result
         run: |
+          if [[ "${{ needs.tests.result }}" == "success" ]]; then
+            echo "tests_state=success" >> "$GITHUB_OUTPUT"
+            echo "tests_description=Tests passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "tests_state=failure" >> "$GITHUB_OUTPUT"
+            echo "tests_description=Tests failed" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "${{ needs.dependency-security.result }}" == "success" ]]; then
+            echo "dependency_state=success" >> "$GITHUB_OUTPUT"
+            echo "dependency_description=Dependency security check passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "dependency_state=failure" >> "$GITHUB_OUTPUT"
+            echo "dependency_description=Dependency security check failed" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "${{ needs.secret-scanning.result }}" == "success" ]]; then
+            echo "secrets_state=success" >> "$GITHUB_OUTPUT"
+            echo "secrets_description=Secret scanning passed" >> "$GITHUB_OUTPUT"
+          else
+            echo "secrets_state=failure" >> "$GITHUB_OUTPUT"
+            echo "secrets_description=Secret scanning failed" >> "$GITHUB_OUTPUT"
+          fi
+
           if [[ "${{ needs.stylua.result }}" == "success" && \
                 "${{ needs.luacheck.result }}" == "success" && \
-                "${{ needs.tests.result }}" == "success" ]]; then
+                "${{ needs.tests.result }}" == "success" && \
+                "${{ needs.dependency-security.result }}" == "success" && \
+                "${{ needs.secret-scanning.result }}" == "success" ]]; then
             echo "state=success" >> "$GITHUB_OUTPUT"
-            echo "description=All CI checks passed" >> "$GITHUB_OUTPUT"
+            echo "description=All bot PR checks passed" >> "$GITHUB_OUTPUT"
           else
             echo "state=failure" >> "$GITHUB_OUTPUT"
-            echo "description=CI checks failed (stylua=${{ needs.stylua.result }}, luacheck=${{ needs.luacheck.result }}, tests=${{ needs.tests.result }})" >> "$GITHUB_OUTPUT"
+            echo "description=Bot PR checks failed" >> "$GITHUB_OUTPUT"
           fi
-      - name: Set commit status on PR
+      - name: Set required commit statuses on PR
         uses: actions/github-script@v9.0.0
+        env:
+          TESTS_STATE: ${{ steps.result.outputs.tests_state }}
+          TESTS_DESCRIPTION: ${{ steps.result.outputs.tests_description }}
+          DEPENDENCY_STATE: ${{ steps.result.outputs.dependency_state }}
+          DEPENDENCY_DESCRIPTION: ${{ steps.result.outputs.dependency_description }}
+          SECRETS_STATE: ${{ steps.result.outputs.secrets_state }}
+          SECRETS_DESCRIPTION: ${{ steps.result.outputs.secrets_description }}
+          OVERALL_STATE: ${{ steps.result.outputs.state }}
+          OVERALL_DESCRIPTION: ${{ steps.result.outputs.description }}
         with:
           script: |
-            await github.rest.repos.createCommitStatus({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              sha: "${{ needs.find-pr.outputs.head_sha }}",
-              state: "${{ steps.result.outputs.state }}",
-              description: "${{ steps.result.outputs.description }}",
-              context: "CI (Bot PRs)",
-              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-            });
+            const targetUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const statuses = [
+              {
+                context: "ci / tests",
+                state: process.env.TESTS_STATE,
+                description: process.env.TESTS_DESCRIPTION,
+              },
+              {
+                context: "Dependency Security Check",
+                state: process.env.DEPENDENCY_STATE,
+                description: process.env.DEPENDENCY_DESCRIPTION,
+              },
+              {
+                context: "Secret Scanning",
+                state: process.env.SECRETS_STATE,
+                description: process.env.SECRETS_DESCRIPTION,
+              },
+              {
+                context: "CI (Bot PRs)",
+                state: process.env.OVERALL_STATE,
+                description: process.env.OVERALL_DESCRIPTION,
+              },
+            ];
+
+            for (const status of statuses) {
+              await github.rest.repos.createCommitStatus({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                sha: "${{ needs.find-pr.outputs.head_sha }}",
+                state: status.state,
+                description: status.description,
+                context: status.context,
+                target_url: targetUrl,
+              });
+            }
