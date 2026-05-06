@@ -14,7 +14,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/yousefhadder/markdown-plus.nvim?style=flat-square&logo=github)](https://github.com/yousefhadder/markdown-plus.nvim/stargazers)
 [![GitHub issues](https://img.shields.io/github/issues/yousefhadder/markdown-plus.nvim?style=flat-square&logo=github)](https://github.com/yousefhadder/markdown-plus.nvim/issues)
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-16-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-17-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 ![507DBB8A-996C-44B7-88BE-ABB7BC1BFD92_1_201_a](https://github.com/user-attachments/assets/8f6b9adf-13ce-4418-b6cf-1196784bda45)
 
@@ -140,10 +140,11 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
       <td align="center" valign="top" width="14.28%"><a href="https://frejaroberts.io"><img src="https://avatars.githubusercontent.com/u/25723553?v=4?s=100" width="100px;" alt="Freja Roberts"/><br /><sub><b>Freja Roberts</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/commits?author=ten3roberts" title="Code">💻</a> <a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Aten3roberts" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/m2228"><img src="https://avatars.githubusercontent.com/u/138136132?v=4?s=100" width="100px;" alt="m2228"/><br /><sub><b>m2228</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Am2228" title="Bug reports">🐛</a> <a href="#ideas-m2228" title="Ideas, Planning, & Feedback">🤔</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/bmarden"><img src="https://avatars.githubusercontent.com/u/36089218?v=4?s=100" width="100px;" alt="Ben Marden"/><br /><sub><b>Ben Marden</b></sub></a><br /><a href="#ideas-bmarden" title="Ideas, Planning, & Feedback">🤔</a></td>
-      <td align="center" valign="top" width="14.28%"><a href="https://github.com/jototland"><img src="https://avatars.githubusercontent.com/u/13568702?v=4?s=100" width="100px;" alt="jototland"/><br /><sub><b>jototland</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Ajototland" title="Bug reports">🐛</a></td>
     </tr>
     <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/jototland"><img src="https://avatars.githubusercontent.com/u/13568702?v=4?s=100" width="100px;" alt="jototland"/><br /><sub><b>jototland</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Ajototland" title="Bug reports">🐛</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/edvinsyk"><img src="https://avatars.githubusercontent.com/u/65397052?v=4?s=100" width="100px;" alt="edvinsyk"/><br /><sub><b>edvinsyk</b></sub></a><br /><a href="#ideas-edvinsyk" title="Ideas, Planning, & Feedback">🤔</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/vchernetskyi993"><img src="https://avatars.githubusercontent.com/u/36628451?v=4?s=100" width="100px;" alt="Vsevolod"/><br /><sub><b>Vsevolod</b></sub></a><br /><a href="https://github.com/YousefHadder/markdown-plus.nvim/issues?q=author%3Avchernetskyi993" title="Bug reports">🐛</a> <a href="https://github.com/YousefHadder/markdown-plus.nvim/commits?author=vchernetskyi993" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>
