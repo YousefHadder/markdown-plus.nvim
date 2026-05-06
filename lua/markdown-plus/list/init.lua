@@ -180,12 +180,17 @@ function M.setup_renumber_autocmds()
     buffer = current_bufnr,
     callback = function(args)
       local changed_bufnr = args.buf
+      if not vim.api.nvim_buf_is_valid(changed_bufnr) or not vim.bo[changed_bufnr].modifiable then
+        return
+      end
       local cursor_row = get_cursor_row_for_buffer(changed_bufnr)
       if not has_ordered_list_near_row(changed_bufnr, cursor_row) then
         return
       end
 
-      renumber.renumber_ordered_lists()
+      vim.api.nvim_buf_call(changed_bufnr, function()
+        renumber.renumber_ordered_lists()
+      end)
     end,
   })
 

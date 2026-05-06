@@ -99,6 +99,9 @@ end
 
 ---Renumber all ordered lists in the buffer
 function M.renumber_ordered_lists()
+  if not vim.bo.modifiable then
+    return
+  end
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
   if not has_ordered_list_candidates(lines) then
     return
