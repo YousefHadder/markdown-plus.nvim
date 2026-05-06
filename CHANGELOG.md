@@ -5,6 +5,21 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.0.1...v2.1.0) (2026-05-06)
+
+
+### Features
+
+* **ci:** add contributor recognition workflow ([#305](https://github.com/YousefHadder/markdown-plus.nvim/issues/305)) ([d4cede5](https://github.com/YousefHadder/markdown-plus.nvim/commit/d4cede52616a5a1b3a90f886d8c2a8da39a5325d))
+
+
+### Bug Fixes
+
+* **ci:** improve contributor recognition detection ([#307](https://github.com/YousefHadder/markdown-plus.nvim/issues/307)) ([502d17f](https://github.com/YousefHadder/markdown-plus.nvim/commit/502d17fc2c1df4f05e9db1f8c03451305b32acc2))
+* **keymaps:** shorten keymap descriptions ([#303](https://github.com/YousefHadder/markdown-plus.nvim/issues/303)) ([b320c8d](https://github.com/YousefHadder/markdown-plus.nvim/commit/b320c8d81761daa5b3bdb68772878be1299c7284))
+* **list:** omit renumbering in non-modifiable buffers ([#309](https://github.com/YousefHadder/markdown-plus.nvim/issues/309)) ([#310](https://github.com/YousefHadder/markdown-plus.nvim/issues/310)) ([1cf2594](https://github.com/YousefHadder/markdown-plus.nvim/commit/1cf259456c74d9a01ccd8bb528b930ef2dcb3cc1))
+* tighten contributor recognition prompt ([#306](https://github.com/YousefHadder/markdown-plus.nvim/issues/306)) ([5b18ea5](https://github.com/YousefHadder/markdown-plus.nvim/commit/5b18ea528c2b8b1c6514a652acf5577ff1541971))
+
 ## [2.0.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.0.0...v2.0.1) (2026-04-14)
 
 
