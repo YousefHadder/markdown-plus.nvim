@@ -2146,6 +2146,38 @@ describe("markdown-plus list management", function()
       vim.fn.timer_start = original_timer_start
       vim.fn.timer_stop = original_timer_stop
     end)
+
+    it("skips renumbering for non-modifiable buffer in normal mode", function()
+      local renumber_module = require("markdown-plus.list.renumber")
+      local original_renumber = renumber_module.renumber_ordered_lists
+      local original_create_autocmd = vim.api.nvim_create_autocmd
+
+      local callbacks = {}
+      local renumber_calls = 0
+
+      renumber_module.renumber_ordered_lists = function()
+        renumber_calls = renumber_calls + 1
+      end
+      vim.api.nvim_create_autocmd = function(events, opts)
+        if type(events) == "string" then
+          callbacks[events] = opts.callback
+        else
+          for _, event in ipairs(events) do
+            callbacks[event] = opts.callback
+          end
+        end
+      end
+      list.setup_renumber_autocmds()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. Item" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.bo[buf].modifiable = false
+
+      callbacks.TextChanged({ buf = buf })
+      assert.equals(0, renumber_calls)
+
+      renumber_module.renumber_ordered_lists = original_renumber
+      vim.api.nvim_create_autocmd = original_create_autocmd
+    end)
   end)
 
   describe("handle_normal_o", function()
@@ -2467,6 +2499,22 @@ describe("markdown-plus list management", function()
       assert.are.equal("1. a", result[1])
       assert.are.equal("2. b", result[2])
       assert.are.equal("3. c", result[3])
+    end)
+
+    it("doesn't renumber misnumbered ordered list in non-modifiable buffer", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "1. a",
+        "1. b",
+        "1. c",
+      })
+      vim.bo[buf].modifiable = false
+
+      list.renumber_ordered_lists()
+
+      local result = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("1. a", result[1])
+      assert.are.equal("1. b", result[2])
+      assert.are.equal("1. c", result[3])
     end)
   end)
 end)
