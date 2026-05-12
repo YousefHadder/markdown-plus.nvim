@@ -1,64 +1,56 @@
 ---
-name: Daily Documentation Updater
-description: Automatically reviews and updates documentation to ensure accuracy and completeness
 on:
   schedule:
-    # Every week
-    - cron: weekly
-  workflow_dispatch:
-
+  - cron: weekly
+  workflow_dispatch: null
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-tracker-id: daily-doc-updater
-engine: copilot
-strict: true
-
 network:
   allowed:
-    - defaults
-    - github
-
+  - defaults
+  - github
+imports:
+- shared/mood.md
 safe-outputs:
   create-pull-request:
-    expires: 1d
-    title-prefix: "[docs] "
-    labels: [documentation, automation]
-    reviewers: [copilot]
-    draft: true
     auto-merge: false
+    draft: true
+    expires: 1d
+    labels:
+    - documentation
+    - automation
     protected-files: fallback-to-issue
-  noop:
-
-tools:
-  cli-proxy: true
-  cache-memory: true
-  github:
-    mode: gh-proxy
-    toolsets: [default]
-    min-integrity: approved
-  edit:
-  bash:
-    - "cat doc/markdown-plus.txt"
-    - "cat README.md"
-    - "cat lua/markdown-plus/types.lua"
-    - "find doc -name '*.txt' -o -name '*.md'"
-    - "find doc -maxdepth 1 -ls"
-    - "grep -rn '' doc README.md"
-    - "git"
-    - "find pkg/parser/schemas -name '*.json'"
-    - "cat pkg/parser/schemas/*.json"
-
+    reviewers:
+    - copilot
+    title-prefix: "[docs] "
+  noop: null
+description: Automatically reviews and updates documentation to ensure accuracy and completeness
+engine: copilot
+name: Daily Documentation Updater
+source: github/gh-aw/.github/workflows/daily-doc-updater.md@8eb7e099dfdad889a392fab0eb57029a0905e966
+strict: true
 timeout-minutes: 15
-
-imports:
-  - shared/mood.md
-
-source: github/gh-aw/.github/workflows/daily-doc-updater.md@bba23efb054c53783b4437637a33e683bf54a8c1
+tools:
+  bash:
+  - cat doc/markdown-plus.txt
+  - cat README.md
+  - cat lua/markdown-plus/types.lua
+  - find doc -name '*.txt' -o -name '*.md'
+  - find doc -maxdepth 1 -ls
+  - grep -rn '' doc README.md
+  - git
+  cache-memory: true
+  cli-proxy: true
+  edit: null
+  github:
+    min-integrity: approved
+    mode: gh-proxy
+    toolsets:
+    - default
+tracker-id: daily-doc-updater
 ---
-
 {{#runtime-import? .github/shared-instructions.md}}
 
 # Daily Documentation Updater
@@ -74,7 +66,7 @@ You are an AI documentation agent that automatically updates the project documen
 
 ## Your Mission
 
-Scan the repository for merged pull requests and code changes from the last 24 hours, identify new features or changes that should be documented, and update the documentation accordingly.
+Scan the repository for merged pull requests and code changes from the last 7 days, identify new features or changes that should be documented, and update the documentation accordingly.
 
 ## Tool Reference
 
@@ -95,14 +87,14 @@ Do all four in a single tool-use block. Do not retry individual calls — if a c
 
 ## Task Steps
 
-### 1. Scan Recent Activity (Last 24 Hours)
+### 1. Scan Recent Activity (Last 7 Days)
 
-First, search for merged pull requests from the last 24 hours.
+First, search for merged pull requests from the last 7 days.
 
 Use the GitHub tools to:
-- Search for pull requests merged in the last 24 hours using `search_pull_requests` with a query like: `repo:${{ github.repository }} is:pr is:merged merged:>=YYYY-MM-DD` (replace YYYY-MM-DD with yesterday's date)
+- Search for pull requests merged in the last 7 days using `search_pull_requests` with a query like: `repo:${{ github.repository }} is:pr is:merged merged:>=YYYY-MM-DD` (replace YYYY-MM-DD with the date 7 days ago)
 - Get details of each merged PR using `pull_request_read`
-- Review commits from the last 24 hours using `list_commits`
+- Review commits from the last 7 days using `list_commits`
 - Get detailed commit information using `get_commit` for significant changes
 
 ### 1b. Check Open Documentation Issues
@@ -133,9 +125,9 @@ repo:${{ github.repository }} is:issue is:closed label:documentation closed:>=YY
 For each closed issue:
 - **closed as completed**: Check whether a `[docs]` PR references it. If no such PR exists, also search for any merged PR that closes or fixes the issue by number (e.g. `closes #NNN`, `fixes #NNN`, `resolves #NNN` in the PR body). If such a PR is found and its documentation change is complete, skip the issue.
   - If no explicit issue-reference PR is found, run a fallback heuristic for likely spec-librarian/copilot fix PRs that omit issue numbers:
-    1. Infer the package from the issue title/body (for example `pkg/constants`).
-    2. Search for merged PRs in a tight window around issue closure (prefer ±60 minutes) that modify `pkg/<package>/README.md`.
-    3. Example query: `repo:${{ github.repository }} is:pr is:merged merged:>=<issue_closed_at-60m> merged:<=<issue_closed_at+60m> path:pkg/<package>/README.md`.
+    1. Infer the module from the issue title/body (for example `lua/markdown-plus/list`).
+    2. Search for merged PRs in a tight window around issue closure (prefer ±60 minutes) that modify `doc/markdown-plus.txt` or `README.md`.
+    3. Example query: `repo:${{ github.repository }} is:pr is:merged merged:>=<issue_closed_at-60m> merged:<=<issue_closed_at+60m> path:doc/markdown-plus.txt`.
     4. If such a PR exists and the README change fully resolves the issue gap, treat the issue as already addressed and skip it.
   - If the fallback heuristic still finds no PR, run a direct content check before Step 2:
     1. Parse the issue body for referenced file paths and the specific missing symbols/constants/phrases.
@@ -171,7 +163,7 @@ For each merged PR and commit, analyze:
 - **Features Removed**: Deprecated or removed functionality
 - **Features Modified**: Changed behavior, updated APIs, or modified interfaces
 - **Breaking Changes**: Any changes that affect existing users
-- **Removed Features in Docs**: Search docs for references to properties, flags, or options that no longer exist in the current schema. Check `pkg/parser/schemas/` or run `gh aw compile` on representative workflows to confirm current valid properties.
+- **Removed Features in Docs**: Search docs for references to properties, flags, or options that no longer exist in the current schema. Check `lua/markdown-plus/config/validate.lua` and `lua/markdown-plus/types.lua` to confirm current valid properties.
 
 Create a summary of changes that should be documented.
 
@@ -261,7 +253,7 @@ If you made any documentation changes:
 ```markdown
 ### Documentation Updates - [Date]
 
-This PR updates the documentation based on features merged in the last 24 hours.
+This PR updates the documentation based on features merged in the last 7 days.
 
 ### Features Documented
 
@@ -297,7 +289,7 @@ This PR updates the documentation based on features merged in the last 24 hours.
 
 ### 7. Handle Edge Cases
 
-- **No recent changes**: If there are no merged PRs in the last 24 hours and no open documentation issues need addressing, call `noop` with a brief summary explaining what was scanned and why no action was taken
+- **No recent changes**: If there are no merged PRs in the last 7 days and no open documentation issues need addressing, call `noop` with a brief summary explaining what was scanned and why no action was taken
 - **Already documented**: If all features are already documented and all open issues are resolved, call `noop` with a brief explanation
 - **Unclear features**: If a feature is complex and needs human review, note it in the PR description but don't skip documentation entirely
 - **Internal refactors**: Skip PRs that are purely internal (CI, test, refactor) with no user-facing impact

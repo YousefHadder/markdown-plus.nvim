@@ -1,60 +1,58 @@
 ---
-name: Daily File Diet
-description: Analyzes the largest Lua source file daily and creates an issue to refactor it into smaller files if it exceeds the healthy size threshold
 on:
-  workflow_dispatch:
   schedule:
-    - cron: weekly
-  skip-if-match: 'is:issue is:open in:title "[file-diet]"'
-
+  - cron: weekly
+  skip-if-match: is:issue is:open in:title "[file-diet]"
+  workflow_dispatch: null
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-tracker-id: daily-file-diet
-engine:
-  id: copilot
-  agent: "developer.instructions"
-
 imports:
-  - shared/mood.md
-  - shared/reporting.md
-  - shared/safe-output-app.md
-
+- shared/mood.md
+- shared/reporting.md
+- shared/safe-output-app.md
 safe-outputs:
   create-issue:
     expires: 2d
-    title-prefix: "[file-diet] "
-    labels: [refactoring, code-health, automated-analysis, cookie]
+    labels:
+    - refactoring
+    - code-health
+    - automated-analysis
+    - cookie
     max: 1
-  noop:
-
-tools:
-  cli-proxy: true
-  github:
-    mode: gh-proxy
-    toolsets: [default]
-  edit:
-  bash:
-    - "find lua -name '*.lua' -type f -exec wc -l {} \\; | sort -rn"
-    - "find lua -name '*.lua' -type f | sort"
-    - "wc -l lua/**/*.lua"
-    - "cat lua/**/*.lua"
-    - "head -n * lua/**/*.lua"
-    - "grep -rn 'function ' lua --include='*.lua'"
-    - "grep -rn 'local function' lua --include='*.lua'"
-    - "find lua/ -maxdepth 1 -ls"
-    - "find lua/markdown-plus/ -maxdepth 1 -ls"
-    - "find lua/markdown-plus/ -maxdepth 2 -ls"
-
-timeout-minutes: 20
-strict: true
+    title-prefix: "[file-diet] "
+  noop: null
+description: Analyzes the largest Lua source file daily and creates an issue to refactor it into smaller files if it exceeds the healthy size threshold
+engine:
+  agent: developer.instructions
+  id: copilot
 features:
   copilot-requests: true
-source: github/gh-aw/.github/workflows/daily-file-diet.md@bba23efb054c53783b4437637a33e683bf54a8c1
+name: Daily File Diet
+source: github/gh-aw/.github/workflows/daily-file-diet.md@8eb7e099dfdad889a392fab0eb57029a0905e966
+strict: true
+timeout-minutes: 20
+tools:
+  bash:
+  - "find lua -name '*.lua' -type f -exec wc -l {} \\; | sort -rn"
+  - find lua -name '*.lua' -type f | sort
+  - wc -l lua/**/*.lua
+  - cat lua/**/*.lua
+  - head -n * lua/**/*.lua
+  - grep -rn 'function ' lua --include='*.lua'
+  - grep -rn 'local function' lua --include='*.lua'
+  - find lua/ -maxdepth 1 -ls
+  - find lua/markdown-plus/ -maxdepth 1 -ls
+  - find lua/markdown-plus/ -maxdepth 2 -ls
+  cli-proxy: true
+  edit: null
+  github:
+    mode: gh-proxy
+    toolsets:
+    - default
+tracker-id: daily-file-diet
 ---
-
 {{#runtime-import? .github/shared-instructions.md}}
 
 # Daily File Diet Agent 🏋️
