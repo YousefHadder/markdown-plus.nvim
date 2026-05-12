@@ -13,7 +13,9 @@ permissions:
   pull-requests: read
 
 tracker-id: daily-file-diet
-engine: copilot
+engine:
+  id: copilot
+  agent: "developer.instructions"
 
 imports:
   - shared/mood.md
@@ -26,9 +28,12 @@ safe-outputs:
     title-prefix: "[file-diet] "
     labels: [refactoring, code-health, automated-analysis, cookie]
     max: 1
+  noop:
 
 tools:
+  cli-proxy: true
   github:
+    mode: gh-proxy
     toolsets: [default]
   edit:
   bash:
@@ -45,7 +50,9 @@ tools:
 
 timeout-minutes: 20
 strict: true
-source: github/gh-aw/.github/workflows/daily-file-diet.md@852cb06ad52958b402ed982b69957ffc57ca0619
+features:
+  copilot-requests: true
+source: github/gh-aw/.github/workflows/daily-file-diet.md@bba23efb054c53783b4437637a33e683bf54a8c1
 ---
 
 {{#runtime-import? .github/shared-instructions.md}}
@@ -150,7 +157,7 @@ If refactoring is needed (file ≥ 400 lines), create an issue with this structu
 
 1. **Header Levels**: Use h3 (###) or lower for all headers in your issue report to maintain proper document hierarchy. The issue title serves as h1, so start section headers at h3.
 
-2. **Progressive Disclosure**: Wrap detailed file analysis, code snippets, and lengthy explanations in `<details><summary><b>Section Name</b></summary>` tags to improve readability and reduce overwhelm. This keeps the most important information immediately visible while allowing readers to expand sections as needed.
+2. **Progressive Disclosure**: Wrap detailed file analysis, code snippets, and lengthy explanations in `<details><summary>Section Name</summary>` tags to improve readability and reduce overwhelm. This keeps the most important information immediately visible while allowing readers to expand sections as needed.
 
 3. **Issue Structure**: Follow this pattern for optimal clarity:
    - **Brief summary** of the file size issue (always visible)
@@ -173,7 +180,7 @@ The file `[FILE_PATH]` has grown to [LINE_COUNT] lines, exceeding the project's 
 - **Complexity**: [Brief assessment — function count, nesting depth, distinct concerns]
 
 <details>
-<summary><b>Full File Analysis</b></summary>
+<summary>Full File Analysis</summary>
 
 #### Detailed Breakdown
 
@@ -222,7 +229,7 @@ M.some_function = require("markdown-plus.[feature].[sub_module]").some_function
 ```
 
 <details>
-<summary><b>Test Coverage Plan</b></summary>
+<summary>Test Coverage Plan</summary>
 
 Add comprehensive tests for each new file:
 
@@ -256,7 +263,7 @@ Add comprehensive tests for each new file:
 - [ ] All public functions have LuaCATS type annotations
 
 <details>
-<summary><b>Additional Context</b></summary>
+<summary>Additional Context</summary>
 
 - **Project Guidelines**: See `CLAUDE.md` and `CONTRIBUTING.md`
 - **Code Organization**: Feature modules under `lua/markdown-plus/` follow a consistent sub-module structure
@@ -295,3 +302,5 @@ Your output MUST either:
 - **Maintain backwards compatibility**: Parent `init.lua` must re-export functions from new sub-modules
 
 Begin your analysis now. Find the largest Lua source file, assess if it needs refactoring, and create an issue only if necessary.
+
+{{#runtime-import shared/noop-reminder.md}}

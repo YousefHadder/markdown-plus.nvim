@@ -3,7 +3,7 @@ name: Daily Documentation Updater
 description: Automatically reviews and updates documentation to ensure accuracy and completeness
 on:
   schedule:
-    # Every day at 6am UTC
+    # Every week
     - cron: weekly
   workflow_dispatch:
 
@@ -29,11 +29,16 @@ safe-outputs:
     reviewers: [copilot]
     draft: true
     auto-merge: false
+    protected-files: fallback-to-issue
+  noop:
 
 tools:
+  cli-proxy: true
   cache-memory: true
   github:
+    mode: gh-proxy
     toolsets: [default]
+    min-integrity: approved
   edit:
   bash:
     - "cat doc/markdown-plus.txt"
@@ -43,12 +48,15 @@ tools:
     - "find doc -maxdepth 1 -ls"
     - "grep -rn '' doc README.md"
     - "git"
+    - "find pkg/parser/schemas -name '*.json'"
+    - "cat pkg/parser/schemas/*.json"
 
 timeout-minutes: 15
 
 imports:
   - shared/mood.md
-source: github/gh-aw/.github/workflows/daily-doc-updater.md@852cb06ad52958b402ed982b69957ffc57ca0619
+
+source: github/gh-aw/.github/workflows/daily-doc-updater.md@bba23efb054c53783b4437637a33e683bf54a8c1
 ---
 
 {{#runtime-import? .github/shared-instructions.md}}
@@ -68,6 +76,23 @@ You are an AI documentation agent that automatically updates the project documen
 
 Scan the repository for merged pull requests and code changes from the last 24 hours, identify new features or changes that should be documented, and update the documentation accordingly.
 
+## Tool Reference
+
+- **GitHub data (batch reads)**: use `gh` CLI via Bash for the Pre-flight fetch (e.g. `gh pr list`, `gh issue list`)
+- **GitHub data (detailed reads)**: use GitHub MCP tools (`search_pull_requests`, `pull_request_read`, `list_commits`, `get_commit`) for per-item detail lookups in Task Steps
+- **Do NOT** use `mcpscripts` for any GitHub reads — use `gh` CLI or GitHub MCP tools directly
+- **Documentation editing**: use the `Edit` tool, not bash `sed`
+
+## Pre-flight: Batch Data Fetch (do this first, before any analysis)
+
+Before starting any analysis, fetch all needed data in **one parallel batch**:
+1. All PRs merged in the last 24h: `gh pr list --state merged --limit 20 --json number,title,mergedAt,body,url`
+2. Open documentation issues: `gh issue list --label documentation --state open --limit 20 --json number,title,body,url`
+3. Recently closed documentation issues (last 7 days): `gh issue list --label documentation --state closed --limit 20 --json number,title,body,closedAt,url`
+4. Cookie-labeled documentation issues: `gh issue list --label documentation --label cookie --json number,title,body,url --limit 20`
+
+Do all four in a single tool-use block. Do not retry individual calls — if a call returns empty results, treat it as "no items" and proceed.
+
 ## Task Steps
 
 ### 1. Scan Recent Activity (Last 24 Hours)
@@ -80,7 +105,65 @@ Use the GitHub tools to:
 - Review commits from the last 24 hours using `list_commits`
 - Get detailed commit information using `get_commit` for significant changes
 
+### 1b. Check Open Documentation Issues
+
+Search for open issues labeled `documentation` that may represent unaddressed gaps:
+
+```
+repo:${{ github.repository }} is:issue is:open label:documentation
+```
+
+For each open issue:
+1. Read the issue body to understand the described gap.
+2. Check the referenced documentation file to verify the gap still exists.
+   - **If the issue references an existing file**: confirm the content is missing or incorrect.
+   - **If the issue references a file path that does not yet exist** (e.g., body says "Create `docs/guides/foo.md`"): treat this as a **confirmed new-file gap** and proceed to Step 5 to create the file.
+3. If confirmed, include a fix in this run's PR and reference the issue with `Closes #NNN`.
+4. If the gap is already fixed (file exists and contains the described content), note it and skip.
+5. If you choose not to address an open documentation issue in this run (e.g., it requires structural navigation changes, is out of scope, or cannot be confirmed), record it in the **Skipped Issues** section of the PR description (see Step 6).
+
+### 1c. Scan Recently Closed Documentation Issues
+
+Search for documentation issues closed in the last 7 days (replace YYYY-MM-DD with the date 7 days ago):
+
+```
+repo:${{ github.repository }} is:issue is:closed label:documentation closed:>=YYYY-MM-DD
+```
+
+For each closed issue:
+- **closed as completed**: Check whether a `[docs]` PR references it. If no such PR exists, also search for any merged PR that closes or fixes the issue by number (e.g. `closes #NNN`, `fixes #NNN`, `resolves #NNN` in the PR body). If such a PR is found and its documentation change is complete, skip the issue.
+  - If no explicit issue-reference PR is found, run a fallback heuristic for likely spec-librarian/copilot fix PRs that omit issue numbers:
+    1. Infer the package from the issue title/body (for example `pkg/constants`).
+    2. Search for merged PRs in a tight window around issue closure (prefer ±60 minutes) that modify `pkg/<package>/README.md`.
+    3. Example query: `repo:${{ github.repository }} is:pr is:merged merged:>=<issue_closed_at-60m> merged:<=<issue_closed_at+60m> path:pkg/<package>/README.md`.
+    4. If such a PR exists and the README change fully resolves the issue gap, treat the issue as already addressed and skip it.
+  - If the fallback heuristic still finds no PR, run a direct content check before Step 2:
+    1. Parse the issue body for referenced file paths and the specific missing symbols/constants/phrases.
+    2. Read only those referenced files directly.
+    3. Verify whether each listed gap is still present.
+    4. If all listed items are already documented, treat the issue as already addressed and skip it (do not continue to Step 2 for this issue).
+  - Otherwise, treat it as an unaddressed gap and follow the normal Step 2 flow.
+- **closed as not_planned**: Do not create documentation based solely on this issue. Instead, cross-reference the issue's subject matter against commits from the same 7-day window (Step 2). If a related code change is found, treat it as a new documentation gap (independent of the original issue decision) and follow the normal Step 2 flow for that code change.
+
+### 1d. Scan Cookie-Labeled Automation Issues
+
+Search for open and recently closed issues from automated monitoring workflows (CLI Consistency Checker, Multi-Device Docs Tester). These carry the `cookie` label and may surface real documentation gaps that Step 1b and 1c miss due to the integrity filter:
+
+```
+repo:${{ github.repository }} is:issue label:documentation label:cookie
+```
+
+For each issue found:
+- Read the issue body to understand the described documentation gap.
+- Check whether the gap still exists in the relevant documentation file.
+- If confirmed, include a fix in this run's PR and reference the issue with `Closes #NNN`.
+- If the issue is already closed and the gap is already fixed, note it and skip.
+
 ### 2. Analyze Changes
+
+**Efficiency rule**: When searching documentation files for multiple patterns, combine them in one bash call using `-e` flags or a pipe:
+`grep -rn -e "pattern1" -e "pattern2" -e "pattern3" docs/`
+Alternatively, use the `Grep` tool (not `Bash`) for file searches — it produces more concise output and doesn't count as a bash call.
 
 For each merged PR and commit, analyze:
 
@@ -88,6 +171,7 @@ For each merged PR and commit, analyze:
 - **Features Removed**: Deprecated or removed functionality
 - **Features Modified**: Changed behavior, updated APIs, or modified interfaces
 - **Breaking Changes**: Any changes that affect existing users
+- **Removed Features in Docs**: Search docs for references to properties, flags, or options that no longer exist in the current schema. Check `pkg/parser/schemas/` or run `gh aw compile` on representative workflows to confirm current valid properties.
 
 Create a summary of changes that should be documented.
 
@@ -175,7 +259,7 @@ If you made any documentation changes:
 
 **PR Description Template**:
 ```markdown
-## Documentation Updates - [Date]
+### Documentation Updates - [Date]
 
 This PR updates the documentation based on features merged in the last 24 hours.
 
@@ -183,6 +267,9 @@ This PR updates the documentation based on features merged in the last 24 hours.
 
 - Feature 1 (from #PR_NUMBER)
 - Feature 2 (from #PR_NUMBER)
+
+<details>
+<summary>📝 Detailed Changes & References</summary>
 
 ### Changes Made
 
@@ -194,6 +281,15 @@ This PR updates the documentation based on features merged in the last 24 hours.
 - #PR_NUMBER - Brief description
 - #PR_NUMBER - Brief description
 
+</details>
+
+### Skipped Issues
+
+<!-- List every open documentation issue that was NOT addressed in this run -->
+<!-- Format: - #NNN — [title]: [reason for skip] -->
+<!-- Example: - #123 — docs: add guide for foo: requires structural nav changes beyond docs scope -->
+<!-- If all open issues were addressed or confirmed already fixed, write "None." -->
+
 ### Notes
 
 [Any additional notes or features that need manual review]
@@ -201,11 +297,19 @@ This PR updates the documentation based on features merged in the last 24 hours.
 
 ### 7. Handle Edge Cases
 
-- **No recent changes**: If there are no merged PRs in the last 24 hours, exit gracefully without creating a PR
-- **Already documented**: If all features are already documented, exit gracefully
+- **No recent changes**: If there are no merged PRs in the last 24 hours and no open documentation issues need addressing, call `noop` with a brief summary explaining what was scanned and why no action was taken
+- **Already documented**: If all features are already documented and all open issues are resolved, call `noop` with a brief explanation
 - **Unclear features**: If a feature is complex and needs human review, note it in the PR description but don't skip documentation entirely
 - **Internal refactors**: Skip PRs that are purely internal (CI, test, refactor) with no user-facing impact
 - **CHANGELOG.md**: NEVER touch this file — it is auto-generated by release-please
+
+The `noop` tool signals to the workflow system that you deliberately chose not to take action (no documentation updates needed). Always call either `create_pull_request` or `noop` before finishing — never finish without calling one of these safe-output tools.
+
+When calling `noop`, use this format:
+
+```json
+{"noop": {"message": "No documentation updates needed: [brief explanation of what was scanned and why no action was taken]"}}
+```
 
 ## Guidelines
 
@@ -217,6 +321,8 @@ This PR updates the documentation based on features merged in the last 24 hours.
 - **Use Proper Format**: Use the correct file (`README.md` or `doc/markdown-plus.txt`) with consistent vimdoc or Markdown syntax
 - **Link References**: Include links to relevant PRs and issues where appropriate
 - **Test Understanding**: If unsure about a feature, review the code changes in detail
+- **Issue-Driven**: Proactively check open `documentation` issues — do not wait for them to be reported manually.
+- **Validate Examples**: YAML frontmatter examples in docs must be structurally valid. When in doubt, test with `gh aw compile`.
 
 ## Important Notes
 
@@ -231,3 +337,5 @@ This PR updates the documentation based on features merged in the last 24 hours.
 - **Commit messages MUST use conventional commit format**: `docs: description` or `docs(scope): description`
 
 Good luck! Your documentation updates help keep our project accessible and up-to-date.
+
+{{#runtime-import shared/noop-reminder.md}}
