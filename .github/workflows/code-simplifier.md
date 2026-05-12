@@ -22,6 +22,7 @@ safe-outputs:
     labels: [refactoring, code-quality, automation]
     reviewers: [copilot, YousefHadder]
     expires: 1d
+  noop:
 
 network:
   allowed:
@@ -30,6 +31,7 @@ network:
     - lua
 
 tools:
+  cli-proxy: true
   github:
     toolsets: [default]
   edit:
@@ -53,7 +55,7 @@ tools:
 
 timeout-minutes: 30
 strict: true
-source: github/gh-aw/.github/workflows/code-simplifier.md@852cb06ad52958b402ed982b69957ffc57ca0619
+source: github/gh-aw/.github/workflows/code-simplifier.md@8eb7e099dfdad889a392fab0eb57029a0905e966
 engine: copilot
 ---
 
@@ -591,3 +593,5 @@ Your output MUST either:
 3. **If simplifications made**: Create a PR with the changes using safe-outputs
 
 Begin your analysis now. Find recently modified code, perform semantic function analysis on changed modules, apply simplifications and structural fixes while preserving functionality, validate changes, and create a PR if beneficial.
+
+{{#runtime-import shared/noop-reminder.md}}

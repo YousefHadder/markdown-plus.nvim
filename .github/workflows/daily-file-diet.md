@@ -1,53 +1,58 @@
 ---
-name: Daily File Diet
-description: Analyzes the largest Lua source file daily and creates an issue to refactor it into smaller files if it exceeds the healthy size threshold
 on:
-  workflow_dispatch:
   schedule:
-    - cron: weekly
-  skip-if-match: 'is:issue is:open in:title "[file-diet]"'
-
+  - cron: weekly
+  skip-if-match: is:issue is:open in:title "[file-diet]"
+  workflow_dispatch: null
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-tracker-id: daily-file-diet
-engine: copilot
-
 imports:
-  - shared/mood.md
-  - shared/reporting.md
-  - shared/safe-output-app.md
-
+- shared/mood.md
+- shared/reporting.md
+- shared/safe-output-app.md
 safe-outputs:
   create-issue:
     expires: 2d
-    title-prefix: "[file-diet] "
-    labels: [refactoring, code-health, automated-analysis, cookie]
+    labels:
+    - refactoring
+    - code-health
+    - automated-analysis
+    - cookie
     max: 1
-
-tools:
-  github:
-    toolsets: [default]
-  edit:
-  bash:
-    - "find lua -name '*.lua' -type f -exec wc -l {} \\; | sort -rn"
-    - "find lua -name '*.lua' -type f | sort"
-    - "wc -l lua/**/*.lua"
-    - "cat lua/**/*.lua"
-    - "head -n * lua/**/*.lua"
-    - "grep -rn 'function ' lua --include='*.lua'"
-    - "grep -rn 'local function' lua --include='*.lua'"
-    - "find lua/ -maxdepth 1 -ls"
-    - "find lua/markdown-plus/ -maxdepth 1 -ls"
-    - "find lua/markdown-plus/ -maxdepth 2 -ls"
-
-timeout-minutes: 20
+    title-prefix: "[file-diet] "
+  noop: null
+description: Analyzes the largest Lua source file daily and creates an issue to refactor it into smaller files if it exceeds the healthy size threshold
+engine:
+  agent: developer.instructions
+  id: copilot
+features:
+  copilot-requests: true
+name: Daily File Diet
+source: github/gh-aw/.github/workflows/daily-file-diet.md@8eb7e099dfdad889a392fab0eb57029a0905e966
 strict: true
-source: github/gh-aw/.github/workflows/daily-file-diet.md@852cb06ad52958b402ed982b69957ffc57ca0619
+timeout-minutes: 20
+tools:
+  bash:
+  - "find lua -name '*.lua' -type f -exec wc -l {} \\; | sort -rn"
+  - find lua -name '*.lua' -type f | sort
+  - wc -l lua/**/*.lua
+  - cat lua/**/*.lua
+  - head -n * lua/**/*.lua
+  - grep -rn 'function ' lua --include='*.lua'
+  - grep -rn 'local function' lua --include='*.lua'
+  - find lua/ -maxdepth 1 -ls
+  - find lua/markdown-plus/ -maxdepth 1 -ls
+  - find lua/markdown-plus/ -maxdepth 2 -ls
+  cli-proxy: true
+  edit: null
+  github:
+    mode: gh-proxy
+    toolsets:
+    - default
+tracker-id: daily-file-diet
 ---
-
 {{#runtime-import? .github/shared-instructions.md}}
 
 # Daily File Diet Agent 🏋️
@@ -150,7 +155,7 @@ If refactoring is needed (file ≥ 400 lines), create an issue with this structu
 
 1. **Header Levels**: Use h3 (###) or lower for all headers in your issue report to maintain proper document hierarchy. The issue title serves as h1, so start section headers at h3.
 
-2. **Progressive Disclosure**: Wrap detailed file analysis, code snippets, and lengthy explanations in `<details><summary><b>Section Name</b></summary>` tags to improve readability and reduce overwhelm. This keeps the most important information immediately visible while allowing readers to expand sections as needed.
+2. **Progressive Disclosure**: Wrap detailed file analysis, code snippets, and lengthy explanations in `<details><summary>Section Name</summary>` tags to improve readability and reduce overwhelm. This keeps the most important information immediately visible while allowing readers to expand sections as needed.
 
 3. **Issue Structure**: Follow this pattern for optimal clarity:
    - **Brief summary** of the file size issue (always visible)
@@ -173,7 +178,7 @@ The file `[FILE_PATH]` has grown to [LINE_COUNT] lines, exceeding the project's 
 - **Complexity**: [Brief assessment — function count, nesting depth, distinct concerns]
 
 <details>
-<summary><b>Full File Analysis</b></summary>
+<summary>Full File Analysis</summary>
 
 #### Detailed Breakdown
 
@@ -222,7 +227,7 @@ M.some_function = require("markdown-plus.[feature].[sub_module]").some_function
 ```
 
 <details>
-<summary><b>Test Coverage Plan</b></summary>
+<summary>Test Coverage Plan</summary>
 
 Add comprehensive tests for each new file:
 
@@ -256,7 +261,7 @@ Add comprehensive tests for each new file:
 - [ ] All public functions have LuaCATS type annotations
 
 <details>
-<summary><b>Additional Context</b></summary>
+<summary>Additional Context</summary>
 
 - **Project Guidelines**: See `CLAUDE.md` and `CONTRIBUTING.md`
 - **Code Organization**: Feature modules under `lua/markdown-plus/` follow a consistent sub-module structure
@@ -295,3 +300,5 @@ Your output MUST either:
 - **Maintain backwards compatibility**: Parent `init.lua` must re-export functions from new sub-modules
 
 Begin your analysis now. Find the largest Lua source file, assess if it needs refactoring, and create an issue only if necessary.
+
+{{#runtime-import shared/noop-reminder.md}}

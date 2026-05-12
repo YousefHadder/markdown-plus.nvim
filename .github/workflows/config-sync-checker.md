@@ -26,6 +26,7 @@ safe-outputs:
     title-prefix: "[config-sync] "
     labels: [config, consistency, automation]
     expires: 7d
+  noop:
 
 tools:
   github:
@@ -299,3 +300,9 @@ A successful check:
 - ✅ Creates a well-structured, scannable issue (or exits cleanly if all synced)
 
 Begin your config sync analysis now.
+
+**Important**: If no inconsistencies are found after completing your analysis, you **MUST** call the `noop` safe-output tool with a brief explanation. Failing to call any safe-output tool is the most common cause of safe-output workflow failures.
+
+```json
+{"noop": {"message": "No action needed: [brief explanation of what was analyzed and why]"}}
+```
