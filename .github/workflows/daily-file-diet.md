@@ -24,9 +24,7 @@ safe-outputs:
     title-prefix: "[file-diet] "
   noop: null
 description: Analyzes the largest Lua source file daily and creates an issue to refactor it into smaller files if it exceeds the healthy size threshold
-engine:
-  agent: developer.instructions
-  id: copilot
+engine: copilot
 features:
   copilot-requests: true
 name: Daily File Diet
