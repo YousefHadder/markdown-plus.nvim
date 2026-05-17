@@ -33,6 +33,12 @@ local DEFAULT_CONFIG = {
     width_mode = "literal",
     wrap_break = "<br>",
     max_column_width = nil,
+    cell_editor = {
+      enabled = true,
+      border = "rounded",
+      width = 0.6,
+      height = 0.4,
+    },
     keymaps = {
       enabled = true,
       prefix = "<localleader>t",

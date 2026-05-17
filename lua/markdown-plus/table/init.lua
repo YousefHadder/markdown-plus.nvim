@@ -23,6 +23,12 @@ M.defaults = {
   width_mode = "literal",
   wrap_break = "<br>",
   max_column_width = nil,
+  cell_editor = {
+    enabled = true,
+    border = "rounded",
+    width = 0.6,
+    height = 0.4,
+  },
   keymaps = {
     enabled = true,
     prefix = "<localleader>t",
@@ -206,6 +212,13 @@ end
 function M.unwrap_cell()
   local manip = require("markdown-plus.table.manipulation")
   return manip.unwrap_cell()
+end
+
+---Open the floating cell editor for the cell under the cursor.
+---@return table|nil state Session state, or nil on failure
+function M.edit_cell()
+  local cell_editor = require("markdown-plus.table.cell_editor")
+  return cell_editor.open()
 end
 
 ---Move column left

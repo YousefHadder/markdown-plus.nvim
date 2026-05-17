@@ -40,7 +40,15 @@
 ---@field width_mode? "literal"|"segment" Column-width calculation mode (default: 'literal'). 'segment' measures the widest <br>-split segment so cells containing breaks don't inflate column width.
 ---@field wrap_break? string Token used to represent a line break inside a cell (default: '<br>'). Honoured by later cell-edit/wrap commands.
 ---@field max_column_width? integer Default width (in display cells) used by the wrap-cell command. nil disables the default and forces a prompt (default: nil).
+---@field cell_editor? markdown-plus.TableCellEditorConfig Floating cell-editor popup configuration
 ---@field keymaps? markdown-plus.TableKeymapConfig Table keymap configuration
+
+---Floating cell-editor popup configuration
+---@class markdown-plus.TableCellEditorConfig
+---@field enabled? boolean Allow opening the cell-editor popup (default: true)
+---@field border? string nvim_open_win border style (default: 'rounded')
+---@field width? number Floating window width as a fraction of editor width, 0 < w <= 1 (default: 0.6)
+---@field height? number Floating window height as a fraction of editor height, 0 < h <= 1 (default: 0.4)
 
 ---Table keymap configuration
 ---@class markdown-plus.TableKeymapConfig
@@ -137,7 +145,15 @@
 ---@field width_mode "literal"|"segment"
 ---@field wrap_break string
 ---@field max_column_width integer|nil
+---@field cell_editor markdown-plus.InternalTableCellEditorConfig
 ---@field keymaps markdown-plus.InternalTableKeymapConfig
+
+---Internal cell-editor popup configuration
+---@class markdown-plus.InternalTableCellEditorConfig
+---@field enabled boolean
+---@field border string
+---@field width number
+---@field height number
 
 ---Internal table keymap configuration
 ---@class markdown-plus.InternalTableKeymapConfig

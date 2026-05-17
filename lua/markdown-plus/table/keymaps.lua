@@ -181,6 +181,15 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       default_key = prefix .. "W",
       desc = "Unwrap cell (strip every <br> variant)",
     },
+    {
+      plug = keymap_helper.plug_name("TableEditCell"),
+      fn = function()
+        require("markdown-plus.table").edit_cell()
+      end,
+      modes = "n",
+      default_key = prefix .. "e",
+      desc = "Edit cell content in a floating popup",
+    },
 
     -- Row movement
     {
