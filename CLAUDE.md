@@ -65,7 +65,7 @@ require("markdown-plus").setup(opts)
 
 - Framework: Busted via plenary.nvim (`spec/minimal_init.lua` bootstraps)
 - Pattern: `describe()`/`it()` blocks, buffer fixtures in `before_each`
-- 38 test files covering: config, utils, list (4 files: main + group_scanner/normal_handler/parser), format (3 files: main + escape/repeat), headers (5 files: main + manipulation/navigation + toc actions/render/state), links, smart_paste, table (6 files: main + creator/cell_ops/column_ops/row_ops/row_mapper), footnotes (7 files: main + insertion/navigation/window/line_parser/query/scanner), callouts, health, treesitter, images (2 files: main + insertion), code_block, thematic_break, quote
+- 39 test files covering: config, utils, list (4 files: main + group_scanner/normal_handler/parser), format (3 files: main + escape/repeat), headers (6 files: main + manipulation/navigation + toc actions/render/state), links, smart_paste, table (7 files: main + cell_breaks/creator/cell_ops/column_ops/row_ops/row_mapper), footnotes (7 files: main + insertion/navigation/window/line_parser/query/scanner), callouts, health, treesitter, images (2 files: main + insertion), code_block, thematic_break, quote
 
 ## Don't
 

@@ -1758,4 +1758,202 @@ describe("table init (orchestration facade)", function()
       assert.is_truthy(lines[1]:find("|"))
     end)
   end)
+
+  describe("width_mode", function()
+    before_each(function()
+      vim.cmd("enew")
+      vim.bo.filetype = "markdown"
+    end)
+
+    local function read_buf()
+      return vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    end
+
+    local function reset_to(lines)
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+    end
+
+    local INPUT = {
+      "| A | B |",
+      "| --- | --- |",
+      "| aa<br>bb | y |",
+    }
+
+    it("defaults to 'literal' so existing tables format identically", function()
+      reset_to(INPUT)
+      formatter.format_table(parser.get_table_at_cursor())
+      local default_result = read_buf()
+
+      reset_to(INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "literal" })
+      local explicit_literal = read_buf()
+
+      assert.are.same(default_result, explicit_literal)
+    end)
+
+    it("literal mode pads the header to match the literal cell width", function()
+      reset_to(INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "literal" })
+      local result = read_buf()
+
+      -- Header row and data row are aligned at the source (same byte length)
+      assert.equals(#result[1], #result[3])
+      -- Literal cell content is preserved
+      assert.is_truthy(result[3]:find("aa<br>bb", 1, true))
+    end)
+
+    it("segment mode produces a narrower header than literal mode for <br> cells", function()
+      reset_to(INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "literal" })
+      local literal_header_len = #read_buf()[1]
+
+      reset_to(INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "segment" })
+      local segment_result = read_buf()
+
+      assert.is_true(#segment_result[1] < literal_header_len)
+      -- Source still contains the literal <br> token
+      assert.is_truthy(segment_result[3]:find("aa<br>bb", 1, true))
+    end)
+
+    it("segment mode is a no-op when no <br> tokens are present", function()
+      local plain = {
+        "| A | B |",
+        "| --- | --- |",
+        "| aa | bb |",
+      }
+      reset_to(plain)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "literal" })
+      local literal_result = read_buf()
+
+      reset_to(plain)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "segment" })
+      assert.are.same(literal_result, read_buf())
+    end)
+
+    it("segment mode honours code-span shielding for `<br>`", function()
+      local shielded = {
+        "| A | B |",
+        "| --- | --- |",
+        "| use `<br>` token here | y |",
+      }
+      reset_to(shielded)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "literal" })
+      local literal_result = read_buf()
+
+      reset_to(shielded)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "segment" })
+      -- Since the <br> is inside `…`, segment mode must produce the same widths.
+      assert.are.same(literal_result, read_buf())
+    end)
+
+    it("segment mode uses widest segment across multi-break cells", function()
+      local multi = {
+        "| A | B |",
+        "| --- | --- |",
+        "| short<br>medium<br>longer-segment | y |",
+      }
+      reset_to(multi)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "segment" })
+      local result = read_buf()
+
+      -- Widest segment is "longer-segment" (14 chars). Header "A" must be padded
+      -- to that width; check by reading the first cell's effective content width.
+      local cell = result[1]:match("^|%s+(.-)%s+|")
+      assert.is_not_nil(cell)
+      -- The padded cell width (content + trailing padding spaces) must be >= 14
+      -- We capture the cell with trailing whitespace stripped, so re-measure from the row
+      local first_pipe_to_second = result[1]:match("^|(.-)|"):gsub("^%s+", ""):gsub("%s+$", "")
+      assert.equals("A", first_pipe_to_second)
+      -- The full width between pipes: re-measure
+      local between = result[1]:match("^|(.-)|")
+      -- " A" + padding + " " around it; total length minus the framing space should equal width
+      -- Expected width is 14, so the segment between pipes is 1 + 14 + 1 = 16 chars
+      assert.equals(16, #between)
+    end)
+
+    it("falls back to config.width_mode when no opts are passed", function()
+      local markdown_plus = require("markdown-plus")
+      markdown_plus.setup({ table = { width_mode = "segment" } })
+
+      reset_to(INPUT)
+      formatter.format_table(parser.get_table_at_cursor())
+      local config_driven = read_buf()
+
+      reset_to(INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), { width_mode = "segment" })
+      local opts_driven = read_buf()
+
+      assert.are.same(opts_driven, config_driven)
+      markdown_plus.teardown()
+    end)
+
+    it("sort preserves <br> tokens opaquely", function()
+      local markdown_plus = require("markdown-plus")
+      markdown_plus.setup({ table = { confirm_destructive = false } })
+
+      reset_to({
+        "| K | V |",
+        "| --- | --- |",
+        "| b<br>line | 2 |",
+        "| a<br>line | 1 |",
+      })
+
+      local calculator = require("markdown-plus.table.calculator")
+      assert.is_true(calculator.sort_by_column(true))
+
+      local result = read_buf()
+      assert.is_truthy(result[3]:find("a<br>line", 1, true))
+      assert.is_truthy(result[4]:find("b<br>line", 1, true))
+
+      markdown_plus.teardown()
+    end)
+
+    it("transpose preserves <br> tokens opaquely", function()
+      local markdown_plus = require("markdown-plus")
+      markdown_plus.setup({ table = { confirm_destructive = false } })
+
+      reset_to({
+        "| A | B |",
+        "| --- | --- |",
+        "| x<br>y | z |",
+      })
+
+      local calculator = require("markdown-plus.table.calculator")
+      assert.is_true(calculator.transpose_table())
+
+      local joined = table.concat(read_buf(), "\n")
+      assert.is_truthy(joined:find("x<br>y", 1, true))
+
+      markdown_plus.teardown()
+    end)
+
+    it("csv_to_table preserves <br> literally in cells", function()
+      reset_to({
+        "A,B",
+        "first<br>second,plain",
+      })
+
+      local conversion = require("markdown-plus.table.conversion")
+      assert.is_true(conversion.csv_to_table())
+
+      local joined = table.concat(read_buf(), "\n")
+      assert.is_truthy(joined:find("first<br>second", 1, true))
+    end)
+
+    it("table_to_csv preserves <br> literally in cells", function()
+      reset_to({
+        "| A | B |",
+        "| --- | --- |",
+        "| one<br>two | y |",
+      })
+
+      local conversion = require("markdown-plus.table.conversion")
+      assert.is_true(conversion.table_to_csv())
+
+      local joined = table.concat(read_buf(), "\n")
+      assert.is_truthy(joined:find("one<br>two", 1, true))
+    end)
+  end)
 end)

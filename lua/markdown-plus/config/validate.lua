@@ -57,6 +57,8 @@ local SCHEMA = {
       auto_format = { type = "boolean" },
       default_alignment = { type = "string", enum = { left = true, center = true, right = true } },
       confirm_destructive = { type = "boolean" },
+      width_mode = { type = "string", enum = { literal = true, segment = true } },
+      wrap_break = { type = "string" },
       keymaps = {
         type = "table",
         fields = {

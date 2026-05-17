@@ -14,14 +14,27 @@ local M = {}
 ---Calculate maximum width for each column
 ---@param cells string[][] Cell contents [row][col]
 ---@param cols integer Number of columns
+---@param width_mode? "literal"|"segment" Column-width calculation mode (default: "literal")
 ---@return integer[] widths Maximum width for each column
-local function calculate_column_widths(cells, cols)
+local function calculate_column_widths(cells, cols, width_mode)
+  width_mode = width_mode or "literal"
+  local cell_breaks
+  if width_mode == "segment" then
+    cell_breaks = require("markdown-plus.table.cell_breaks")
+  end
   local widths = {}
   for col = 1, cols do
     local max_width = 3 -- Minimum width (for "---")
     for _, row in ipairs(cells) do
-      if row[col] then
-        max_width = math.max(max_width, vim.fn.strwidth(row[col]))
+      local content = row[col]
+      if content then
+        if width_mode == "segment" then
+          for _, segment in ipairs(cell_breaks.split_segments(content)) do
+            max_width = math.max(max_width, vim.fn.strwidth(segment))
+          end
+        else
+          max_width = math.max(max_width, vim.fn.strwidth(content))
+        end
       end
     end
     table.insert(widths, max_width)
@@ -107,8 +120,18 @@ end
 
 ---Format and replace table in buffer
 ---@param table_info TableInfo Parsed table information
-function M.format_table(table_info)
-  local widths = calculate_column_widths(table_info.cells, table_info.cols)
+---@param opts? {width_mode?: "literal"|"segment"} Optional overrides; falls back to table config
+function M.format_table(table_info, opts)
+  opts = opts or {}
+  local width_mode = opts.width_mode
+  if not width_mode then
+    local ok, table_module = pcall(require, "markdown-plus.table")
+    if ok and table_module.config then
+      width_mode = table_module.config.width_mode
+    end
+  end
+
+  local widths = calculate_column_widths(table_info.cells, table_info.cols, width_mode)
 
   -- Format all rows
   local formatted_rows = {}

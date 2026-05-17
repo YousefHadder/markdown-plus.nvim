@@ -147,6 +147,51 @@ describe("markdown-plus configuration", function()
     it("is enabled by default", function()
       assert.is_true(markdown_plus.config.enabled)
     end)
+
+    it("table.width_mode defaults to 'literal'", function()
+      assert.equals("literal", markdown_plus.config.table.width_mode)
+    end)
+
+    it("table.wrap_break defaults to '<br>'", function()
+      assert.equals("<br>", markdown_plus.config.table.wrap_break)
+    end)
+  end)
+
+  describe("table config validation", function()
+    it("accepts width_mode = 'segment'", function()
+      markdown_plus.setup({ table = { width_mode = "segment" } })
+      assert.equals("segment", markdown_plus.config.table.width_mode)
+    end)
+
+    it("accepts width_mode = 'literal'", function()
+      markdown_plus.setup({ table = { width_mode = "literal" } })
+      assert.equals("literal", markdown_plus.config.table.width_mode)
+    end)
+
+    it("rejects unknown width_mode values", function()
+      -- Save current config; setup() with invalid input notifies and returns early.
+      local before = vim.deepcopy(markdown_plus.config.table)
+      markdown_plus.setup({ table = { width_mode = "bogus" } })
+      -- Config should be unchanged (rejected)
+      assert.equals(before.width_mode, markdown_plus.config.table.width_mode)
+    end)
+
+    it("accepts a custom wrap_break string", function()
+      markdown_plus.setup({ table = { wrap_break = "  \n" } })
+      assert.equals("  \n", markdown_plus.config.table.wrap_break)
+    end)
+
+    it("rejects non-string wrap_break", function()
+      local before = vim.deepcopy(markdown_plus.config.table)
+      markdown_plus.setup({ table = { wrap_break = 42 } })
+      assert.equals(before.wrap_break, markdown_plus.config.table.wrap_break)
+    end)
+
+    it("still rejects unknown nested table fields", function()
+      local before = vim.deepcopy(markdown_plus.config.table)
+      markdown_plus.setup({ table = { mystery_field = true } })
+      assert.are.same(before, markdown_plus.config.table)
+    end)
   end)
 
   describe("feature toggles", function()
