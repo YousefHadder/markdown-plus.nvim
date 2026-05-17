@@ -37,6 +37,8 @@
 ---@field auto_format? boolean Automatically format tables on edit (default: true)
 ---@field default_alignment? string Default column alignment: 'left', 'center', 'right' (default: 'left')
 ---@field confirm_destructive? boolean Confirm before destructive operations like transpose/sort (default: true)
+---@field width_mode? "literal"|"segment" Column-width calculation mode (default: 'literal'). 'segment' measures the widest <br>-split segment so cells containing breaks don't inflate column width.
+---@field wrap_break? string Token used to represent a line break inside a cell (default: '<br>'). Honoured by later cell-edit/wrap commands.
 ---@field keymaps? markdown-plus.TableKeymapConfig Table keymap configuration
 
 ---Table keymap configuration
@@ -131,6 +133,8 @@
 ---@field auto_format boolean
 ---@field default_alignment string
 ---@field confirm_destructive boolean
+---@field width_mode "literal"|"segment"
+---@field wrap_break string
 ---@field keymaps markdown-plus.InternalTableKeymapConfig
 
 ---Internal table keymap configuration

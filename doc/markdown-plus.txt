@@ -1497,6 +1497,11 @@ The plugin can be configured through the setup function:
         auto_format = true,
         default_alignment = 'left', -- 'left' | 'center' | 'right'
         confirm_destructive = true,  -- Confirm before transpose/sort operations
+        width_mode = 'literal',  -- 'literal' (default; preserves today's behaviour)
+                                 -- or 'segment' (measure widest <br>-split segment
+                                 -- so cells containing <br> don't inflate column width)
+        wrap_break = '<br>',     -- Token used for in-cell line breaks; honoured by
+                                 -- later cell-edit/wrap commands
         keymaps = {
           enabled = true,
           prefix = '<localleader>t',
