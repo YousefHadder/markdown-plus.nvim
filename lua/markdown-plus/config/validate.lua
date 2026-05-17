@@ -59,6 +59,18 @@ local SCHEMA = {
       confirm_destructive = { type = "boolean" },
       width_mode = { type = "string", enum = { literal = true, segment = true } },
       wrap_break = { type = "string" },
+      max_column_width = {
+        type = "number",
+        validator = function(value, path, _)
+          if value < 1 then
+            return false, path .. ": must be at least 1"
+          end
+          if value ~= math.floor(value) then
+            return false, path .. ": must be an integer"
+          end
+          return true
+        end,
+      },
       keymaps = {
         type = "table",
         fields = {

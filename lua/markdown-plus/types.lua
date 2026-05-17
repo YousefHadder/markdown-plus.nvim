@@ -39,6 +39,7 @@
 ---@field confirm_destructive? boolean Confirm before destructive operations like transpose/sort (default: true)
 ---@field width_mode? "literal"|"segment" Column-width calculation mode (default: 'literal'). 'segment' measures the widest <br>-split segment so cells containing breaks don't inflate column width.
 ---@field wrap_break? string Token used to represent a line break inside a cell (default: '<br>'). Honoured by later cell-edit/wrap commands.
+---@field max_column_width? integer Default width (in display cells) used by the wrap-cell command. nil disables the default and forces a prompt (default: nil).
 ---@field keymaps? markdown-plus.TableKeymapConfig Table keymap configuration
 
 ---Table keymap configuration
@@ -135,6 +136,7 @@
 ---@field confirm_destructive boolean
 ---@field width_mode "literal"|"segment"
 ---@field wrap_break string
+---@field max_column_width integer|nil
 ---@field keymaps markdown-plus.InternalTableKeymapConfig
 
 ---Internal table keymap configuration

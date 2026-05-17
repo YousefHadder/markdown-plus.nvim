@@ -32,6 +32,7 @@ local DEFAULT_CONFIG = {
     confirm_destructive = true,
     width_mode = "literal",
     wrap_break = "<br>",
+    max_column_width = nil,
     keymaps = {
       enabled = true,
       prefix = "<localleader>t",
