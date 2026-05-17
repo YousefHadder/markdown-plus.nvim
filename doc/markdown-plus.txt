@@ -1502,6 +1502,8 @@ The plugin can be configured through the setup function:
                                  -- so cells containing <br> don't inflate column width)
         wrap_break = '<br>',     -- Token used for in-cell line breaks; honoured by
                                  -- later cell-edit/wrap commands
+        max_column_width = nil,  -- Default width (display cells) for the wrap-cell
+                                 -- command. nil = prompt every time.
         keymaps = {
           enabled = true,
           prefix = '<localleader>t',
@@ -1720,6 +1722,9 @@ TABLES ~
     Cell operations:
     <Plug>(MarkdownPlusTableToggleCellAlignment)    - Toggle alignment (n)
     <Plug>(MarkdownPlusTableClearCell)              - Clear cell (n)
+    <Plug>(MarkdownPlusTableInsertBreak)            - Insert <br> at cursor (n)
+    <Plug>(MarkdownPlusTableWrapCell)               - Wrap cell to width (n)
+    <Plug>(MarkdownPlusTableUnwrapCell)             - Strip every <br> (n)
 
     Advanced operations:
     <Plug>(MarkdownPlusTableTranspose)              - Transpose table (n)

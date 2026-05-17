@@ -183,4 +183,258 @@ describe("table.cell_ops", function()
       assert.is_false(success)
     end)
   end)
+
+  describe("insert_break", function()
+    local markdown_plus = require("markdown-plus")
+
+    before_each(function()
+      markdown_plus.setup({})
+    end)
+
+    after_each(function()
+      markdown_plus.teardown()
+    end)
+
+    it("inserts <br> at the cursor position inside a data cell", function()
+      local lines = {
+        "| H1   | H2 |",
+        "| ---- | -- |",
+        "| word | y  |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      -- 0-indexed col 4 = byte position right after "| wo" (between 'o' and 'r')
+      vim.api.nvim_win_set_cursor(0, { 3, 4 })
+
+      assert.is_true(cell_ops.insert_break())
+
+      local line = vim.api.nvim_buf_get_lines(0, 2, 3, false)[1]
+      assert.equals("| wo<br>rd | y  |", line)
+
+      local cursor = vim.api.nvim_win_get_cursor(0)
+      assert.equals(3, cursor[1])
+      assert.equals(4 + #"<br>", cursor[2])
+    end)
+
+    it("inserts the configured custom wrap_break", function()
+      markdown_plus.setup({ table = { wrap_break = "|BRK|" } })
+
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H |",
+        "| - |",
+        "| a |",
+      })
+      -- 0-indexed col 3 = byte position right after "| a" (between 'a' and ' ')
+      vim.api.nvim_win_set_cursor(0, { 3, 3 })
+
+      assert.is_true(cell_ops.insert_break())
+
+      local line = vim.api.nvim_buf_get_lines(0, 2, 3, false)[1]
+      assert.equals("| a|BRK| |", line)
+    end)
+
+    it("rejects the separator row", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H | I |",
+        "| - | - |",
+        "| a | b |",
+      })
+      vim.fn.cursor(2, 3)
+
+      assert.is_false(cell_ops.insert_break())
+    end)
+
+    it("returns false when not in a table", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
+      vim.fn.cursor(1, 1)
+      assert.is_false(cell_ops.insert_break())
+    end)
+  end)
+
+  describe("wrap_cell", function()
+    local markdown_plus = require("markdown-plus")
+
+    before_each(function()
+      markdown_plus.setup({})
+    end)
+
+    after_each(function()
+      markdown_plus.teardown()
+    end)
+
+    local function place_cursor_at_cell(content_line, cell_text)
+      -- Find a column inside the target cell on the given line.
+      local line = vim.api.nvim_buf_get_lines(0, content_line - 1, content_line, false)[1]
+      local s = line:find(cell_text, 1, true)
+      assert.is_not_nil(s, "expected cell text to be present")
+      vim.fn.cursor(content_line, s)
+    end
+
+    it("wraps a long cell at the explicit width using <br>", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H | B |",
+        "| - | - |",
+        "| the quick brown fox | y |",
+      })
+      place_cursor_at_cell(3, "the")
+
+      assert.is_true(cell_ops.wrap_cell(9))
+
+      local table_info = parser.get_table_at_cursor()
+      -- "the quick" (9) | "brown fox" (9)
+      assert.equals("the quick<br>brown fox", table_info.cells[2][1])
+    end)
+
+    it("re-flows an already-broken cell when re-wrapped (idempotent at same width)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H | B |",
+        "| - | - |",
+        "| the quick brown fox | y |",
+      })
+      place_cursor_at_cell(3, "the")
+
+      assert.is_true(cell_ops.wrap_cell(9))
+      local first = parser.get_table_at_cursor().cells[2][1]
+
+      -- Find the cell again after potential layout shift
+      place_cursor_at_cell(3, "the")
+      assert.is_true(cell_ops.wrap_cell(9))
+      local second = parser.get_table_at_cursor().cells[2][1]
+
+      assert.equals(first, second)
+    end)
+
+    it("respects word boundaries (does not split a single long word)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H | B |",
+        "| - | - |",
+        "| supercalifragilistic short | y |",
+      })
+      place_cursor_at_cell(3, "supercalifragilistic")
+
+      assert.is_true(cell_ops.wrap_cell(8))
+
+      local table_info = parser.get_table_at_cursor()
+      -- The long word stays intact on its own line
+      assert.is_truthy(table_info.cells[2][1]:find("supercalifragilistic", 1, true))
+      -- And the short word ends up on a separate line via <br>
+      assert.is_truthy(table_info.cells[2][1]:find("<br>", 1, true))
+    end)
+
+    it("uses config.max_column_width when no explicit width is given", function()
+      markdown_plus.setup({ table = { max_column_width = 9 } })
+
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H | B |",
+        "| - | - |",
+        "| the quick brown fox | y |",
+      })
+      place_cursor_at_cell(3, "the")
+
+      assert.is_true(cell_ops.wrap_cell())
+
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("the quick<br>brown fox", table_info.cells[2][1])
+    end)
+
+    it("rejects the separator row", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H | B |",
+        "| - | - |",
+        "| a | b |",
+      })
+      vim.fn.cursor(2, 3)
+      assert.is_false(cell_ops.wrap_cell(10))
+    end)
+
+    it("returns false when not in a table", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
+      vim.fn.cursor(1, 1)
+      assert.is_false(cell_ops.wrap_cell(10))
+    end)
+
+    it("rejects non-positive widths", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H |",
+        "| - |",
+        "| a |",
+      })
+      vim.fn.cursor(3, 3)
+      assert.is_false(cell_ops.wrap_cell(0))
+      assert.is_false(cell_ops.wrap_cell(-3))
+    end)
+  end)
+
+  describe("unwrap_cell", function()
+    local markdown_plus = require("markdown-plus")
+
+    before_each(function()
+      markdown_plus.setup({})
+    end)
+
+    after_each(function()
+      markdown_plus.teardown()
+    end)
+
+    it("strips a single <br>", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H        | B |",
+        "| -------- | - |",
+        "| aa<br>bb | y |",
+      })
+      vim.fn.cursor(3, 4)
+
+      assert.is_true(cell_ops.unwrap_cell())
+
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("aa bb", table_info.cells[2][1])
+    end)
+
+    it("strips mixed <br>, <br/>, <br /> variants", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H                            | B |",
+        "| ---------------------------- | - |",
+        "| one<br>two<br/>three<br />four | y |",
+      })
+      vim.fn.cursor(3, 4)
+
+      assert.is_true(cell_ops.unwrap_cell())
+
+      local table_info = parser.get_table_at_cursor()
+      assert.equals("one two three four", table_info.cells[2][1])
+    end)
+
+    it("is idempotent (no <br> left → second run is a no-op)", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H        | B |",
+        "| -------- | - |",
+        "| aa<br>bb | y |",
+      })
+      vim.fn.cursor(3, 4)
+
+      assert.is_true(cell_ops.unwrap_cell())
+      local first = parser.get_table_at_cursor().cells[2][1]
+
+      vim.fn.cursor(3, 4)
+      assert.is_true(cell_ops.unwrap_cell())
+      local second = parser.get_table_at_cursor().cells[2][1]
+
+      assert.equals(first, second)
+    end)
+
+    it("rejects the separator row", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H | B |",
+        "| - | - |",
+        "| a | b |",
+      })
+      vim.fn.cursor(2, 3)
+      assert.is_false(cell_ops.unwrap_cell())
+    end)
+
+    it("returns false when not in a table", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
+      vim.fn.cursor(1, 1)
+      assert.is_false(cell_ops.unwrap_cell())
+    end)
+  end)
 end)

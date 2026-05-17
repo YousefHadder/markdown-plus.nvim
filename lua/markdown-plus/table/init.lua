@@ -22,6 +22,7 @@ M.defaults = {
   confirm_destructive = true,
   width_mode = "literal",
   wrap_break = "<br>",
+  max_column_width = nil,
   keymaps = {
     enabled = true,
     prefix = "<localleader>t",
@@ -181,6 +182,30 @@ end
 function M.clear_cell()
   local manip = require("markdown-plus.table.manipulation")
   return manip.clear_cell()
+end
+
+---Insert the configured wrap_break token at the cursor position inside a cell.
+---Pure text edit; does not reformat the table.
+---@return boolean success True if the break was inserted
+function M.insert_break()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.insert_break()
+end
+
+---Re-flow the current cell content using <br> at word boundaries.
+---Width comes from: explicit arg > config.max_column_width > interactive prompt.
+---@param width? integer Target width in display cells (must be >= 1)
+---@return boolean success True if the cell was wrapped
+function M.wrap_cell(width)
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.wrap_cell(width)
+end
+
+---Strip every <br> variant from the current cell, collapsing to a single line.
+---@return boolean success True if the cell was unwrapped
+function M.unwrap_cell()
+  local manip = require("markdown-plus.table.manipulation")
+  return manip.unwrap_cell()
 end
 
 ---Move column left

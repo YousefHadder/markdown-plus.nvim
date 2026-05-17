@@ -31,5 +31,8 @@ M.move_column_right = column_ops.move_column_right
 -- Cell operations
 M.clear_cell = cell_ops.clear_cell
 M.toggle_cell_alignment = cell_ops.toggle_cell_alignment
+M.insert_break = cell_ops.insert_break
+M.wrap_cell = cell_ops.wrap_cell
+M.unwrap_cell = cell_ops.unwrap_cell
 
 return M

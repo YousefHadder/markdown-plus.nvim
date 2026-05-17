@@ -154,6 +154,33 @@ local function get_keymap_defs(prefix, include_insert_defaults)
       default_key = prefix .. "x",
       desc = "Clear cell content",
     },
+    {
+      plug = keymap_helper.plug_name("TableInsertBreak"),
+      fn = function()
+        require("markdown-plus.table").insert_break()
+      end,
+      modes = "n",
+      default_key = prefix .. "b",
+      desc = "Insert <br> line break at cursor inside cell",
+    },
+    {
+      plug = keymap_helper.plug_name("TableWrapCell"),
+      fn = function()
+        require("markdown-plus.table").wrap_cell()
+      end,
+      modes = "n",
+      default_key = prefix .. "w",
+      desc = "Wrap cell content at word boundaries using <br>",
+    },
+    {
+      plug = keymap_helper.plug_name("TableUnwrapCell"),
+      fn = function()
+        require("markdown-plus.table").unwrap_cell()
+      end,
+      modes = "n",
+      default_key = prefix .. "W",
+      desc = "Unwrap cell (strip every <br> variant)",
+    },
 
     -- Row movement
     {
