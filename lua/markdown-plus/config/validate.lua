@@ -71,6 +71,31 @@ local SCHEMA = {
           return true
         end,
       },
+      cell_editor = {
+        type = "table",
+        fields = {
+          enabled = { type = "boolean" },
+          border = { type = "string" },
+          width = {
+            type = "number",
+            validator = function(value, path, _)
+              if value <= 0 or value > 1 then
+                return false, path .. ": must be in range (0, 1]"
+              end
+              return true
+            end,
+          },
+          height = {
+            type = "number",
+            validator = function(value, path, _)
+              if value <= 0 or value > 1 then
+                return false, path .. ": must be in range (0, 1]"
+              end
+              return true
+            end,
+          },
+        },
+      },
       keymaps = {
         type = "table",
         fields = {

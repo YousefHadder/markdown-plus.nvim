@@ -1504,6 +1504,12 @@ The plugin can be configured through the setup function:
                                  -- later cell-edit/wrap commands
         max_column_width = nil,  -- Default width (display cells) for the wrap-cell
                                  -- command. nil = prompt every time.
+        cell_editor = {          -- Floating cell-editor popup configuration
+          enabled = true,        -- Allow opening the popup
+          border = 'rounded',    -- nvim_open_win border style
+          width = 0.6,           -- fraction of editor width (0, 1]
+          height = 0.4,          -- fraction of editor height (0, 1]
+        },
         keymaps = {
           enabled = true,
           prefix = '<localleader>t',
@@ -1725,6 +1731,7 @@ TABLES ~
     <Plug>(MarkdownPlusTableInsertBreak)            - Insert <br> at cursor (n)
     <Plug>(MarkdownPlusTableWrapCell)               - Wrap cell to width (n)
     <Plug>(MarkdownPlusTableUnwrapCell)             - Strip every <br> (n)
+    <Plug>(MarkdownPlusTableEditCell)               - Edit cell in popup (n)
 
     Advanced operations:
     <Plug>(MarkdownPlusTableTranspose)              - Transpose table (n)
