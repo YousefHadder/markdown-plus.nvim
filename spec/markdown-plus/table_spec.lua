@@ -1956,4 +1956,178 @@ describe("table init (orchestration facade)", function()
       assert.is_truthy(joined:find("one<br>two", 1, true))
     end)
   end)
+
+  describe("auto_wrap", function()
+    before_each(function()
+      vim.cmd("enew")
+      vim.bo.filetype = "markdown"
+    end)
+
+    local function read_buf()
+      return vim.api.nvim_buf_get_lines(0, 0, -1, false)
+    end
+
+    local function reset_to(lines)
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(1, 1)
+    end
+
+    local LONG_INPUT = {
+      "| Description | S |",
+      "| ----------- | - |",
+      "| the quick brown fox jumps over the lazy dog | x |",
+    }
+
+    it("is a no-op by default (no auto_wrap, no max_column_width)", function()
+      reset_to(LONG_INPUT)
+      formatter.format_table(parser.get_table_at_cursor())
+      local result = read_buf()
+      assert.is_truthy(result[3]:find("the quick brown fox jumps over the lazy dog", 1, true))
+      assert.is_falsy(result[3]:find("<br>", 1, true))
+    end)
+
+    it("is a no-op when auto_wrap=true but max_column_width is nil", function()
+      reset_to(LONG_INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), { auto_wrap = true })
+      local result = read_buf()
+      assert.is_falsy(result[3]:find("<br>", 1, true))
+    end)
+
+    it("wraps cells whose widest segment exceeds the cap when both flags are set", function()
+      reset_to(LONG_INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 9,
+      })
+      local result = read_buf()
+      -- The first data row should now contain at least one <br>
+      assert.is_truthy(result[3]:find("<br>", 1, true))
+      -- No segment between <br>s is longer than the cap (allowing the one-word case)
+      local cell = result[3]:match("^| (.-) | x")
+      assert.is_not_nil(cell)
+      local cell_breaks = require("markdown-plus.table.cell_breaks")
+      for _, seg in ipairs(cell_breaks.split_segments(cell)) do
+        -- A single word longer than the cap is allowed; multi-word segments must fit
+        if seg:find("%s") then
+          assert.is_true(vim.fn.strwidth(seg) <= 9, "segment exceeded cap: " .. seg)
+        end
+      end
+    end)
+
+    it("does not touch cells whose widest segment already fits", function()
+      reset_to({
+        "| A   | B |",
+        "| --- | - |",
+        "| ok  | y |",
+      })
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 10,
+      })
+      local result = read_buf()
+      assert.is_falsy(result[3]:find("<br>", 1, true))
+    end)
+
+    it("is idempotent at the same width", function()
+      reset_to(LONG_INPUT)
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 9,
+      })
+      local first = read_buf()
+
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 9,
+      })
+      local second = read_buf()
+      assert.are.same(first, second)
+    end)
+
+    it("respects the per-table opt-out sentinel comment", function()
+      reset_to({
+        "<!-- markdown-plus: no-wrap -->",
+        "| Description | S |",
+        "| ----------- | - |",
+        "| the quick brown fox jumps over the lazy dog | x |",
+      })
+      vim.fn.cursor(2, 1)
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 9,
+      })
+      local result = read_buf()
+      -- Data row stays as a single line; no <br> injected
+      assert.is_falsy(result[4]:find("<br>", 1, true))
+      assert.is_truthy(result[4]:find("the quick brown fox jumps over the lazy dog", 1, true))
+    end)
+
+    it("sentinel is recognised across whitespace variations", function()
+      reset_to({
+        "   <!--    markdown-plus:   no-wrap   -->   ",
+        "| Description | S |",
+        "| ----------- | - |",
+        "| the quick brown fox jumps over the lazy dog | x |",
+      })
+      vim.fn.cursor(2, 1)
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 9,
+      })
+      assert.is_falsy(read_buf()[4]:find("<br>", 1, true))
+    end)
+
+    it("sentinel on one table does not suppress wrapping on another", function()
+      reset_to({
+        "<!-- markdown-plus: no-wrap -->",
+        "| A | B |",
+        "| - | - |",
+        "| the quick brown fox | x |",
+        "",
+        "| C | D |",
+        "| - | - |",
+        "| the quick brown fox | y |",
+      })
+
+      -- Format table 1 (protected by sentinel)
+      vim.fn.cursor(2, 1)
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 9,
+      })
+
+      -- Format table 2 (no sentinel)
+      vim.fn.cursor(6, 1)
+      formatter.format_table(parser.get_table_at_cursor(), {
+        auto_wrap = true,
+        max_column_width = 9,
+      })
+
+      local result = read_buf()
+      -- Table 1 untouched
+      assert.is_truthy(result[4]:find("the quick brown fox", 1, true))
+      assert.is_falsy(result[4]:find("<br>", 1, true))
+      -- Table 2 was wrapped
+      local table2_row = nil
+      for i = 6, #result do
+        if result[i]:find("<br>", 1, true) then
+          table2_row = result[i]
+          break
+        end
+      end
+      assert.is_not_nil(table2_row, "expected table 2 to contain <br>")
+    end)
+
+    it("falls back to config when opts are omitted", function()
+      local markdown_plus = require("markdown-plus")
+      markdown_plus.setup({ table = { auto_wrap = true, max_column_width = 9 } })
+
+      reset_to(LONG_INPUT)
+      formatter.format_table(parser.get_table_at_cursor())
+      local result = read_buf()
+      assert.is_truthy(result[3]:find("<br>", 1, true))
+
+      markdown_plus.teardown()
+    end)
+  end)
 end)

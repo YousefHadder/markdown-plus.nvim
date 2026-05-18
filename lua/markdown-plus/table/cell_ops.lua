@@ -33,32 +33,6 @@ local function get_default_width()
   return nil
 end
 
----Greedy word-wrap a single line of text to a width, preserving long words.
----@param words string[]
----@param width integer
----@return string[]
-local function wrap_words(words, width)
-  if #words == 0 then
-    return {}
-  end
-  local lines = {}
-  local current = ""
-  for _, word in ipairs(words) do
-    if current == "" then
-      current = word
-    elseif #current + 1 + #word <= width then
-      current = current .. " " .. word
-    else
-      lines[#lines + 1] = current
-      current = word
-    end
-  end
-  if current ~= "" then
-    lines[#lines + 1] = current
-  end
-  return lines
-end
-
 ---Clear content of the current cell
 ---@return boolean success True if cell was cleared
 function M.clear_cell()
@@ -193,18 +167,7 @@ function M.wrap_cell(width)
   end
 
   local cell = table_info.cells[cells_index][pos.col + 1] or ""
-  local segments = cell_breaks.split_segments(cell)
-
-  local words = {}
-  for _, seg in ipairs(segments) do
-    for word in seg:gmatch("%S+") do
-      words[#words + 1] = word
-    end
-  end
-
-  local new_lines = wrap_words(words, width)
-  local new_content = cell_breaks.join_segments(new_lines, get_wrap_break())
-  table_info.cells[cells_index][pos.col + 1] = new_content
+  table_info.cells[cells_index][pos.col + 1] = cell_breaks.wrap_text(cell, width, get_wrap_break())
 
   local formatter = require("markdown-plus.table.format")
   formatter.format_table(table_info)

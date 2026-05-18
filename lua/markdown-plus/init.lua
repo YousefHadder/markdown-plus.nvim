@@ -33,6 +33,7 @@ local DEFAULT_CONFIG = {
     width_mode = "literal",
     wrap_break = "<br>",
     max_column_width = nil,
+    auto_wrap = false,
     cell_editor = {
       enabled = true,
       border = "rounded",

@@ -1504,6 +1504,11 @@ The plugin can be configured through the setup function:
                                  -- later cell-edit/wrap commands
         max_column_width = nil,  -- Default width (display cells) for the wrap-cell
                                  -- command. nil = prompt every time.
+        auto_wrap = false,       -- Opt-in: when true together with max_column_width,
+                                 -- format_table auto-wraps cells whose widest segment
+                                 -- exceeds the cap. Independent of auto_format. Place
+                                 -- `<!-- markdown-plus: no-wrap -->` immediately above
+                                 -- a table to opt it out individually.
         cell_editor = {          -- Floating cell-editor popup configuration
           enabled = true,        -- Allow opening the popup
           border = 'rounded',    -- nvim_open_win border style

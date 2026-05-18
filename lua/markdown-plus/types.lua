@@ -40,6 +40,7 @@
 ---@field width_mode? "literal"|"segment" Column-width calculation mode (default: 'literal'). 'segment' measures the widest <br>-split segment so cells containing breaks don't inflate column width.
 ---@field wrap_break? string Token used to represent a line break inside a cell (default: '<br>'). Honoured by later cell-edit/wrap commands.
 ---@field max_column_width? integer Default width (in display cells) used by the wrap-cell command. nil disables the default and forces a prompt (default: nil).
+---@field auto_wrap? boolean When true together with max_column_width, the formatter auto-wraps cells whose widest segment exceeds the cap. Decoupled from auto_format (default: false).
 ---@field cell_editor? markdown-plus.TableCellEditorConfig Floating cell-editor popup configuration
 ---@field keymaps? markdown-plus.TableKeymapConfig Table keymap configuration
 
@@ -145,6 +146,7 @@
 ---@field width_mode "literal"|"segment"
 ---@field wrap_break string
 ---@field max_column_width integer|nil
+---@field auto_wrap boolean
 ---@field cell_editor markdown-plus.InternalTableCellEditorConfig
 ---@field keymaps markdown-plus.InternalTableKeymapConfig
 
