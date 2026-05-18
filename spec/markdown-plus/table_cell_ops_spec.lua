@@ -362,6 +362,22 @@ describe("table.cell_ops", function()
       assert.is_false(cell_ops.wrap_cell(0))
       assert.is_false(cell_ops.wrap_cell(-3))
     end)
+
+    it("treats inline-code spans as atomic when wrapping", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H                  | B |",
+        "| ------------------ | - |",
+        "| `foo bar` quux end | y |",
+      })
+      place_cursor_at_cell(3, "`foo")
+
+      assert.is_true(cell_ops.wrap_cell(5))
+
+      local table_info = parser.get_table_at_cursor()
+      -- The code span "`foo bar`" must not be split by <br>.
+      assert.is_truthy(table_info.cells[2][1]:find("`foo bar`", 1, true))
+      assert.is_falsy(table_info.cells[2][1]:find("`foo<br>", 1, true))
+    end)
   end)
 
   describe("unwrap_cell", function()

@@ -129,4 +129,98 @@ function M.unwrap(cell)
   return joined
 end
 
+---Tokenize a string into whitespace-separated words while treating inline-code
+---spans (backtick-fenced text) as single atomic tokens — even if the span
+---itself contains whitespace.
+---@param cell string
+---@return string[] tokens
+local function tokenize_words(cell)
+  if cell == nil or cell == "" then
+    return {}
+  end
+  local code_ranges = find_code_spans(cell)
+  local tokens = {}
+  local buffer = ""
+  local i = 1
+  while i <= #cell do
+    local range_end = nil
+    for _, r in ipairs(code_ranges) do
+      if i >= r.first and i <= r.last then
+        range_end = r.last
+        break
+      end
+    end
+    if range_end then
+      buffer = buffer .. cell:sub(i, range_end)
+      i = range_end + 1
+    else
+      local char = cell:sub(i, i)
+      if char:match("%s") then
+        if buffer ~= "" then
+          tokens[#tokens + 1] = buffer
+          buffer = ""
+        end
+      else
+        buffer = buffer .. char
+      end
+      i = i + 1
+    end
+  end
+  if buffer ~= "" then
+    tokens[#tokens + 1] = buffer
+  end
+  return tokens
+end
+
+---Greedy word-wrap a cell to a maximum width, inserting `wrap_break` at word
+---boundaries. Existing `<br>` variants are flattened first so the result is
+---deterministic and idempotent at the same width.
+---
+---Long single words (longer than width) are kept intact on their own line —
+---this function never splits a word mid-character. Inline-code spans
+---(backtick-fenced text) are treated as atomic tokens, so wrapping never
+---occurs inside a code span even if the span itself contains spaces.
+---
+---Widths are measured in display cells via `vim.fn.strwidth`, so multibyte
+---and wide characters are handled correctly.
+---@param cell string|nil
+---@param width integer Target width (>= 1)
+---@param wrap_break? string Break token used between resulting lines (default: "<br>")
+---@return string
+function M.wrap_text(cell, width, wrap_break)
+  wrap_break = wrap_break or "<br>"
+  if cell == nil or cell == "" or width == nil or width < 1 then
+    return cell or ""
+  end
+  -- Flatten existing <br>s so the wrap is independent of prior break placement.
+  local segments = M.split_segments(cell)
+  local flat = table.concat(segments, " ")
+  local words = tokenize_words(flat)
+  if #words == 0 then
+    return ""
+  end
+
+  local lines = {}
+  local current = ""
+  local current_width = 0
+  for _, word in ipairs(words) do
+    local word_width = vim.fn.strwidth(word)
+    if current == "" then
+      current = word
+      current_width = word_width
+    elseif current_width + 1 + word_width <= width then
+      current = current .. " " .. word
+      current_width = current_width + 1 + word_width
+    else
+      lines[#lines + 1] = current
+      current = word
+      current_width = word_width
+    end
+  end
+  if current ~= "" then
+    lines[#lines + 1] = current
+  end
+  return M.join_segments(lines, wrap_break)
+end
+
 return M

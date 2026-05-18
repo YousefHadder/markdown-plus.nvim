@@ -118,11 +118,71 @@ local function format_separator(widths, alignments)
   return "| " .. table.concat(separators, " | ") .. " |"
 end
 
+---@param table_info TableInfo
+---@param opts {auto_wrap?: boolean, max_column_width?: integer|nil, wrap_break?: string}
+local function apply_auto_wrap(table_info, opts)
+  local auto_wrap = opts.auto_wrap
+  local max_width = opts.max_column_width
+  local wrap_break = opts.wrap_break
+
+  if auto_wrap == nil or max_width == nil or wrap_break == nil then
+    local ok, table_module = pcall(require, "markdown-plus.table")
+    if ok and table_module.config then
+      if auto_wrap == nil then
+        auto_wrap = table_module.config.auto_wrap
+      end
+      if max_width == nil then
+        max_width = table_module.config.max_column_width
+      end
+      if wrap_break == nil then
+        wrap_break = table_module.config.wrap_break
+      end
+    end
+  end
+  if wrap_break == nil then
+    wrap_break = "<br>"
+  end
+
+  -- No-op unless both flags are set and the width is a positive integer.
+  if not auto_wrap or type(max_width) ~= "number" or max_width < 1 or max_width ~= math.floor(max_width) then
+    return
+  end
+
+  -- Respect the per-table opt-out sentinel on the line immediately above the table.
+  if table_info.start_row > 1 then
+    local prev = vim.api.nvim_buf_get_lines(0, table_info.start_row - 2, table_info.start_row - 1, false)[1] or ""
+    if prev:match("^%s*<!%-%-%s*markdown%-plus:%s*no%-wrap%s*%-%->%s*$") then
+      return
+    end
+  end
+
+  local cell_breaks = require("markdown-plus.table.cell_breaks")
+  for _, row in ipairs(table_info.cells) do
+    for col = 1, table_info.cols do
+      local cell = row[col] or ""
+      if cell ~= "" then
+        local segments = cell_breaks.split_segments(cell)
+        local needs_wrap = false
+        for _, seg in ipairs(segments) do
+          if vim.fn.strwidth(seg) > max_width then
+            needs_wrap = true
+            break
+          end
+        end
+        if needs_wrap then
+          row[col] = cell_breaks.wrap_text(cell, max_width, wrap_break)
+        end
+      end
+    end
+  end
+end
+
 ---Format and replace table in buffer
 ---@param table_info TableInfo Parsed table information
----@param opts? {width_mode?: "literal"|"segment"} Optional overrides; falls back to table config
+---@param opts? {width_mode?: "literal"|"segment", auto_wrap?: boolean, max_column_width?: integer|nil, wrap_break?: string} Optional overrides; falls back to table config
 function M.format_table(table_info, opts)
   opts = opts or {}
+  apply_auto_wrap(table_info, opts)
   local width_mode = opts.width_mode
   if not width_mode then
     local ok, table_module = pcall(require, "markdown-plus.table")

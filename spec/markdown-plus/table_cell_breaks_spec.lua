@@ -156,4 +156,66 @@ describe("table.cell_breaks", function()
       assert.equals("", cell_breaks.unwrap(nil))
     end)
   end)
+
+  describe("wrap_text", function()
+    it("returns input unchanged when content already fits", function()
+      assert.equals("short", cell_breaks.wrap_text("short", 20))
+    end)
+
+    it("wraps a long single line at the requested width", function()
+      assert.equals("the quick<br>brown fox", cell_breaks.wrap_text("the quick brown fox", 9))
+    end)
+
+    it("preserves long single words (no mid-word break)", function()
+      local out = cell_breaks.wrap_text("supercalifragilisticexpialidocious short", 8)
+      assert.is_truthy(out:find("supercalifragilisticexpialidocious", 1, true))
+      assert.is_truthy(out:find("<br>", 1, true))
+    end)
+
+    it("flattens existing <br> segments before re-wrapping (idempotent at same width)", function()
+      local first = cell_breaks.wrap_text("the quick brown fox", 9)
+      local second = cell_breaks.wrap_text(first, 9)
+      assert.equals(first, second)
+    end)
+
+    it("honours a custom wrap_break token", function()
+      assert.equals("aa  \nbb", cell_breaks.wrap_text("aa bb", 2, "  \n"))
+    end)
+
+    it("returns '' for empty or nil input", function()
+      assert.equals("", cell_breaks.wrap_text("", 10))
+      assert.equals("", cell_breaks.wrap_text(nil, 10))
+    end)
+
+    it("returns the input string when width is nil or invalid", function()
+      assert.equals("hello world", cell_breaks.wrap_text("hello world", nil))
+      assert.equals("hello world", cell_breaks.wrap_text("hello world", 0))
+    end)
+
+    it("treats inline-code spans as atomic tokens even when they contain spaces", function()
+      -- A code span "`foo bar`" should never be split by the wrap algorithm,
+      -- even if the configured width would fit "foo" but not the whole span.
+      local out = cell_breaks.wrap_text("`foo bar` quux", 5)
+      assert.is_truthy(out:find("`foo bar`", 1, true))
+      assert.is_falsy(out:find("foo<br>bar", 1, true))
+    end)
+
+    it("keeps multiple inline-code spans intact", function()
+      local out = cell_breaks.wrap_text("a `x y` b `c d` e", 1)
+      -- Each code span survives as a single token in the output.
+      assert.is_truthy(out:find("`x y`", 1, true))
+      assert.is_truthy(out:find("`c d`", 1, true))
+    end)
+
+    it("uses display width (strwidth), not byte length, for wrapping", function()
+      -- Each CJK char is 2 cells wide. Width 4 fits one CJK + one ASCII (e.g. "あ b" = 4 cells).
+      -- A byte-length-based algorithm would mis-wrap because "あ" is 3 bytes but 2 cells.
+      local out = cell_breaks.wrap_text("あ b c d", 4)
+      for _, seg in ipairs(cell_breaks.split_segments(out)) do
+        if seg:find(" ", 1, true) then -- only assert on multi-word segments
+          assert.is_true(vim.fn.strwidth(seg) <= 4, "segment exceeded display width: " .. seg)
+        end
+      end
+    end)
+  end)
 end)

@@ -71,6 +71,7 @@ local SCHEMA = {
           return true
         end,
       },
+      auto_wrap = { type = "boolean" },
       cell_editor = {
         type = "table",
         fields = {
