@@ -1241,11 +1241,14 @@ When not in a table, navigation keys fall back to arrow keys.
 
 CELL WRAPPING ~
 
-Long cell content can be broken across visual lines using in-cell `<br>` tokens.
+Long cell content can be broken across visual lines using the configured
+`wrap_break` token (defaults to `<br>`).
 
-- `<localleader>tb` - Insert a `<br>` break at the cursor position inside a cell
-- `<localleader>tw` - Wrap a cell to a target column width (prompts for width if
-                      `max_column_width` is nil; otherwise uses the configured default)
+- `<localleader>tb` - Insert the configured `wrap_break` token (defaults to
+                      `<br>`) at the cursor position inside a cell
+- `<localleader>tw` - Wrap a cell to a target column width using `wrap_break`
+                      (prompts for width if `max_column_width` is nil; otherwise
+                      uses the configured default)
 - `<localleader>tW` - Unwrap a cell, stripping all `<br>` tokens
 
 Auto-wrap on format:
@@ -1277,9 +1280,9 @@ The plugin detects numeric vs. alphabetic columns automatically.  A
 confirmation prompt is shown before destructive operations; set
 `confirm_destructive = false` in the table config to suppress it.
 
-CSV import/export:
-- `<localleader>tvx` - Export the table to a CSV representation
-- `<localleader>tvi` - Import a CSV block and convert it to a Markdown table
+CSV conversion (in-place buffer transformation):
+- `<localleader>tvx` - Convert the table under the cursor to CSV
+- `<localleader>tvi` - Convert a CSV block under the cursor to a Markdown table
 
 CELL EDITOR ~
 
