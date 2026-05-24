@@ -1239,6 +1239,55 @@ Example:
 When not in a table, navigation keys fall back to arrow keys.
 
 
+CELL WRAPPING ~
+
+Long cell content can be broken across visual lines using in-cell `<br>` tokens.
+
+- `<localleader>tb` - Insert a `<br>` break at the cursor position inside a cell
+- `<localleader>tw` - Wrap a cell to a target column width (prompts for width if
+                      `max_column_width` is nil; otherwise uses the configured default)
+- `<localleader>tW` - Unwrap a cell, stripping all `<br>` tokens
+
+Auto-wrap on format:
+  When `auto_wrap = true` and `max_column_width` is set, `<localleader>tf` will
+  automatically wrap any cell whose widest segment exceeds the cap.  Place
+  `<!-- markdown-plus: no-wrap -->` on the line immediately above a table to
+  opt that specific table out of auto-wrapping.
+
+>lua
+    require('markdown-plus').setup({
+      table = {
+        max_column_width = 40,  -- cap at 40 display cells
+        auto_wrap = true,       -- wrap automatically on format
+        wrap_break = '<br>',    -- token inserted between segments (default)
+      },
+    })
+<
+
+ADVANCED OPERATIONS ~
+
+Transpose a table (swap rows and columns):
+- `<localleader>tt` - Transpose the table under the cursor
+
+Sort table rows by the current column:
+- `<localleader>tsa` - Sort ascending
+- `<localleader>tsd` - Sort descending
+
+The plugin detects numeric vs. alphabetic columns automatically.  A
+confirmation prompt is shown before destructive operations; set
+`confirm_destructive = false` in the table config to suppress it.
+
+CSV import/export:
+- `<localleader>tvx` - Export the table to a CSV representation
+- `<localleader>tvi` - Import a CSV block and convert it to a Markdown table
+
+CELL EDITOR ~
+
+Open a floating popup to edit long cell content comfortably:
+- `<localleader>te` - Open the cell editor popup
+
+Popup dimensions and border style can be configured via `table.cell_editor`.
+
 TABLE FEATURES ~
 
 Smart cursor positioning:
