@@ -342,19 +342,29 @@ Toggle the current line (normal mode) or a selection (visual mode) to a list
 type. Plain text gains a marker; a line already of the target type is cleared
 back to plain text; a line of a different type is converted.
 
-The default mapping `<localleader>lt` (normal and visual mode) starts the toggle
-picker: press it, then a single key to choose the list type:
+The default mappings live under the `<localleader>lt` prefix (normal and visual
+mode). Press the prefix, then a single key to choose the list type:
 
 >markdown
-    u   unordered          -
-    t   task               - [ ]
-    n   numbered           1.
-    N   numbered paren     1)
-    l   lowercase letter   a.
-    L   uppercase letter   A.
-    p   lowercase paren    a)
-    P   uppercase paren    A)
-    c   clear              strip list markers (force plain text)
+    <localleader>ltu   unordered          -
+    <localleader>ltt   task               - [ ]
+    <localleader>ltn   numbered           1.
+    <localleader>ltN   numbered paren     1)
+    <localleader>ltl   lowercase letter   a.
+    <localleader>ltL   uppercase letter   A.
+    <localleader>ltp   lowercase paren    a)
+    <localleader>ltP   uppercase paren    A)
+    <localleader>ltc   clear              strip list markers (force plain text)
+<
+
+Because these are real buffer-local mappings, plugins such as which-key.nvim
+discover them automatically and show the menu after you press `<localleader>lt`.
+The second key must be pressed within 'timeoutlen'.
+
+If you prefer a picker that waits indefinitely for the type key (the original
+behavior), bind the picker `<Plug>` mapping yourself: >lua
+    vim.keymap.set({ "n", "x" }, "<localleader>lt",
+      "<Plug>(MarkdownPlusToggleListPick)", { buffer = true })
 <
 
 In visual mode the decision is range-level: if every non-blank selected line
@@ -366,13 +376,13 @@ Conversions preserve a checkbox when moving to an ordered or task type and drop
 it when moving to a plain unordered list:
 
 >markdown
-    write README          <localleader>lt t  →  - [ ] write README
-    1. [x] ship           <localleader>lt u  →  - ship
-    - [x] ship            <localleader>lt n  →  1. [x] ship
+    write README          <localleader>ltt  →  - [ ] write README
+    1. [x] ship           <localleader>ltu  →  - ship
+    - [x] ship            <localleader>ltn  →  1. [x] ship
 <
 
-Each type also has a direct `<Plug>` mapping if you prefer a dedicated key per
-type instead of the picker; see |markdown-plus-keymaps|.
+Each type also has a direct `<Plug>` mapping if you prefer your own dedicated
+key per type; see |markdown-plus-keymaps|.
 
 CHECKBOX TOGGLING ~
 
@@ -1782,14 +1792,15 @@ LIST MANAGEMENT ~
     <Plug>(MarkdownPlusNewListItemAbove)   - New item above (n)
     <Plug>(MarkdownPlusToggleCheckbox)     - Toggle checkbox (n, x, i)
     <Plug>(MarkdownPlusToggleListPick)     - Toggle list, pick type with next key (n, x)
-    <Plug>(MarkdownPlusToggleListUnordered) - Toggle unordered list (n, x)
-    <Plug>(MarkdownPlusToggleListOrdered)  - Toggle ordered list (n, x)
-    <Plug>(MarkdownPlusToggleListTask)     - Toggle task list (n, x)
-    <Plug>(MarkdownPlusToggleListOrderedParen) - Toggle parenthesized ordered list (n, x)
-    <Plug>(MarkdownPlusToggleListLetterLower) - Toggle lowercase letter list (n, x)
-    <Plug>(MarkdownPlusToggleListLetterUpper) - Toggle uppercase letter list (n, x)
-    <Plug>(MarkdownPlusToggleListLetterLowerParen) - Toggle parenthesized lowercase letter list (n, x)
-    <Plug>(MarkdownPlusToggleListLetterUpperParen) - Toggle parenthesized uppercase letter list (n, x)
+    <Plug>(MarkdownPlusToggleListUnordered) - Toggle unordered list (n, x) [<localleader>ltu]
+    <Plug>(MarkdownPlusToggleListOrdered)  - Toggle ordered list (n, x) [<localleader>ltn]
+    <Plug>(MarkdownPlusToggleListTask)     - Toggle task list (n, x) [<localleader>ltt]
+    <Plug>(MarkdownPlusToggleListOrderedParen) - Toggle parenthesized ordered list (n, x) [<localleader>ltN]
+    <Plug>(MarkdownPlusToggleListLetterLower) - Toggle lowercase letter list (n, x) [<localleader>ltl]
+    <Plug>(MarkdownPlusToggleListLetterUpper) - Toggle uppercase letter list (n, x) [<localleader>ltL]
+    <Plug>(MarkdownPlusToggleListLetterLowerParen) - Toggle parenthesized lowercase letter list (n, x) [<localleader>ltp]
+    <Plug>(MarkdownPlusToggleListLetterUpperParen) - Toggle parenthesized uppercase letter list (n, x) [<localleader>ltP]
+    <Plug>(MarkdownPlusToggleListClear)    - Clear list markers, leaving plain text (n, x) [<localleader>ltc]
 
 THEMATIC BREAKS ~
 

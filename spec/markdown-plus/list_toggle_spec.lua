@@ -230,6 +230,31 @@ describe("markdown-plus list toggle", function()
     end)
   end)
 
+  describe("clear_list_line", function()
+    it("clears the current line", function()
+      set_lines({ "1. [x] item" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      toggle.clear_list_line()
+      assert.are.same({ "item" }, get_lines())
+    end)
+
+    it("leaves a plain line untouched", function()
+      set_lines({ "plain" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      toggle.clear_list_line()
+      assert.are.same({ "plain" }, get_lines())
+    end)
+  end)
+
+  describe("clear_list_range", function()
+    it("clears the current visual selection", function()
+      set_lines({ "- one", "1. two", "a) three" })
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("ggVG", true, false, true), "x", false)
+      toggle.clear_list_range()
+      assert.are.same({ "one", "two", "three" }, get_lines())
+    end)
+  end)
+
   describe("picker dispatcher", function()
     local orig_read_key
 

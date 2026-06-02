@@ -238,6 +238,24 @@ function M.clear_list_in_range(start_row, end_row)
   vim.api.nvim_win_set_cursor(0, { row, math.min(cursor[2], math.max(0, #row_text)) })
 end
 
+---Clear list markers (and checkboxes) from the current line, leaving plain text.
+---@return nil
+function M.clear_list_line()
+  local row = vim.api.nvim_win_get_cursor(0)[1]
+  M.clear_list_in_range(row, row)
+end
+
+---Clear list markers (and checkboxes) across the current visual selection.
+---@return nil
+function M.clear_list_range()
+  local start_row = vim.fn.line("v")
+  local end_row = vim.fn.line(".")
+  if start_row == 0 or end_row == 0 then
+    return
+  end
+  M.clear_list_in_range(start_row, end_row)
+end
+
 ---Maps a picker key to a target toggle type. `c` is handled separately as clear.
 ---@type table<string, string>
 M.KEY_MAP = {
