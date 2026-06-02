@@ -7,6 +7,7 @@ local parser = require("markdown-plus.list.parser")
 local handlers = require("markdown-plus.list.handlers")
 local renumber = require("markdown-plus.list.renumber")
 local checkbox = require("markdown-plus.list.checkbox")
+local toggle = require("markdown-plus.list.toggle")
 
 local M = {}
 
@@ -125,6 +126,120 @@ function M.setup_keymaps()
       modes = { "n", "x", "i" },
       default_key = { "<localleader>mx", "<localleader>mx", "<C-t>" },
       desc = "Toggle checkbox",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListUnordered"),
+      fn = {
+        function()
+          toggle.toggle_list_line("unordered")
+        end,
+        function()
+          toggle.toggle_list_range("unordered")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle unordered list",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListOrdered"),
+      fn = {
+        function()
+          toggle.toggle_list_line("ordered")
+        end,
+        function()
+          toggle.toggle_list_range("ordered")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle ordered list",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListTask"),
+      fn = {
+        function()
+          toggle.toggle_list_line("task")
+        end,
+        function()
+          toggle.toggle_list_range("task")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle task list",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListPick"),
+      fn = {
+        toggle.toggle_list_pick_line,
+        toggle.toggle_list_pick_range,
+      },
+      modes = { "n", "x" },
+      default_key = { "<localleader>lt", "<localleader>lt" },
+      desc = "Toggle list (pick type: u/t/n/N/l/L/p/P, c=clear)",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListOrderedParen"),
+      fn = {
+        function()
+          toggle.toggle_list_line("ordered_paren")
+        end,
+        function()
+          toggle.toggle_list_range("ordered_paren")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle parenthesized ordered list",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListLetterLower"),
+      fn = {
+        function()
+          toggle.toggle_list_line("letter_lower")
+        end,
+        function()
+          toggle.toggle_list_range("letter_lower")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle lowercase letter list",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListLetterUpper"),
+      fn = {
+        function()
+          toggle.toggle_list_line("letter_upper")
+        end,
+        function()
+          toggle.toggle_list_range("letter_upper")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle uppercase letter list",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListLetterLowerParen"),
+      fn = {
+        function()
+          toggle.toggle_list_line("letter_lower_paren")
+        end,
+        function()
+          toggle.toggle_list_range("letter_lower_paren")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle parenthesized lowercase letter list",
+    },
+    {
+      plug = keymap_helper.plug_name("ToggleListLetterUpperParen"),
+      fn = {
+        function()
+          toggle.toggle_list_line("letter_upper_paren")
+        end,
+        function()
+          toggle.toggle_list_range("letter_upper_paren")
+        end,
+      },
+      modes = { "n", "x" },
+      desc = "Toggle parenthesized uppercase letter list",
     },
   })
 
@@ -287,5 +402,11 @@ M.toggle_checkbox_line = checkbox.toggle_checkbox_line
 M.toggle_checkbox_range = checkbox.toggle_checkbox_range
 M.toggle_checkbox_insert = checkbox.toggle_checkbox_insert
 M.get_completion_config = checkbox.get_completion_config
+M.toggle_list_line = toggle.toggle_list_line
+M.toggle_list_range = toggle.toggle_list_range
+M.toggle_list_in_range = toggle.toggle_list_in_range
+M.clear_list_in_range = toggle.clear_list_in_range
+M.toggle_list_pick_line = toggle.toggle_list_pick_line
+M.toggle_list_pick_range = toggle.toggle_list_pick_range
 
 return M

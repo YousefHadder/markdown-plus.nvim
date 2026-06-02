@@ -74,6 +74,7 @@ That's it! The plugin will automatically activate with default keymaps when you 
 - New heading toggle: `<localleader>ms` switches ATX/setext heading style (H1/H2).
 - New thematic-break commands: `<localleader>mh` (insert) and `<localleader>mH` (cycle style).
 - Smart list outdent is enabled by default (`list.smart_outdent = true`) for parent-aware marker continuation.
+- New list type toggling: `<localleader>lt` starts a picker — press it, then a type key (`u` unordered, `t` task, `n` `1.`, `N` `1)`, `l` `a.`, `L` `A.`, `p` `a)`, `P` `A)`, `c` clear) to toggle the current line or selection. Works in normal and visual mode; each type also has a `<Plug>` mapping.
 - New formatting escape toggle: `<localleader>me` (visual mode) escapes/unescapes markdown punctuation.
 - Code block module is now first-class: `<localleader>mc` insert/wrap, `]b`/`[b` navigate, `<localleader>mC` change language.
 - Formatting defaults moved to avoid key collisions: strikethrough `<localleader>mS`, inline code `<localleader>m\``, highlight `<localleader>m=`, clear formatting `<localleader>mF`.

@@ -335,6 +335,45 @@ behavior for multiple list types:
 
 All list types support checkboxes (e.g., `- [ ]`, `1. [x]`, `a. [ ]`).
 
+LIST TYPE TOGGLING ~
+                                                *markdown-plus-list-toggle*
+
+Toggle the current line (normal mode) or a selection (visual mode) to a list
+type. Plain text gains a marker; a line already of the target type is cleared
+back to plain text; a line of a different type is converted.
+
+The default mapping `<localleader>lt` (normal and visual mode) starts the toggle
+picker: press it, then a single key to choose the list type:
+
+>markdown
+    u   unordered          -
+    t   task               - [ ]
+    n   numbered           1.
+    N   numbered paren     1)
+    l   lowercase letter   a.
+    L   uppercase letter   A.
+    p   lowercase paren    a)
+    P   uppercase paren    A)
+    c   clear              strip list markers (force plain text)
+<
+
+In visual mode the decision is range-level: if every non-blank selected line
+already matches the target type the whole selection is cleared; otherwise every
+non-blank line is converted. Blank lines are left untouched, and ordered types
+are renumbered automatically per indentation group.
+
+Conversions preserve a checkbox when moving to an ordered or task type and drop
+it when moving to a plain unordered list:
+
+>markdown
+    write README          <localleader>lt t  →  - [ ] write README
+    1. [x] ship           <localleader>lt u  →  - ship
+    - [x] ship            <localleader>lt n  →  1. [x] ship
+<
+
+Each type also has a direct `<Plug>` mapping if you prefer a dedicated key per
+type instead of the picker; see |markdown-plus-keymaps|.
+
 CHECKBOX TOGGLING ~
 
 Toggle checkboxes with `<localleader>mx` in normal/visual mode or `<C-t>` in insert
@@ -1742,6 +1781,15 @@ LIST MANAGEMENT ~
     <Plug>(MarkdownPlusNewListItemBelow)   - New item below (n)
     <Plug>(MarkdownPlusNewListItemAbove)   - New item above (n)
     <Plug>(MarkdownPlusToggleCheckbox)     - Toggle checkbox (n, x, i)
+    <Plug>(MarkdownPlusToggleListPick)     - Toggle list, pick type with next key (n, x)
+    <Plug>(MarkdownPlusToggleListUnordered) - Toggle unordered list (n, x)
+    <Plug>(MarkdownPlusToggleListOrdered)  - Toggle ordered list (n, x)
+    <Plug>(MarkdownPlusToggleListTask)     - Toggle task list (n, x)
+    <Plug>(MarkdownPlusToggleListOrderedParen) - Toggle parenthesized ordered list (n, x)
+    <Plug>(MarkdownPlusToggleListLetterLower) - Toggle lowercase letter list (n, x)
+    <Plug>(MarkdownPlusToggleListLetterUpper) - Toggle uppercase letter list (n, x)
+    <Plug>(MarkdownPlusToggleListLetterLowerParen) - Toggle parenthesized lowercase letter list (n, x)
+    <Plug>(MarkdownPlusToggleListLetterUpperParen) - Toggle parenthesized uppercase letter list (n, x)
 
 THEMATIC BREAKS ~
 
