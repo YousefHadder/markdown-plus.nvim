@@ -67,6 +67,20 @@ describe("markdown-plus list toggle", function()
       assert.are.same({ "hello" }, get_lines())
     end)
 
+    it("toggles off a star bullet with the unordered target", function()
+      set_lines({ "* hello" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      toggle.toggle_list_line("unordered")
+      assert.are.same({ "hello" }, get_lines())
+    end)
+
+    it("toggles off a plus bullet with the unordered target", function()
+      set_lines({ "+ hello" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      toggle.toggle_list_line("unordered")
+      assert.are.same({ "hello" }, get_lines())
+    end)
+
     it("removes a task marker including checkbox", function()
       set_lines({ "- [x] done" })
       vim.api.nvim_win_set_cursor(0, { 1, 0 })
@@ -179,6 +193,12 @@ describe("markdown-plus list toggle", function()
       -- A non-continuation blank line breaks list groups, so each side
       -- forms its own list and restarts numbering (established renumber behavior).
       assert.are.same({ "1. one", "", "1. two" }, get_lines())
+    end)
+
+    it("clears a mixed-bullet selection with the unordered target", function()
+      set_lines({ "- one", "* two", "+ three" })
+      toggle.toggle_list_in_range(1, 3, "unordered")
+      assert.are.same({ "one", "two", "three" }, get_lines())
     end)
 
     it("handles a reversed range", function()

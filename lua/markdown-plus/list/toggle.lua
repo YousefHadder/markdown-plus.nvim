@@ -60,7 +60,7 @@ local function line_matches_target(list_info, target_type)
 
   local def = TYPE_DEFS[target_type]
   if def.family == "unordered" then
-    return list_info.type == "unordered" and list_info.checkbox == nil and list_info.marker == "-"
+    return list_info.type == "unordered" and list_info.checkbox == nil
   elseif def.family == "task" then
     return list_info.type == "unordered" and list_info.checkbox ~= nil and list_info.marker == "-"
   end
