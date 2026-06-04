@@ -1,0 +1,65 @@
+name: Wiki Sync
+
+# Publishes the in-repo wiki source (docs/wiki/) to the GitHub wiki repo.
+# The wiki is a separate git repo (<repo>.wiki.git) with no PR mechanism, so
+# this deterministic, non-AI job mirrors docs/wiki/ -> wiki on every merge to
+# main that touches those files. Content is authored/reviewed via normal PRs
+# (see wiki-updater.md); this job only publishes already-merged changes.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/wiki/**"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Serialize wiki pushes so rapid merges can't race on the wiki's master branch.
+concurrency:
+  group: wiki-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Mirror docs/wiki to wiki
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Mirror docs/wiki to the wiki repo
+        env:
+          # Defaults to the built-in token. If pushing to the wiki fails with
+          # an auth error, add a repo/fine-grained PAT secret named
+          # WIKI_SYNC_TOKEN with push access to the wiki and it will be used.
+          WIKI_TOKEN: ${{ secrets.WIKI_SYNC_TOKEN || github.token }}
+        run: |
+          set -euo pipefail
+
+          if [ ! -d docs/wiki ]; then
+            echo "docs/wiki/ does not exist; nothing to publish."
+            exit 0
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git clone --quiet \
+            "https://x-access-token:${WIKI_TOKEN}@github.com/${GITHUB_REPOSITORY}.wiki.git" wiki
+
+          # Full mirror: copy every page and delete wiki pages that no longer
+          # exist in docs/wiki/. Never touch the wiki's own .git directory.
+          rsync -a --delete --exclude='.git' docs/wiki/ wiki/
+
+          cd wiki
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Wiki already up to date; nothing to publish."
+            exit 0
+          fi
+
+          short_sha="${GITHUB_SHA:0:7}"
+          git commit -m "docs(wiki): sync from docs/wiki@${short_sha}"
+          git push origin HEAD:master

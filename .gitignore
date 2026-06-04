@@ -21,7 +21,9 @@
 /test_results/
 
 # Documentation directory (internal planning, notes, etc.)
-docs/
+# ...but the wiki source of truth (published by wiki-sync.yml) is tracked.
+docs/*
+!docs/wiki/
 
 # Internal tools and configurations
 demo

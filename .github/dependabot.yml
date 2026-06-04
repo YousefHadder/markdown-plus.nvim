@@ -1,22 +1,14 @@
-version: 2
 updates:
-  # GitHub Actions dependency updates
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-    labels:
-      - "dependencies"
-      - "github-actions"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-
-  # Lua/LuaRocks dependencies (if you add a rockspec file)
-  # - package-ecosystem: "bundler"
-  #   directory: "/"
-  #   schedule:
-  #     interval: "weekly"
-  #   labels:
-  #     - "dependencies"
-  #     - "lua"
+- commit-message:
+    include: scope
+    prefix: chore
+  directory: /
+  ignore:
+  - dependency-name: "github/gh-aw-actions/**" # Managed by gh aw compile. Version-locked to the gh-aw compiler; do not bump.
+  labels:
+  - dependencies
+  - github-actions
+  package-ecosystem: github-actions
+  schedule:
+    interval: weekly
+version: 2
