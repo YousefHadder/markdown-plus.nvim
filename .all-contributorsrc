@@ -164,6 +164,15 @@
         "bug",
         "code"
       ]
+    },
+    {
+      "login": "nkahe",
+      "name": "Henri K.",
+      "avatar_url": "https://avatars.githubusercontent.com/u/12832691?v=4",
+      "profile": "https://github.com/nkahe",
+      "contributions": [
+        "ideas"
+      ]
     }
   ],
   "contributorsPerLine": 7,
