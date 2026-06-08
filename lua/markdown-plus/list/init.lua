@@ -1,6 +1,5 @@
 -- List management module for markdown-plus.nvim
 local utils = require("markdown-plus.utils")
-local keymap_helper = require("markdown-plus.keymap_helper")
 
 -- Load sub-modules
 local parser = require("markdown-plus.list.parser")
@@ -8,21 +7,10 @@ local handlers = require("markdown-plus.list.handlers")
 local renumber = require("markdown-plus.list.renumber")
 local checkbox = require("markdown-plus.list.checkbox")
 local toggle = require("markdown-plus.list.toggle")
+local keymaps = require("markdown-plus.list.keymaps")
+local autocmds = require("markdown-plus.list.autocmds")
 
 local M = {}
-
-local RENUMBER_DEBOUNCE_MS = 150
-local renumber_timers = {}
-local ORDERED_LOOKAROUND = 20
-local ORDERABLE_LIST_TYPES = {
-  ordered = true,
-  ordered_paren = true,
-  letter_lower = true,
-  letter_upper = true,
-  letter_lower_paren = true,
-  letter_upper_paren = true,
-}
-local RENUMBER_AUGROUP_PREFIX = "MarkdownPlusListRenumber_"
 
 ---@type markdown-plus.InternalConfig
 M.config = {}
@@ -32,6 +20,7 @@ M.patterns = parser.patterns
 
 ---Setup list management module
 ---@param config markdown-plus.InternalConfig Plugin configuration
+---@return nil
 function M.setup(config)
   M.config = config or {}
   -- Pass list-specific config to checkbox module
@@ -41,356 +30,25 @@ function M.setup(config)
 end
 
 ---Enable list features for current buffer
+---@return nil
 function M.enable()
   if not utils.is_markdown_buffer() then
     return
   end
 
-  -- Set up keymaps
   M.setup_keymaps()
 end
 
----Set up keymaps for list management
-function M.setup_keymaps()
-  keymap_helper.setup_keymaps(M.config, {
-    {
-      plug = keymap_helper.plug_name("ListEnter"),
-      fn = handlers.skip_in_codeblock(handlers.handle_enter, "<CR>"),
-      modes = "i",
-      default_key = "<CR>",
-      desc = "Auto-continue list or split content",
-    },
-    {
-      plug = keymap_helper.plug_name("ListShiftEnter"),
-      fn = handlers.skip_in_codeblock(handlers.continue_list_content, "<A-CR>"),
-      modes = "i",
-      default_key = "<A-CR>",
-      desc = "Continue list content on next line",
-    },
-    {
-      plug = keymap_helper.plug_name("ListIndent"),
-      fn = handlers.skip_in_codeblock(handlers.handle_tab, "<Tab>"),
-      modes = "i",
-      default_key = "<Tab>",
-      desc = "Indent list item",
-    },
-    {
-      plug = keymap_helper.plug_name("ListOutdent"),
-      fn = handlers.skip_in_codeblock(handlers.handle_shift_tab, "<S-Tab>"),
-      modes = "i",
-      default_key = "<S-Tab>",
-      desc = "Outdent list item",
-    },
-    {
-      plug = keymap_helper.plug_name("ListBackspace"),
-      fn = handlers.skip_in_codeblock(handlers.handle_backspace, "<BS>"),
-      modes = "i",
-      default_key = "<BS>",
-      desc = "Smart backspace (remove empty list)",
-    },
-    {
-      plug = keymap_helper.plug_name("RenumberLists"),
-      fn = renumber.renumber_ordered_lists,
-      modes = "n",
-      default_key = "<localleader>mr",
-      desc = "Renumber ordered lists",
-    },
-    {
-      plug = keymap_helper.plug_name("DebugLists"),
-      fn = renumber.debug_list_groups,
-      modes = "n",
-      default_key = "<localleader>md",
-      desc = "Debug list groups",
-    },
-    {
-      plug = keymap_helper.plug_name("NewListItemBelow"),
-      fn = handlers.skip_in_codeblock(handlers.handle_normal_o, "o"),
-      modes = "n",
-      default_key = "o",
-      desc = "New list item below",
-    },
-    {
-      plug = keymap_helper.plug_name("NewListItemAbove"),
-      fn = handlers.skip_in_codeblock(handlers.handle_normal_O, "O"),
-      modes = "n",
-      default_key = "O",
-      desc = "New list item above",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleCheckbox"),
-      fn = {
-        checkbox.toggle_checkbox_line,
-        checkbox.toggle_checkbox_range,
-        checkbox.toggle_checkbox_insert,
-      },
-      modes = { "n", "x", "i" },
-      default_key = { "<localleader>mx", "<localleader>mx", "<C-t>" },
-      desc = "Toggle checkbox",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListUnordered"),
-      fn = {
-        function()
-          toggle.toggle_list_line("unordered")
-        end,
-        function()
-          toggle.toggle_list_range("unordered")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltu", "<localleader>ltu" },
-      desc = "Toggle unordered list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListOrdered"),
-      fn = {
-        function()
-          toggle.toggle_list_line("ordered")
-        end,
-        function()
-          toggle.toggle_list_range("ordered")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltn", "<localleader>ltn" },
-      desc = "Toggle ordered list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListTask"),
-      fn = {
-        function()
-          toggle.toggle_list_line("task")
-        end,
-        function()
-          toggle.toggle_list_range("task")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltt", "<localleader>ltt" },
-      desc = "Toggle task list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListPick"),
-      fn = {
-        toggle.toggle_list_pick_line,
-        toggle.toggle_list_pick_range,
-      },
-      modes = { "n", "x" },
-      desc = "Toggle list (pick type: u/t/n/N/l/L/p/P, c=clear)",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListOrderedParen"),
-      fn = {
-        function()
-          toggle.toggle_list_line("ordered_paren")
-        end,
-        function()
-          toggle.toggle_list_range("ordered_paren")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltN", "<localleader>ltN" },
-      desc = "Toggle parenthesized ordered list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListLetterLower"),
-      fn = {
-        function()
-          toggle.toggle_list_line("letter_lower")
-        end,
-        function()
-          toggle.toggle_list_range("letter_lower")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltl", "<localleader>ltl" },
-      desc = "Toggle lowercase letter list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListLetterUpper"),
-      fn = {
-        function()
-          toggle.toggle_list_line("letter_upper")
-        end,
-        function()
-          toggle.toggle_list_range("letter_upper")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltL", "<localleader>ltL" },
-      desc = "Toggle uppercase letter list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListLetterLowerParen"),
-      fn = {
-        function()
-          toggle.toggle_list_line("letter_lower_paren")
-        end,
-        function()
-          toggle.toggle_list_range("letter_lower_paren")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltp", "<localleader>ltp" },
-      desc = "Toggle parenthesized lowercase letter list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListLetterUpperParen"),
-      fn = {
-        function()
-          toggle.toggle_list_line("letter_upper_paren")
-        end,
-        function()
-          toggle.toggle_list_range("letter_upper_paren")
-        end,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltP", "<localleader>ltP" },
-      desc = "Toggle parenthesized uppercase letter list",
-    },
-    {
-      plug = keymap_helper.plug_name("ToggleListClear"),
-      fn = {
-        toggle.clear_list_line,
-        toggle.clear_list_range,
-      },
-      modes = { "n", "x" },
-      default_key = { "<localleader>ltc", "<localleader>ltc" },
-      desc = "Clear list markers (plain text)",
-    },
-  })
-
-  -- Set up autocommands for auto-renumbering
-  M.setup_renumber_autocmds()
-end
-
----Set up autocommands for auto-renumbering
-function M.setup_renumber_autocmds()
-  local current_bufnr = vim.api.nvim_get_current_buf()
-  local group = vim.api.nvim_create_augroup(RENUMBER_AUGROUP_PREFIX .. current_bufnr, { clear = true })
-
-  local function get_cursor_row_for_buffer(bufnr)
-    if vim.api.nvim_get_current_buf() == bufnr then
-      return vim.api.nvim_win_get_cursor(0)[1]
-    end
-
-    local row = 1
-    vim.api.nvim_buf_call(bufnr, function()
-      row = vim.api.nvim_win_get_cursor(0)[1]
-    end)
-    return row
-  end
-
-  local function has_ordered_list_near_row(bufnr, row)
-    local line_count = vim.api.nvim_buf_line_count(bufnr)
-    local start_row = math.max(1, row - ORDERED_LOOKAROUND)
-    local end_row = math.min(line_count, row + ORDERED_LOOKAROUND)
-    local lines = vim.api.nvim_buf_get_lines(bufnr, start_row - 1, end_row, false)
-
-    for idx, line in ipairs(lines) do
-      local line_row = start_row + idx - 1
-      local list_info = parser.parse_list_line(line, line_row)
-      if list_info and ORDERABLE_LIST_TYPES[list_info.type] then
-        return true
-      end
-    end
-
-    return false
-  end
-
-  local function stop_debounce_timer(bufnr)
-    local timer_id = renumber_timers[bufnr]
-    if timer_id then
-      pcall(vim.fn.timer_stop, timer_id)
-      renumber_timers[bufnr] = nil
-    end
-  end
-
-  -- Normal-mode edits: renumber immediately.
-  vim.api.nvim_create_autocmd("TextChanged", {
-    group = group,
-    buffer = current_bufnr,
-    callback = function(args)
-      local changed_bufnr = args.buf
-      if not vim.api.nvim_buf_is_valid(changed_bufnr) or not vim.bo[changed_bufnr].modifiable then
-        return
-      end
-      local cursor_row = get_cursor_row_for_buffer(changed_bufnr)
-      if not has_ordered_list_near_row(changed_bufnr, cursor_row) then
-        return
-      end
-
-      vim.api.nvim_buf_call(changed_bufnr, function()
-        renumber.renumber_ordered_lists()
-      end)
-    end,
-  })
-
-  -- Insert-mode edits: debounce to avoid renumbering on every keystroke.
-  vim.api.nvim_create_autocmd("TextChangedI", {
-    group = group,
-    buffer = current_bufnr,
-    callback = function(args)
-      local changed_bufnr = args.buf
-      local cursor_row = get_cursor_row_for_buffer(changed_bufnr)
-      if not has_ordered_list_near_row(changed_bufnr, cursor_row) then
-        return
-      end
-
-      stop_debounce_timer(changed_bufnr)
-
-      renumber_timers[changed_bufnr] = vim.fn.timer_start(RENUMBER_DEBOUNCE_MS, function()
-        renumber_timers[changed_bufnr] = nil
-        vim.schedule(function()
-          if not vim.api.nvim_buf_is_valid(changed_bufnr) or not vim.bo[changed_bufnr].modifiable then
-            return
-          end
-          vim.api.nvim_buf_call(changed_bufnr, function()
-            renumber.renumber_ordered_lists()
-          end)
-        end)
-      end)
-    end,
-  })
-
-  -- Ensure timers are cleaned up for deleted buffers.
-  vim.api.nvim_create_autocmd({ "BufDelete", "BufWipeout" }, {
-    group = group,
-    buffer = current_bufnr,
-    callback = function(args)
-      stop_debounce_timer(args.buf)
-    end,
-  })
-end
-
----Teardown list-specific runtime state
+---Set up list keymaps and auto-renumber autocommands for the current buffer
 ---@return nil
-function M.teardown()
-  local bufnrs = {}
-  for bufnr in pairs(renumber_timers) do
-    table.insert(bufnrs, bufnr)
-  end
-  for _, bufnr in ipairs(bufnrs) do
-    local timer_id = renumber_timers[bufnr]
-    if timer_id then
-      pcall(vim.fn.timer_stop, timer_id)
-    end
-    renumber_timers[bufnr] = nil
-  end
-
-  local autocmds = vim.api.nvim_get_autocmds({})
-  local groups = {}
-  for _, autocmd in ipairs(autocmds) do
-    local group_name = autocmd.group_name
-    if group_name and group_name:sub(1, #RENUMBER_AUGROUP_PREFIX) == RENUMBER_AUGROUP_PREFIX then
-      groups[group_name] = true
-    end
-  end
-
-  for group_name in pairs(groups) do
-    vim.api.nvim_del_augroup_by_name(group_name)
-  end
+function M.setup_keymaps()
+  keymaps.setup_keymaps(M.config)
+  autocmds.setup_renumber_autocmds()
 end
+
+-- Re-export autocommand lifecycle for backwards compatibility
+M.setup_renumber_autocmds = autocmds.setup_renumber_autocmds
+M.teardown = autocmds.teardown
 
 -- Re-export functions from sub-modules for backwards compatibility
 M.parse_list_line = parser.parse_list_line
