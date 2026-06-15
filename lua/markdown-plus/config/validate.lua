@@ -60,7 +60,7 @@ local SCHEMA = {
       width_mode = { type = "string", enum = { literal = true, segment = true } },
       wrap_break = { type = "string" },
       max_column_width = {
-        type = "number",
+        type = "number", -- integer (Lua has no runtime integer type; validator enforces whole-number constraint)
         validator = function(value, path, _)
           if value < 1 then
             return false, path .. ": must be at least 1"

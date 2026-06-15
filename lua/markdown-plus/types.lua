@@ -35,7 +35,7 @@
 ---@class markdown-plus.TableConfig
 ---@field enabled? boolean Enable table features (default: true)
 ---@field auto_format? boolean Automatically format tables on edit (default: true)
----@field default_alignment? string Default column alignment: 'left', 'center', 'right' (default: 'left')
+---@field default_alignment? "left"|"center"|"right" Default column alignment (default: 'left')
 ---@field confirm_destructive? boolean Confirm before destructive operations like transpose/sort (default: true)
 ---@field width_mode? "literal"|"segment" Column-width calculation mode (default: 'literal'). 'segment' measures the widest <br>-split segment so cells containing breaks don't inflate column width.
 ---@field wrap_break? string Token used to represent a line break inside a cell (default: '<br>'). Honoured by later cell-edit/wrap commands.
@@ -97,7 +97,7 @@
 ---@class markdown-plus.CodeBlockConfig
 ---@field enabled? boolean Enable code block features (default: true)
 ---@field fence_style? "backtick"|"tilde" Preferred fence style for insertion (default: "backtick")
----@field languages? string[] Language options shown in picker
+---@field languages? string[] Language options shown in picker (default: {"lua","python","javascript","typescript","bash","json","yaml","markdown"})
 
 ---TOC window configuration
 ---@class markdown-plus.TocConfig
