@@ -5,6 +5,29 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.0.1...v2.1.0) (2026-06-18)
+
+
+### Features
+
+* **ci:** add contributor recognition workflow ([#305](https://github.com/YousefHadder/markdown-plus.nvim/issues/305)) ([d4cede5](https://github.com/YousefHadder/markdown-plus.nvim/commit/d4cede52616a5a1b3a90f886d8c2a8da39a5325d))
+* **list:** add configurable marker-to-content whitespace ([#365](https://github.com/YousefHadder/markdown-plus.nvim/issues/365)) ([#367](https://github.com/YousefHadder/markdown-plus.nvim/issues/367)) ([4bce1e7](https://github.com/YousefHadder/markdown-plus.nvim/commit/4bce1e75eb6ce3dc51ee95e785e0093ae199d55c))
+* **list:** add toggle-list type picker ([#346](https://github.com/YousefHadder/markdown-plus.nvim/issues/346)) ([c47febb](https://github.com/YousefHadder/markdown-plus.nvim/commit/c47febb1d5085d9403d2fa8283a2836367513e90))
+* **table:** add floating cell editor popup ([#332](https://github.com/YousefHadder/markdown-plus.nvim/issues/332)) ([93a63a9](https://github.com/YousefHadder/markdown-plus.nvim/commit/93a63a933dbff1f34589ee8d442052f1ab835330))
+* **table:** add insert/wrap/unwrap break commands ([#331](https://github.com/YousefHadder/markdown-plus.nvim/issues/331)) ([7c20b1b](https://github.com/YousefHadder/markdown-plus.nvim/commit/7c20b1ba51c5e62d73cd67fc1ff86df5fade20ad))
+* **table:** add opt-in auto-wrap on format ([#334](https://github.com/YousefHadder/markdown-plus.nvim/issues/334)) ([ffd156b](https://github.com/YousefHadder/markdown-plus.nvim/commit/ffd156b1ffab8547390bf6ca641ae42cf5f286d8))
+* **table:** add segment-aware column width mode for &lt;br&gt; cells ([#330](https://github.com/YousefHadder/markdown-plus.nvim/issues/330)) ([b87a0f6](https://github.com/YousefHadder/markdown-plus.nvim/commit/b87a0f69ce7ac347b6c51e3a101ded45e9323f36))
+
+
+### Bug Fixes
+
+* **ci:** improve contributor recognition detection ([#307](https://github.com/YousefHadder/markdown-plus.nvim/issues/307)) ([502d17f](https://github.com/YousefHadder/markdown-plus.nvim/commit/502d17fc2c1df4f05e9db1f8c03451305b32acc2))
+* **keymaps:** shorten keymap descriptions ([#303](https://github.com/YousefHadder/markdown-plus.nvim/issues/303)) ([b320c8d](https://github.com/YousefHadder/markdown-plus.nvim/commit/b320c8d81761daa5b3bdb68772878be1299c7284))
+* **list:** omit renumbering in non-modifiable buffers ([#309](https://github.com/YousefHadder/markdown-plus.nvim/issues/309)) ([#310](https://github.com/YousefHadder/markdown-plus.nvim/issues/310)) ([1cf2594](https://github.com/YousefHadder/markdown-plus.nvim/commit/1cf259456c74d9a01ccd8bb528b930ef2dcb3cc1))
+* tighten contributor recognition prompt ([#306](https://github.com/YousefHadder/markdown-plus.nvim/issues/306)) ([5b18ea5](https://github.com/YousefHadder/markdown-plus.nvim/commit/5b18ea528c2b8b1c6514a652acf5577ff1541971))
+* **wiki:** recompile wiki-updater with gh-aw v0.72.1 to match repo ([#351](https://github.com/YousefHadder/markdown-plus.nvim/issues/351)) ([1126b22](https://github.com/YousefHadder/markdown-plus.nvim/commit/1126b22be90c58e1375193cc0608e88d43621c48))
+* **workflows:** drop invalid developer.instructions agent from daily-file-diet ([9481610](https://github.com/YousefHadder/markdown-plus.nvim/commit/948161004bd26cfffac463f22da22a8453c927bc))
+
 ## [2.0.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.0.0...v2.0.1) (2026-04-14)
 
 
