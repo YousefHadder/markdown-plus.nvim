@@ -199,6 +199,39 @@ describe("markdown-plus list whitespace", function()
     end)
   end)
 
+  describe("checkbox spacing honors whitespace mode", function()
+    local function parse(line)
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line })
+      return list.parse_list_line(line, 1)
+    end
+
+    it("single mode: adding a checkbox keeps one space (unchanged)", function()
+      require("markdown-plus").setup({ list = { whitespace = "single" } })
+      assert.are.equal("- [ ] thing", list.add_checkbox_to_line("- thing", parse("- thing")))
+    end)
+
+    it("single mode: toggling checkbox state keeps one space (unchanged)", function()
+      require("markdown-plus").setup({ list = { whitespace = "single" } })
+      assert.are.equal("- [x] Hello", list.replace_checkbox_state("- [ ] Hello", parse("- [ ] Hello")))
+    end)
+
+    it("shiftwidth mode: adding a checkbox aligns content to the block", function()
+      require("markdown-plus").setup({ list = { whitespace = "shiftwidth", whitespace_width = 4 } })
+      -- Full marker "- [ ]" (5 chars) -> 3 pad spaces -> content column 8.
+      assert.are.equal("- [ ]   thing", list.add_checkbox_to_line("- thing", parse("- thing")))
+    end)
+
+    it("shiftwidth mode: checking a box preserves block alignment", function()
+      require("markdown-plus").setup({ list = { whitespace = "shiftwidth", whitespace_width = 4 } })
+      assert.are.equal("- [x]   Hello", list.replace_checkbox_state("- [ ]   Hello", parse("- [ ]   Hello")))
+    end)
+
+    it("shiftwidth mode: unchecking a box preserves block alignment", function()
+      require("markdown-plus").setup({ list = { whitespace = "shiftwidth", whitespace_width = 4 } })
+      assert.are.equal("- [ ]   Hello", list.replace_checkbox_state("- [x]   Hello", parse("- [x]   Hello")))
+    end)
+  end)
+
   describe("setup propagation", function()
     it("wires whitespace config through the public setup() path", function()
       require("markdown-plus").setup({ list = { whitespace = "shiftwidth", whitespace_width = 4 } })
