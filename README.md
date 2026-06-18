@@ -74,6 +74,7 @@ That's it! The plugin will automatically activate with default keymaps when you 
 - New heading toggle: `<localleader>ms` switches ATX/setext heading style (H1/H2).
 - New thematic-break commands: `<localleader>mh` (insert) and `<localleader>mH` (cycle style).
 - Smart list outdent is enabled by default (`list.smart_outdent = true`) for parent-aware marker continuation.
+- New list marker spacing: set `list.whitespace = "shiftwidth"` (with `list.whitespace_width`, default 4) to align list content to a fixed-width block instead of collapsing to a single space, keeping continuation lines aligned. Defaults to `"single"` (unchanged). Note: Markdown formatters that enforce single-space list markers (e.g. Prettier) will override this on format/save.
 - New list type toggling: the `<localleader>lt` prefix toggles list types — press it, then a type key (`u` unordered, `t` task, `n` `1.`, `N` `1)`, `l` `a.`, `L` `A.`, `p` `a)`, `P` `A)`, `c` clear) to toggle the current line or selection. These are real nested keymaps, so which-key shows the menu after the prefix. Works in normal and visual mode; each type also has a `<Plug>` mapping. Prefer an indefinitely-waiting picker? Bind `<Plug>(MarkdownPlusToggleListPick)` to `<localleader>lt` yourself.
 - New formatting escape toggle: `<localleader>me` (visual mode) escapes/unescapes markdown punctuation.
 - Code block module is now first-class: `<localleader>mc` insert/wrap, `]b`/`[b` navigate, `<localleader>mC` change language.

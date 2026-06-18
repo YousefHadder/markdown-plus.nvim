@@ -181,6 +181,19 @@ local SCHEMA = {
     type = "table",
     fields = {
       smart_outdent = { type = "boolean" },
+      whitespace = { type = "string", enum = { single = true, shiftwidth = true } },
+      whitespace_width = {
+        type = "number", -- integer (validator enforces whole-number constraint)
+        validator = function(value, path, _)
+          if value < 1 then
+            return false, path .. ": must be at least 1"
+          end
+          if value ~= math.floor(value) then
+            return false, path .. ": must be an integer"
+          end
+          return true
+        end,
+      },
       checkbox_completion = {
         type = "table",
         fields = {

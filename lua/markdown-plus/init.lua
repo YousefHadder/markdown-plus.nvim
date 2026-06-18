@@ -64,6 +64,8 @@ local DEFAULT_CONFIG = {
   },
   list = {
     smart_outdent = true,
+    whitespace = "single",
+    whitespace_width = 4,
     checkbox_completion = {
       enabled = false,
       format = "emoji",

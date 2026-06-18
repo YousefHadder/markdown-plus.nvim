@@ -3,6 +3,7 @@ local utils = require("markdown-plus.utils")
 
 -- Load sub-modules
 local parser = require("markdown-plus.list.parser")
+local shared = require("markdown-plus.list.shared")
 local handlers = require("markdown-plus.list.handlers")
 local renumber = require("markdown-plus.list.renumber")
 local checkbox = require("markdown-plus.list.checkbox")
@@ -25,6 +26,7 @@ function M.setup(config)
   M.config = config or {}
   -- Pass list-specific config to checkbox module
   checkbox.setup(M.config.list)
+  shared.set_whitespace_config(M.config.list)
   handlers.set_config(M.config)
   renumber.set_html_awareness(utils.is_html_awareness_enabled(M.config))
 end

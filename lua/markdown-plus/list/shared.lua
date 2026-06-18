@@ -19,6 +19,45 @@ M.DELIMITER_PAREN = ")"
 -- Maximum number of lines to look back when searching for parent list item
 M.MAX_PARENT_LOOKBACK = 20
 
+-- Whitespace behavior between a list marker and its content.
+-- "single" reproduces the historical single-space layout; "shiftwidth" pads so
+-- content aligns to a `whitespace_width` block (relative to the item's indent).
+local whitespace_mode = "single"
+local whitespace_width = 4
+
+---Configure marker-to-content whitespace behavior from list config
+---@param list_config markdown-plus.InternalListConfig|nil
+---@return nil
+function M.set_whitespace_config(list_config)
+  if list_config and list_config.whitespace == "shiftwidth" then
+    whitespace_mode = "shiftwidth"
+  else
+    whitespace_mode = "single"
+  end
+
+  local width = list_config and list_config.whitespace_width
+  if type(width) == "number" and width >= 1 then
+    whitespace_width = math.floor(width)
+  else
+    whitespace_width = 4
+  end
+end
+
+---Compute the whitespace that should follow a list marker before its content.
+---In "single" mode this is always one space (byte-identical to the historical
+---behavior). In "shiftwidth" mode the pad aligns content to a `whitespace_width`
+---block relative to the item's indentation, always returning at least one space.
+---@param marker string The full marker (e.g. "1.", "- [x]") whose trailing pad is needed
+---@return string spaces The whitespace string to place after the marker
+function M.spaces_after_marker(marker)
+  if whitespace_mode ~= "shiftwidth" then
+    return " "
+  end
+  local width = whitespace_width
+  local pad = width - (#marker % width)
+  return string.rep(" ", pad)
+end
+
 ---Check if a list type is orderable (supports renumbering)
 ---@param list_type string List type to check
 ---@return boolean True if the list type is orderable
@@ -42,10 +81,12 @@ end
 
 ---Calculate the column position where list content starts (after marker and checkbox)
 ---Note: full_marker already includes checkbox if present (e.g., "- [x]", "1. [ ]")
+---Honors the configured marker-to-content whitespace (see set_whitespace_config).
 ---@param list_info table List information
 ---@return number The column position where content starts
 function M.get_content_start_col(list_info)
-  return #list_info.indent + #list_info.full_marker + 1
+  local spaces = M.spaces_after_marker(list_info.full_marker)
+  return #list_info.indent + #list_info.full_marker + #spaces
 end
 
 ---Get the expected marker for a given index and list type

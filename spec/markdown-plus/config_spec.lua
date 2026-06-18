@@ -194,6 +194,42 @@ describe("markdown-plus configuration", function()
     end)
   end)
 
+  describe("list whitespace config", function()
+    it("defaults whitespace to 'single' and whitespace_width to 4", function()
+      markdown_plus.setup({})
+      assert.equals("single", markdown_plus.config.list.whitespace)
+      assert.equals(4, markdown_plus.config.list.whitespace_width)
+    end)
+
+    it("accepts whitespace = 'shiftwidth'", function()
+      markdown_plus.setup({ list = { whitespace = "shiftwidth" } })
+      assert.equals("shiftwidth", markdown_plus.config.list.whitespace)
+    end)
+
+    it("rejects unknown whitespace values", function()
+      local before = vim.deepcopy(markdown_plus.config.list)
+      markdown_plus.setup({ list = { whitespace = "bogus" } })
+      assert.equals(before.whitespace, markdown_plus.config.list.whitespace)
+    end)
+
+    it("accepts a custom positive-integer whitespace_width", function()
+      markdown_plus.setup({ list = { whitespace_width = 2 } })
+      assert.equals(2, markdown_plus.config.list.whitespace_width)
+    end)
+
+    it("rejects a non-integer whitespace_width", function()
+      local before = vim.deepcopy(markdown_plus.config.list)
+      markdown_plus.setup({ list = { whitespace_width = 2.5 } })
+      assert.equals(before.whitespace_width, markdown_plus.config.list.whitespace_width)
+    end)
+
+    it("rejects a whitespace_width below 1", function()
+      local before = vim.deepcopy(markdown_plus.config.list)
+      markdown_plus.setup({ list = { whitespace_width = 0 } })
+      assert.equals(before.whitespace_width, markdown_plus.config.list.whitespace_width)
+    end)
+  end)
+
   describe("feature toggles", function()
     it("can disable all features", function()
       markdown_plus.setup({

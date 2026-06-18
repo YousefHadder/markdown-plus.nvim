@@ -90,17 +90,19 @@ local function build_converted_line(parts, target_type)
   local content = parts.content
 
   if def.family == "unordered" then
-    return indent .. "- " .. content
+    return indent .. "-" .. shared.spaces_after_marker("-") .. content
   elseif def.family == "task" then
-    return indent .. "- [" .. checkbox_state(parts.checkbox) .. "] " .. content
+    local full_marker = "- [" .. checkbox_state(parts.checkbox) .. "]"
+    return indent .. full_marker .. shared.spaces_after_marker(full_marker) .. content
   end
 
   -- Orderable: preserve an existing checkbox so e.g. "1. [x]" survives conversion.
   local marker = shared.get_marker_for_index(def.list_type, 1)
   if parts.checkbox then
-    return indent .. marker .. " [" .. checkbox_state(parts.checkbox) .. "] " .. content
+    local full_marker = marker .. " [" .. checkbox_state(parts.checkbox) .. "]"
+    return indent .. full_marker .. shared.spaces_after_marker(full_marker) .. content
   end
-  return indent .. marker .. " " .. content
+  return indent .. marker .. shared.spaces_after_marker(marker) .. content
 end
 
 ---Build the cleared (plain text) line, dropping any marker and checkbox.
