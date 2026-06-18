@@ -29,11 +29,11 @@ end
 ---@param checkbox string|nil Non-nil if the list uses checkboxes (value ignored — new items always start unchecked)
 ---@return string prefix The constructed list item prefix
 function M.build_list_prefix(indent, marker, checkbox)
-  local prefix = indent .. marker .. " "
+  local full_marker = marker
   if checkbox then
-    prefix = prefix .. "[ ] "
+    full_marker = full_marker .. " [ ]"
   end
-  return prefix
+  return indent .. full_marker .. shared.spaces_after_marker(full_marker)
 end
 
 ---Find parent list item by looking upward from current line

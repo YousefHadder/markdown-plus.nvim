@@ -36,7 +36,7 @@ function M.handle_tab()
 
   local new_indent = list_info.indent .. string.rep(" ", indent_size)
   local content = shared.extract_list_content(current_line, list_info)
-  local new_line = new_indent .. list_info.full_marker .. " " .. content
+  local new_line = new_indent .. list_info.full_marker .. shared.spaces_after_marker(list_info.full_marker) .. content
 
   utils.set_line(row, new_line)
   utils.set_cursor(row, col + indent_size)
@@ -84,13 +84,15 @@ function M.handle_shift_tab()
     end
   end
 
-  local new_line = new_indent .. new_marker .. " " .. content
+  local new_line = new_indent .. new_marker .. shared.spaces_after_marker(new_marker) .. content
 
   utils.set_line(row, new_line)
 
-  -- Adjust cursor position
+  -- Adjust cursor position. Account for marker-length and pad-length changes so the
+  -- cursor tracks the content column under any whitespace mode.
   local marker_delta = #new_marker - #list_info.full_marker
-  local new_col = math.max(0, col - remove + marker_delta)
+  local pad_delta = #shared.spaces_after_marker(new_marker) - #shared.spaces_after_marker(list_info.full_marker)
+  local new_col = math.max(0, col - remove + marker_delta + pad_delta)
   utils.set_cursor(row, new_col)
 end
 

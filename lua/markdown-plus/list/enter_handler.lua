@@ -108,16 +108,12 @@ function M.handle_enter()
 
     -- Create next list item with content after cursor
     local next_marker = parser.get_next_marker(list_info)
-    local next_line = handler_utils.build_list_prefix(list_info.indent, next_marker, list_info.checkbox)
-      .. content_after:match("^%s*(.*)")
+    local next_prefix = handler_utils.build_list_prefix(list_info.indent, next_marker, list_info.checkbox)
+    local next_line = next_prefix .. content_after:match("^%s*(.*)")
 
     utils.insert_line(row + 1, next_line)
-    -- Calculate cursor position on new line (after marker and optional checkbox)
-    local new_cursor_col = #list_info.indent + #next_marker + 1
-    if list_info.checkbox then
-      new_cursor_col = new_cursor_col + 4 -- Add "[ ] " length
-    end
-    utils.set_cursor(row + 1, new_cursor_col)
+    -- Place cursor at the start of the new item's content (after marker, pad, and optional checkbox)
+    utils.set_cursor(row + 1, #next_prefix)
     return
   end
 

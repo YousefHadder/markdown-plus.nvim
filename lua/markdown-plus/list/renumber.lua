@@ -31,14 +31,19 @@ function M.renumber_list_group(group)
 
     -- Determine expected marker based on list type
     local expected_marker = shared.get_marker_for_index(group.list_type, idx)
+    local full_marker = expected_marker .. checkbox_part
 
-    local expected_line = item.indent .. expected_marker .. checkbox_part .. " " .. item.content
+    local expected_line = item.indent .. full_marker .. shared.spaces_after_marker(full_marker) .. item.content
 
     -- Only create change if line is different
     if expected_line ~= item.original_line then
       table.insert(changes, {
         line_num = item.line_num,
         new_line = expected_line,
+        -- Column where content starts, before and after the rewrite. Used to keep
+        -- the cursor on its content character when the marker/spacing length changes.
+        old_content_start = #item.original_line - #item.content,
+        new_content_start = #item.indent + #full_marker + #shared.spaces_after_marker(full_marker),
       })
     end
   end
@@ -126,7 +131,36 @@ function M.renumber_ordered_lists()
 
   -- Apply changes if any were made
   if modified then
+    -- Capture the cursor first so we can keep it on the same content character
+    -- when the rewrite changes the marker/spacing length on the cursor's line.
+    -- Without this the cursor keeps its absolute column and drifts as text shifts.
+    local cursor_ok, cursor = pcall(vim.api.nvim_win_get_cursor, 0)
+    local cursor_change
+    if cursor_ok then
+      for _, change in ipairs(changes) do
+        if change.line_num == cursor[1] then
+          cursor_change = change
+          break
+        end
+      end
+    end
+
     apply_changes(changes)
+
+    if cursor_change then
+      local col = cursor[2]
+      local new_col
+      if col >= cursor_change.old_content_start then
+        -- Cursor is within the content: shift it by the prefix-length delta.
+        new_col = col + (cursor_change.new_content_start - cursor_change.old_content_start)
+      else
+        -- Cursor is within the marker/indent prefix: leave it, but never let it
+        -- spill past where the content now starts.
+        new_col = math.min(col, cursor_change.new_content_start)
+      end
+      new_col = math.max(0, math.min(new_col, #cursor_change.new_line))
+      pcall(vim.api.nvim_win_set_cursor, 0, { cursor[1], new_col })
+    end
   end
 end
 

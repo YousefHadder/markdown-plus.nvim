@@ -588,6 +588,44 @@ Example of fenced code block handling:
 <
 
 
+MARKER WHITESPACE ~
+
+By default markdown-plus keeps a single space between a list marker and its
+content. Set `list.whitespace = 'shiftwidth'` to pad that gap so content aligns
+to a fixed-width block (the width comes from `list.whitespace_width`, default
+4). This keeps wrapped/continuation lines aligned with the first line's
+content, as recommended by the CommonMark list-items spec.
+
+>lua
+    require('markdown-plus').setup({
+      list = {
+        whitespace = 'shiftwidth',   -- align content to a block
+        whitespace_width = 4,        -- block width (defaults to 4)
+      },
+    })
+<
+
+The marker length determines the pad, so content lands on the next multiple of
+the width (always with at least one space). With `whitespace_width = 4`,
+single-digit ordered markers get two spaces, `10.` gets one, and `100.` gets
+four:
+>markdown
+    1.  Item 1        <- '1.'   + 2 spaces -> content column 4
+    2.  Item 2
+    10. Item 10       <- '10.'  + 1 space  -> content column 4
+    100.    Item 100  <- '100.' + 4 spaces -> content column 8
+<
+Unordered markers follow the same rule (`-` becomes three spaces at width 4).
+The pad is relative to each item's indentation and is independent of the
+buffer's actual 'shiftwidth' option. The default `'single'` mode is unchanged.
+
+Note: external Markdown formatters that enforce single-space list markers (for
+example Prettier) will collapse this padding when they reformat the buffer, such
+as on format-on-save. markdown-plus applies the spacing as you edit, but a
+formatter runs at write time and wins. If you rely on `shiftwidth` spacing,
+exclude Markdown from that formatter (or disable it) so the two don't fight.
+
+
 SMART BACKSPACE ~
 
 The `<BS>` key in insert mode is context-aware:
@@ -1579,6 +1617,8 @@ The plugin can be configured through the setup function:
       },
       list = {                   -- List configuration
         smart_outdent = true,         -- Parent-aware outdent and parent continuation on `o`
+        whitespace = 'single',        -- 'single' (one space) | 'shiftwidth' (align to block)
+        whitespace_width = 4,         -- Block width used when whitespace = 'shiftwidth'
         checkbox_completion = {
           enabled = false,            -- Add timestamps when checking tasks
           format = 'emoji',           -- 'emoji', 'comment', 'dataview', 'parenthetical'

@@ -55,7 +55,7 @@ function M.handle_backspace()
   end
 
   -- If at the start of list content, remove the list marker
-  local marker_end_col = #list_info.indent + #list_info.full_marker + 1
+  local marker_end_col = shared.get_content_start_col(list_info)
   if col <= marker_end_col and col > #list_info.indent then
     -- Remove list marker, keep content
     local content = shared.extract_list_content(current_line, list_info)

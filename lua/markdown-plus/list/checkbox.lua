@@ -1,6 +1,7 @@
 -- Checkbox management module for markdown-plus.nvim
 local utils = require("markdown-plus.utils")
 local parser = require("markdown-plus.list.parser")
+local shared = require("markdown-plus.list.shared")
 local M = {}
 
 ---@type markdown-plus.InternalListConfig|nil
@@ -197,7 +198,11 @@ function M.replace_checkbox_state(line, list_info)
       end
     end
 
-    return prefix .. "[" .. new_state .. "] " .. content
+    -- Honor the configured marker→content spacing. The full marker includes the
+    -- checkbox bracket; spaces_after_marker returns a single space in "single"
+    -- mode, so this is byte-identical to the historical layout by default.
+    local full_marker = prefix:sub(#indent + 1) .. "[" .. new_state .. "]"
+    return prefix .. "[" .. new_state .. "]" .. shared.spaces_after_marker(full_marker) .. content
   end
 
   return line
@@ -217,7 +222,9 @@ function M.add_checkbox_to_line(line, list_info)
   local prefix, content = line:match(list_pattern)
 
   if prefix and content ~= nil then
-    return prefix .. "[ ] " .. content
+    -- Pad to the configured block (single space in "single" mode → unchanged).
+    local full_marker = prefix:sub(#indent + 1) .. "[ ]"
+    return prefix .. "[ ]" .. shared.spaces_after_marker(full_marker) .. content
   end
 
   return line
