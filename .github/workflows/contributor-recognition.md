@@ -40,6 +40,7 @@ safe-outputs:
 tools:
   github:
     toolsets: [default]
+    min-integrity: none
   edit:
   bash:
     - "cat .all-contributorsrc"
@@ -113,6 +114,8 @@ Some historical issue records may be filtered by workflow integrity policy even 
 |-------|------|-------|------------------|-----------|
 | `jototland` | `bug` | #282 | #285 | Reported a bug that was fixed by the linked PR. |
 | `edvinsyk` | `ideas` | #302 | #303 | Suggested an enhancement that was implemented by the linked PR. |
+| `nkahe` | `ideas` | #338 | #346 | Requested the toggle-list type picker, implemented by the linked PR. |
+| `ArnallJM` | `ideas` | #365 | #367 | Requested configurable ordered-list whitespace, implemented by the linked PR. |
 
 ## Workflow
 
