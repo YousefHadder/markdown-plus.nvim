@@ -41,6 +41,7 @@ tools:
   github:
     toolsets: [default]
     min-integrity: none
+    allowed-repos: [yousefhadder/markdown-plus*]
   edit:
   bash:
     - "cat .all-contributorsrc"
