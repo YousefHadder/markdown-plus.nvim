@@ -20,7 +20,7 @@ safe-outputs:
   create-pull-request:
     auto-merge: false
     draft: true
-    expires: 1d
+    expires: 7d
     labels:
     - documentation
     - automation
@@ -67,6 +67,7 @@ You are an AI documentation agent that keeps the project's GitHub **wiki** accur
 - **Match existing structure and tone.** The wiki is the detailed reference (installation, features, configuration, usage, keymaps, customizing keymaps, contributing, troubleshooting, migration). Put detailed content here — the README intentionally stays lightweight and links to the wiki.
 - **Use conventional commit format** for the PR: `docs(wiki): update <area> for <feature>`.
 - If there is nothing meaningful to update, emit a **noop** — do not open an empty or speculative PR.
+- **Do not recreate a wiki update that was already proposed and closed without merging.** A draft wiki PR auto-expires if the maintainer does not merge it in time. If a recently closed/expired `[wiki]` PR already covers the same pages for the same feature, emit a **noop** instead of opening a near-identical PR — the maintainer chose not to merge it, and recreating it just produces churn.
 
 ## Your Mission
 
@@ -84,8 +85,9 @@ Fetch everything you need in one parallel batch:
 1. PRs merged in the last 14 days: `gh pr list --state merged --limit 30 --json number,title,mergedAt,body,url,labels`
 2. Recent releases: `gh release list --limit 5`
 3. Current wiki pages: `find docs/wiki -name '*.md'`
+4. Recently closed `[wiki]` PRs (last 14 days): `gh pr list --state closed --search 'in:title "[wiki]"' --limit 20 --json number,title,closedAt,url`
 
-Do all three in a single tool-use block. If a call returns empty, treat it as "no items" and proceed.
+Do all four in a single tool-use block. If a call returns empty, treat it as "no items" and proceed. Use the closed `[wiki]` PR list to avoid recreating an update the maintainer already declined (see Critical Rules).
 
 ## Task Steps
 
@@ -106,4 +108,6 @@ Decide which `docs/wiki/*.md` pages need edits. Typical mapping:
 Edit only the relevant `docs/wiki/*.md` files. Keep examples consistent with how the same features are described in `README.md` and `doc/markdown-plus.txt`. Do not duplicate the entire README — the wiki is the detailed reference.
 
 ### 4. Open the PR
-Summarize in the PR body: which merged PRs/releases drove the update, which pages changed, and anything you intentionally did NOT change (e.g., needed edits outside `docs/wiki/`). If nothing needed updating, emit a noop instead.
+Before opening, cross-check the recently closed `[wiki]` PR list from pre-flight. If a closed/expired PR already proposed the same pages for the same feature, emit a **noop** that names the prior PR instead of reopening near-identical work.
+
+Otherwise, summarize in the PR body: which merged PRs/releases drove the update, which pages changed, and anything you intentionally did NOT change (e.g., needed edits outside `docs/wiki/`). If nothing needed updating, emit a noop instead.
