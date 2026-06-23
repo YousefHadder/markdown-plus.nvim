@@ -78,7 +78,7 @@ jobs:
     if: needs.find-pr.outputs.pr_number
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.find-pr.outputs.head_ref }}
       - uses: JohnnyMorganz/stylua-action@v5
@@ -93,7 +93,7 @@ jobs:
     if: needs.find-pr.outputs.pr_number
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.find-pr.outputs.head_ref }}
       - name: Install luacheck
@@ -111,7 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.find-pr.outputs.head_ref }}
       - uses: folke/github/neovim@main
@@ -126,7 +126,7 @@ jobs:
     if: needs.find-pr.outputs.pr_number
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.find-pr.outputs.head_ref }}
       - name: Check for known vulnerabilities
@@ -145,7 +145,7 @@ jobs:
     if: needs.find-pr.outputs.pr_number
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.find-pr.outputs.head_ref }}
           fetch-depth: 0
