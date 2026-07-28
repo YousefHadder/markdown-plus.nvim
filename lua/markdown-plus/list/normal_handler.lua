@@ -3,6 +3,7 @@ local utils = require("markdown-plus.utils")
 local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local handler_utils = require("markdown-plus.list.handler_utils")
+local keymap_fallback = require("markdown-plus.keymap_fallback")
 
 local M = {}
 
@@ -14,23 +15,12 @@ function M.set_config(cfg) -- luacheck: no unused args
   -- This stub keeps the set_config interface uniform across all handler sub-modules.
 end
 
----Delete the character before the cursor (UTF-8 safe)
----@param line string Current line content
----@param row number Current row (1-indexed)
----@param col number Current column (0-indexed byte offset)
----@return nil
-local function delete_prev_char(line, row, col)
-  local char_idx = vim.fn.charidx(line, col)
-  local prev_char_idx = char_idx - 1
-  if prev_char_idx < 0 then
-    return
-  end
-  local new_col = vim.fn.byteidx(line, prev_char_idx)
-  vim.api.nvim_buf_set_text(0, row - 1, new_col, row - 1, col, { "" })
-  utils.set_cursor(row, new_col)
-end
-
 ---Handle Backspace key
+---
+---Outside of list-marker context this yields to whatever `<BS>` mapping would otherwise
+---have run (mini.pairs and friends), falling back to Neovim's own backspace when there is
+---none. Reimplementing deletion here would clobber those mappings and `'backspace'`
+---semantics.
 ---@return nil
 function M.handle_backspace()
   local current_line = utils.get_current_line()
@@ -41,16 +31,7 @@ function M.handle_backspace()
   local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
-    -- Not in a list, default backspace behavior
-    if col > 0 then
-      delete_prev_char(current_line, row, col)
-    elseif row > 1 then
-      -- At start of line, join with previous line
-      local prev_line = utils.get_line(row - 1)
-      local joined_line = prev_line .. current_line
-      vim.api.nvim_buf_set_lines(0, row - 2, row, false, { joined_line })
-      utils.set_cursor(row - 1, #prev_line)
-    end
+    keymap_fallback.run("i", "<BS>")
     return
   end
 
@@ -64,10 +45,8 @@ function M.handle_backspace()
     return
   end
 
-  -- Default backspace in list content
-  if col > 0 then
-    delete_prev_char(current_line, row, col)
-  end
+  -- Inside list content: defer so pairs/completion plugins keep working there too
+  keymap_fallback.run("i", "<BS>")
 end
 
 ---Check whether the given row is the last list item at its indentation level

@@ -2,6 +2,7 @@
 ---Tests list parsing, empty list detection, and list continuation
 ---@diagnostic disable: undefined-field
 local list = require("markdown-plus.list")
+local insert_mode = require("spec.helpers.insert_mode")
 
 describe("markdown-plus list management", function()
   local buf
@@ -1832,117 +1833,95 @@ describe("markdown-plus list management", function()
 
   describe("unicode character handling", function()
     describe("handle_backspace with multi-byte characters", function()
+      -- Outside list-marker context `handle_backspace` now defers to `keymap_fallback`,
+      -- which queues keys rather than editing the buffer directly. These cases therefore
+      -- drive a real insert-mode session through the buffer-local `<BS>` mapping so the
+      -- queued keys are flushed; UTF-8 correctness is now Neovim's own backspace behavior.
+      before_each(function()
+        insert_mode.map_backspace_default(list.handle_backspace, buf)
+      end)
+
+      after_each(function()
+        insert_mode.unmap_backspace_default(buf)
+      end)
+
       it("deletes multi-byte CJK character (Chinese period) in non-list line", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Test。item" })
         -- Position cursor after the Chinese period character (3 bytes: E3 80 82)
-        vim.api.nvim_win_set_cursor(0, { 1, 7 }) -- After "Test。"
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("Testitem", lines[1])
+        local result = insert_mode.backspace(1, 7) -- After "Test。"
+        assert.are.equal("Testitem", result.lines[1])
       end)
 
       it("deletes multi-byte CJK character in list content", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Test。item" })
-        -- Position cursor after the Chinese period character
-        vim.api.nvim_win_set_cursor(0, { 1, 9 }) -- After "- Test。"
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("- Testitem", lines[1])
+        local result = insert_mode.backspace(1, 9) -- After "- Test。"
+        assert.are.equal("- Testitem", result.lines[1])
       end)
 
       it("deletes emoji (4-byte UTF-8) in non-list line", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Test🎉item" })
         -- Position cursor after the emoji (4 bytes: F0 9F 8E 89)
-        vim.api.nvim_win_set_cursor(0, { 1, 8 }) -- After "Test🎉"
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("Testitem", lines[1])
+        local result = insert_mode.backspace(1, 8) -- After "Test🎉"
+        assert.are.equal("Testitem", result.lines[1])
       end)
 
       it("deletes emoji in list content", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Test🎉item" })
-        -- Position cursor after the emoji
-        vim.api.nvim_win_set_cursor(0, { 1, 10 }) -- After "- Test🎉"
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("- Testitem", lines[1])
+        local result = insert_mode.backspace(1, 10) -- After "- Test🎉"
+        assert.are.equal("- Testitem", result.lines[1])
       end)
 
       it("deletes multi-byte character in ordered list", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. Test。item" })
-        -- Position cursor after the Chinese period
-        vim.api.nvim_win_set_cursor(0, { 1, 10 }) -- After "1. Test。"
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("1. Testitem", lines[1])
+        local result = insert_mode.backspace(1, 10) -- After "1. Test。"
+        assert.are.equal("1. Testitem", result.lines[1])
       end)
 
       it("deletes multi-byte character in checkbox list", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Test。item" })
-        -- Position cursor after the Chinese period
-        vim.api.nvim_win_set_cursor(0, { 1, 13 }) -- After "- [ ] Test。"
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("- [ ] Testitem", lines[1])
+        local result = insert_mode.backspace(1, 13) -- After "- [ ] Test。"
+        assert.are.equal("- [ ] Testitem", result.lines[1])
       end)
 
       it("deletes accented character (2-byte UTF-8) in list", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Caféx" })
-        -- Position cursor after é, before x (2 bytes: C3 A9)
         -- "- Caféx" = "- " (2) + "Caf" (3) + "é" (2) + "x" (1) = 8 bytes total
-        vim.api.nvim_win_set_cursor(0, { 1, 7 }) -- After "- Café", before "x"
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("- Cafx", lines[1])
-        local cursor = vim.api.nvim_win_get_cursor(0)
-        assert.are.equal(5, cursor[2]) -- After "- Caf"
+        local result = insert_mode.backspace(1, 7) -- After "- Café", before "x"
+        assert.are.equal("- Cafx", result.lines[1])
+        assert.are.equal(5, result.cursor[2]) -- After "- Caf"
       end)
 
       it("deletes multiple multi-byte characters sequentially", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- 你好世界x" })
         -- Each Chinese character is 3 bytes: "- " (2) + 4 chars * 3 bytes + "x" = 15 bytes
-        vim.api.nvim_win_set_cursor(0, { 1, 14 }) -- After "- 你好世界", before "x"
-        list.handle_backspace() -- Delete 界
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("- 你好世x", lines[1])
-        local cursor = vim.api.nvim_win_get_cursor(0)
-        assert.are.equal(11, cursor[2]) -- After "- 你好世" (2 + 9)
+        local result = insert_mode.backspace(1, 14) -- Delete 界
+        assert.are.equal("- 你好世x", result.lines[1])
+        assert.are.equal(11, result.cursor[2]) -- After "- 你好世" (2 + 9)
 
-        list.handle_backspace() -- Delete 世 (cursor already positioned)
-        lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("- 你好x", lines[1])
-        cursor = vim.api.nvim_win_get_cursor(0)
-        assert.are.equal(8, cursor[2]) -- After "- 你好" (2 + 6)
+        result = insert_mode.backspace(1, result.cursor[2]) -- Delete 世
+        assert.are.equal("- 你好x", result.lines[1])
+        assert.are.equal(8, result.cursor[2]) -- After "- 你好" (2 + 6)
       end)
 
       it("handles backspace at start of line with multi-byte characters", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "First", "Second" })
-        -- Position cursor at start of second line
-        vim.api.nvim_win_set_cursor(0, { 2, 0 })
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("FirstSecond", lines[1])
-        assert.are.equal(1, #lines) -- Lines should be joined
-        local cursor = vim.api.nvim_win_get_cursor(0)
-        assert.are.equal(5, cursor[2]) -- After "First"
+        local result = insert_mode.backspace(2, 0)
+        assert.are.equal("FirstSecond", result.lines[1])
+        assert.are.equal(1, #result.lines) -- Lines should be joined
+        assert.are.equal(5, result.cursor[2]) -- After "First"
       end)
 
       it("does not delete before start of line", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Test。" })
-        -- Position cursor at start
-        vim.api.nvim_win_set_cursor(0, { 1, 0 })
-        list.handle_backspace()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("Test。", lines[1]) -- Should remain unchanged
+        local result = insert_mode.backspace(1, 0)
+        assert.are.equal("Test。", result.lines[1]) -- Should remain unchanged
       end)
 
       it("positions cursor correctly after deleting multi-byte character", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Test。item" })
-        vim.api.nvim_win_set_cursor(0, { 1, 9 }) -- After "- Test。"
-        list.handle_backspace()
-        local cursor = vim.api.nvim_win_get_cursor(0)
-        assert.are.equal(1, cursor[1]) -- Same line
-        assert.are.equal(6, cursor[2]) -- After "- Test" (before where 。 was)
+        local result = insert_mode.backspace(1, 9) -- After "- Test。"
+        assert.are.equal(1, result.cursor[1]) -- Same line
+        assert.are.equal(6, result.cursor[2]) -- After "- Test" (before where 。 was)
       end)
     end)
   end)
