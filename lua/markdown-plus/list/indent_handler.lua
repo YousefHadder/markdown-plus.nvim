@@ -3,6 +3,7 @@ local utils = require("markdown-plus.utils")
 local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local handler_utils = require("markdown-plus.list.handler_utils")
+local keymap_fallback = require("markdown-plus.keymap_fallback")
 
 local M = {}
 
@@ -15,6 +16,9 @@ function M.set_config(cfg) -- luacheck: no unused args
 end
 
 ---Handle Tab key for indentation
+---
+---Outside of list context this yields to whatever `<Tab>` mapping would otherwise have run
+---(completion, snippets, copilot), falling back to a literal tab when there is none.
 ---@return nil
 function M.handle_tab()
   local current_line = utils.get_current_line()
@@ -25,9 +29,8 @@ function M.handle_tab()
   local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
-    -- Not in a list, fall through to default Tab behavior
-    local key = vim.api.nvim_replace_termcodes("<Tab>", true, false, true)
-    vim.api.nvim_feedkeys(key, "n", false)
+    -- Not in a list: defer to the mapping we are shadowing
+    keymap_fallback.run("i", "<Tab>")
     return
   end
 
@@ -43,6 +46,9 @@ function M.handle_tab()
 end
 
 ---Handle Shift+Tab key for outdentation
+---
+---Outside of list context this yields to whatever `<S-Tab>` mapping would otherwise have run
+---(completion, snippet jump-back), falling back to the raw key when there is none.
 ---@return nil
 function M.handle_shift_tab()
   local current_line = utils.get_current_line()
@@ -53,9 +59,8 @@ function M.handle_shift_tab()
   local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
-    -- Not a list line, fall through to default Shift+Tab behavior
-    local key = vim.api.nvim_replace_termcodes("<S-Tab>", true, false, true)
-    vim.api.nvim_feedkeys(key, "n", false)
+    -- Not a list line: defer to the mapping we are shadowing
+    keymap_fallback.run("i", "<S-Tab>")
     return
   end
 
