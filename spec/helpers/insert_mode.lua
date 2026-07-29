@@ -68,6 +68,49 @@ function M.press(keys, row, col)
     }
 end
 
+---Press `keys` in *normal* mode with the cursor at (row, col) and return the resulting state.
+---
+---Used for handlers that yield to `keymap_fallback` from normal mode (`o`, `O`): the fallback
+---queues keys instead of editing the buffer, so a real key-processing burst is required. The
+---trailing `<Esc>` closes the insert session that `o`/`O` open; state is captured before it.
+---
+---Shares the module-local `captured` slot with `press()`; both reset it before feeding, so the
+---two are safe to interleave across tests but must not be nested within one another. Note that
+---effects Vim applies only on leaving insert mode — a count, for instance — are by definition
+---absent from the returned mid-insert snapshot; read the buffer after this call for those.
+---@param keys string Keys to press (e.g. "o")
+---@param row integer 1-indexed row for the cursor
+---@param col integer 0-indexed byte column for the cursor
+---@return markdown-plus.spec.InsertResult
+function M.press_normal(keys, row, col)
+  -- Same rationale as `press()`: specs never reach the event-loop turn that expires the guard.
+  require("markdown-plus.keymap_fallback").reset()
+
+  vim.api.nvim_win_set_cursor(0, { row, col })
+
+  -- A spec that called a handler directly may have left a *pending* `startinsert` behind: it
+  -- takes effect on the next main-loop pass, i.e. in the middle of the burst below, where it
+  -- would swallow `keys` as literal text. `stopinsert` cancels the pending flag; a leading
+  -- `<Esc>` does not, because the typeahead is consumed before the flag is applied.
+  vim.cmd("stopinsert")
+
+  -- Specs that call a fallback handler directly leave the keys it queued sitting in the
+  -- typeahead (nothing drains them without a key-processing burst). Flush them first so they
+  -- cannot interleave with this press.
+  vim.api.nvim_feedkeys("", "x", false)
+  vim.cmd("stopinsert")
+
+  captured = nil
+  local sequence = keys .. '<Cmd>lua require("spec.helpers.insert_mode").__capture()<CR><Esc>'
+  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(sequence, true, false, true), "x", false)
+
+  return captured
+    or {
+      lines = vim.api.nvim_buf_get_lines(0, 0, -1, false),
+      cursor = vim.api.nvim_win_get_cursor(0),
+    }
+end
+
 ---`maparg()` dicts for the global `<Plug>` mappings overwritten by `map_default`, keyed by
 ---"<mode>\0<plug>". The real ones are registered by `list/keymaps.lua` (which wraps the
 ---handler in `skip_in_codeblock`), so they are restored rather than deleted on teardown.
