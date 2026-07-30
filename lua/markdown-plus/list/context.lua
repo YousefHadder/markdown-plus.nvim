@@ -6,7 +6,8 @@
 -- author own the key themselves and ask us whether *we* would have acted, so they can compose
 -- their own mapping without guessing at our internals.
 --
--- The predicate is exactly the one the matching handler uses, so
+-- The predicate is exactly the one the matching handler uses — including the
+-- `skip_in_codeblock` wrapper every list keymap is registered through — so
 -- `in_list_context(kind) == false` guarantees the corresponding handler would defer.
 local parser = require("markdown-plus.list.parser")
 local handler_utils = require("markdown-plus.list.handler_utils")
@@ -75,6 +76,10 @@ local PREDICATES = {
 ---(plus a bounded look-back for `"enter"`) and never touches the buffer, so it is safe to call
 ---from an expression mapping.
 ---
+---Every kind is `false` inside a fenced code block, whatever the line looks like: the handlers
+---are wrapped in `skip_in_codeblock` and defer there unconditionally, so a `- item` in a
+---```markdown fence is not a context we act in.
+---
 ---Each kind answers "would the handler act?", not "would the buffer change?". `"indent"` is
 ---true anywhere on a list item line, including for `<S-Tab>` on an item already at root
 ---indentation, where the handler consumes the key without outdenting further. Route that key
@@ -108,7 +113,17 @@ function M.in_list_context(kind)
   -- parser mid-edit, say) would fire once per keystroke and bury the editor in messages.
   -- `false` is the safe answer: the caller falls through to its own non-markdown-plus branch,
   -- which is exactly what a user who cannot be told about the error wants.
-  local ok, result = pcall(predicate)
+  --
+  -- The code-block check shares that pcall: every list keymap is registered through
+  -- `handlers.skip_in_codeblock`, so a fenced line is never a context we act in — and the
+  -- predicates below only look at the line's shape, which happily matches `- item` inside a
+  -- ```markdown fence.
+  local ok, result = pcall(function()
+    if utils.is_in_code_block() then
+      return false
+    end
+    return predicate()
+  end)
   if not ok then
     return false
   end

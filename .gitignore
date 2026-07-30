@@ -24,6 +24,7 @@
 # ...but the wiki source of truth (published by wiki-sync.yml) is tracked.
 docs/*
 !docs/wiki/
+!docs/manual-testing/
 
 # Internal tools and configurations
 demo

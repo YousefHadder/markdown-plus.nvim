@@ -2053,6 +2053,10 @@ markdown-plus.list.in_list_context({kind})
                 `'backspace'`  `<BS>`: in the marker zone of a list item
                                line, where the marker would be removed
                 `'indent'`     `<Tab>`/`<S-Tab>`: on a list item line
+
+    Every kind is false inside a fenced code block, whatever the line looks
+    like: the handlers defer there unconditionally, so a `- item` inside a
+    markdown fence is not a context markdown-plus acts in.
     Returns: ~
         {boolean}  true when the matching handler would act. An unknown
                    {kind} reports an error and returns false.
@@ -2520,15 +2524,30 @@ Completion `<CR>`: confirm when the menu is open, continue the list otherwise:
       return '<CR>'
     end, { expr = true, buffer = true })
 <
-`<Tab>`: let a snippet plugin win, keep list indentation:
+`<Tab>`: let a snippet jump win, keep list indentation:
 >lua
     vim.keymap.set('i', '<Tab>', function()
+      if vim.snippet.active({ direction = 1 }) then
+        return '<Cmd>lua vim.snippet.jump(1)<CR>'
+      end
       if require('markdown-plus').in_list_context('indent') then
         return '<Plug>(MarkdownPlusListIndent)'
       end
       return '<Tab>'
     end, { expr = true, buffer = true })
 <
+IMPORTANT: ask the snippet engine *explicitly*, as above. A buffer-local
+mapping shadows the global `<Tab>` your snippet plugin installed, and
+returning `'<Tab>'` from it does not fall through to that global mapping —
+Neovim resolves the buffer-local mapping first, and its own recursion guard
+then terminates in a literal tab. Swap the two |vim.snippet| calls for your
+plugin's equivalents (`require('luasnip').jumpable(1)` / `.jump(1)`, and so
+on) if you do not use the built-in engine.
+
+This is only a concern when *you* own the key. markdown-plus's own default
+`<Tab>` resolves and runs the mapping it displaced, global ones included —
+see |markdown-plus-interop|.
+
 Each kind answers "would the handler act here?":
 
 - `'enter'`     broadest: on a list item line and on a wrapped continuation
@@ -2538,6 +2557,10 @@ Each kind answers "would the handler act here?":
                 the marker zone, at the start of list content. Mid-content it
                 is false, because `<BS>` there belongs to your pairs plugin,
                 not to markdown-plus.
+
+Every kind is false inside a fenced code block, whatever the line looks
+like — a `- item` inside a markdown fence included. markdown-plus never acts
+there, so neither does the predicate.
 
 There is no dedicated `<A-CR>` kind. |markdown-plus.list.continue_list_content|
 acts on any list item line, which is exactly `'indent'`'s scope — borrow that

@@ -23,6 +23,31 @@ function M.__capture()
   }
 end
 
+---Read the state captured by the most recent `__capture()`, falling back to the buffer's
+---current state. For specs that drive their own key-processing burst (one that has to set
+---something up *inside* insert mode, which `press()` cannot express) and still want the
+---mid-insert snapshot.
+---
+---Consumes the slot: a burst whose `<Cmd>` capture never ran must fall back to the live buffer,
+---not silently hand back the snapshot an earlier test left behind. Call `__reset()` before the
+---burst so the fallback is reached for the right reason.
+---@return markdown-plus.spec.InsertResult
+function M.__captured()
+  local result = captured
+  captured = nil
+  return result
+    or {
+      lines = vim.api.nvim_buf_get_lines(0, 0, -1, false),
+      cursor = vim.api.nvim_win_get_cursor(0),
+    }
+end
+
+---Discard any captured state, so a stale snapshot cannot leak into the next burst.
+---@return nil
+function M.__reset()
+  captured = nil
+end
+
 ---Compute the keys needed to enter insert mode with the cursor at `col`.
 ---@param line string Line contents
 ---@param col integer 0-indexed byte column for the insert cursor
@@ -49,7 +74,10 @@ function M.press(keys, row, col)
   require("markdown-plus.keymap_fallback").reset()
 
   -- Backspace behavior across line starts and the insert-start boundary depends on
-  -- 'backspace'. Pin it so specs do not inherit whatever the ambient config happens to set.
+  -- 'backspace'. Pin it so specs do not inherit whatever the ambient config happens to set —
+  -- and restore it afterwards, since this is a *global* option and leaking it would silently
+  -- change the meaning of every later spec in the same Neovim instance.
+  local saved_backspace = vim.o.backspace
   vim.o.backspace = "indent,eol,start"
 
   local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
@@ -59,7 +87,11 @@ function M.press(keys, row, col)
 
   captured = nil
   local sequence = enter_key .. keys .. '<Cmd>lua require("spec.helpers.insert_mode").__capture()<CR><Esc>'
-  vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(sequence, true, false, true), "x", false)
+  -- pcall only so the global option is restored on the way out; the error is rethrown
+  -- immediately after, since a burst that blew up is a spec failure worth seeing.
+  local ok, err = pcall(vim.api.nvim_feedkeys, vim.api.nvim_replace_termcodes(sequence, true, false, true), "x", false)
+  vim.o.backspace = saved_backspace
+  assert(ok, err)
 
   return captured
     or {

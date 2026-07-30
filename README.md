@@ -155,10 +155,13 @@ vim.keymap.set("i", "<CR>", function()
 end, { expr = true, buffer = true })
 ```
 
-`<Tab>`: let a snippet plugin win, keep list indentation:
+`<Tab>`: let a snippet jump win, keep list indentation:
 
 ```lua
 vim.keymap.set("i", "<Tab>", function()
+  if vim.snippet.active({ direction = 1 }) then
+    return "<Cmd>lua vim.snippet.jump(1)<CR>"
+  end
   if require("markdown-plus").in_list_context("indent") then
     return "<Plug>(MarkdownPlusListIndent)"
   end
@@ -166,11 +169,24 @@ vim.keymap.set("i", "<Tab>", function()
 end, { expr = true, buffer = true })
 ```
 
+> [!IMPORTANT]
+> Ask the snippet engine **explicitly**, as above. A buffer-local mapping shadows the global
+> `<Tab>` your snippet plugin installed, and returning `"<Tab>"` from it does not fall through to
+> that global mapping — Neovim resolves the buffer-local one first, and its own recursion guard
+> then terminates in a literal tab. Swap the two `vim.snippet` calls for your plugin's equivalents
+> (`require("luasnip").jumpable(1)` / `.jump(1)`, and so on) if you do not use the built-in engine.
+>
+> This is only a concern when *you* own the key. markdown-plus's own default `<Tab>` resolves and
+> runs the mapping it displaced, global ones included — that is what the section above describes.
+
 Each kind answers "would the handler act here?":
 
 - `"enter"` — broadest: on a list item line *and* on a wrapped continuation line under one.
 - `"indent"` — anywhere on a list item line.
 - `"backspace"` — narrowest: only where the marker would actually be removed (cursor in the marker zone, at the start of list content). Mid-content it is `false`, because `<BS>` there belongs to your pairs plugin, not to us.
+
+Every kind is `false` inside a fenced code block, whatever the line looks like — a `- item` in a
+` ```markdown ` fence included. markdown-plus never acts there, so neither does the predicate.
 
 There is no dedicated `<A-CR>` kind. `continue_list_content` acts on any list item line, which is exactly `"indent"`'s scope — borrow that one when writing an `<A-CR>` recipe.
 

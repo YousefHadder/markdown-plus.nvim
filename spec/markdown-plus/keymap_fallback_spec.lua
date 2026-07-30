@@ -279,6 +279,25 @@ describe("markdown-plus keymap_fallback", function()
       assert.are.equal("def", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
     end)
 
+    -- The in-flight guard's bounce branch is a degradation path like any other: the previous
+    -- fallback left the buffer untouched, so the count the user typed was never spent and the
+    -- raw key we terminate with still owns it.
+    it("keeps opts.count on the guard-bounce path", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "abcdef" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      -- Capture-shape target: it swallows the key and does nothing, leaving the changedtick
+      -- unchanged, which is exactly what makes the next run() inside the burst a bounce.
+      vim.keymap.set("n", "<F5>", function()
+        return ""
+      end, { expr = true })
+
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      flush()
+
+      assert.are.equal("def", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
+
     -- Some of our defaults sit on keys that mean nothing on their own — table navigation's
     -- `<A-l>` is inert in insert mode, so degrading to the literal lhs would swallow the
     -- keypress. `opts.fallback_key` names the key that degradation should feed instead, so

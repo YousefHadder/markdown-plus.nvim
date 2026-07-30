@@ -93,13 +93,53 @@ describe("markdown-plus interop recipes", function()
   end)
 
   describe("snippet <Tab> recipe", function()
+    -- Stands in for the snippet plugin's *global* `<Tab>` mapping. The recipe below is
+    -- buffer-local, so it shadows this one outright: returning `"<Tab>"` from a non-remappable
+    -- buffer-local expr mapping never reaches a global mapping. That is exactly why the recipe
+    -- has to consult the snippet engine itself rather than "falling through" to it.
+    local global_tab_calls = 0
+
     before_each(function()
+      global_tab_calls = 0
       vim.keymap.set("i", "<Tab>", function()
+        global_tab_calls = global_tab_calls + 1
+        return "<Tab>"
+      end, { expr = true })
+
+      vim.keymap.set("i", "<Tab>", function()
+        if vim.snippet.active({ direction = 1 }) then
+          return "<Cmd>lua vim.snippet.jump(1)<CR>"
+        end
         if require("markdown-plus").in_list_context("indent") then
           return "<Plug>(MarkdownPlusListIndent)"
         end
         return "<Tab>"
       end, { expr = true, buffer = true })
+    end)
+
+    after_each(function()
+      pcall(vim.keymap.del, "i", "<Tab>")
+      if vim.snippet.active() then
+        vim.snippet.stop()
+      end
+    end)
+
+    it("jumps to the next tabstop while a snippet is active", function()
+      vim.bo[buf].expandtab = false
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+
+      -- The snippet must be expanded *inside* the key-processing burst: a session started
+      -- beforehand does not survive entering insert mode from the spec.
+      insert_mode.__reset()
+      local sequence = 'i<Cmd>lua vim.snippet.expand("one $1 two $2 end")<CR><Tab>'
+        .. '<Cmd>lua require("spec.helpers.insert_mode").__capture()<CR><Esc>'
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(sequence, true, false, true), "x", false)
+      local result = insert_mode.__captured()
+
+      -- Cursor moved from the `$1` tabstop (col 4) to `$2` (col 9) and no tab was inserted.
+      assert.are.same({ "one  two  end" }, result.lines)
+      assert.are.same({ 1, 9 }, result.cursor)
     end)
 
     it("indents the list item in list context", function()
@@ -114,6 +154,15 @@ describe("markdown-plus interop recipes", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "plain" })
       local result = insert_mode.press("<Tab>", 1, 5)
       assert.are.same({ "plain\t" }, result.lines)
+    end)
+
+    -- Documents the constraint the recipe is built around: the displaced global mapping is
+    -- unreachable from the buffer-local one, whichever branch the recipe takes.
+    it("never reaches the shadowed global <Tab> mapping", function()
+      vim.bo[buf].expandtab = false
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "plain" })
+      insert_mode.press("<Tab>", 1, 5)
+      assert.are.equal(0, global_tab_calls)
     end)
   end)
 end)

@@ -371,18 +371,24 @@ end
 ---@return nil
 function M.run(mode, lhs, opts)
   local degrade = opts and opts.fallback_key
+  local count = opts and opts.count
   local guard_key = mode .. ":" .. vim.api.nvim_get_current_buf() .. ":" .. lhs
   if in_flight[guard_key] == buffer_tick() then
     -- Re-entered inside the same key-processing burst with nothing to show for the previous
     -- fallback: the target we deferred to routed the key straight back into us. Consume the
     -- guard so the chain ends here, and terminate with the raw key.
+    --
+    -- The count comes along: an unchanged changedtick says the target changed no buffer text,
+    -- so a multiplier the user typed cannot have been spent as an edit — unlike the
+    -- target-error path, where a target may have acted partway before throwing. The tick says
+    -- nothing about non-textual work (a cursor move, a popup), which is accepted: a count
+    -- applied to the raw key is the same thing vanilla Neovim does with an untouched buffer.
     in_flight[guard_key] = nil
-    feed_raw(degrade or lhs)
+    feed_raw(degrade or lhs, count)
     return
   end
 
   local target = M.resolve(mode, lhs)
-  local count = opts and opts.count
 
   if not target then
     feed_raw(degrade or lhs, count)
