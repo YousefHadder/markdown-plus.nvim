@@ -89,6 +89,12 @@ local function is_last_item_at_indent(row, indent_level, lines, max_scan_row)
 end
 
 ---Handle normal mode 'o' key
+---
+---Outside of list context this yields to whatever `o` mapping would otherwise have run,
+---falling back to Neovim's own open-line when there is none. Reimplementing the open here
+---would clobber those mappings plus `'autoindent'` and `'formatoptions'` semantics.
+---The count is handed to the fallback so `3o` still opens three lines; a list item is always
+---created singly, matching the pre-existing behavior for the in-list case.
 ---@return nil
 function M.handle_normal_o()
   local current_line = utils.get_current_line()
@@ -99,10 +105,7 @@ function M.handle_normal_o()
   local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
-    -- Not in a list, insert blank line below and enter insert mode
-    utils.insert_line(row + 1, "")
-    utils.set_cursor(row + 1, 0)
-    vim.cmd("startinsert")
+    keymap_fallback.run("n", "o", { count = vim.v.count1 })
     return
   end
 
@@ -139,6 +142,9 @@ function M.handle_normal_o()
 end
 
 ---Handle normal mode 'O' key
+---
+---Outside of list context this yields to whatever `O` mapping would otherwise have run
+---(see `handle_normal_o` for the rationale).
 ---@return nil
 function M.handle_normal_O()
   local current_line = utils.get_current_line()
@@ -149,10 +155,7 @@ function M.handle_normal_O()
   local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
-    -- Not in a list, insert blank line above and enter insert mode
-    utils.insert_line(row, "")
-    utils.set_cursor(row, 0)
-    vim.cmd("startinsert")
+    keymap_fallback.run("n", "O", { count = vim.v.count1 })
     return
   end
 

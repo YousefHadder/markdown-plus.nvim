@@ -233,6 +233,51 @@ describe("markdown-plus keymap_fallback", function()
       assert.are.equal(1, count)
       assert.are.equal("bc", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
     end)
+
+    -- Vanilla Neovim keeps a pending count across an expr mapping and applies it to the keys
+    -- the mapping returns, so `3o` through a foreign `o` expr map opens three lines. Our
+    -- mapping consumes the count, so it has to be re-prefixed onto the produced keys.
+    it("applies opts.count to keys produced by a noremap expr target", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      local calls = 0
+      vim.keymap.set("n", "<F5>", function()
+        calls = calls + 1
+        return "ox<Esc>"
+      end, { expr = true, replace_keycodes = true })
+
+      fallback.run("n", "<F5>", { count = 3 })
+      flush()
+
+      assert.are.equal(1, calls)
+      assert.are.same({ "plain text", "x", "x", "x" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    it("applies opts.count to a noremap string rhs target", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "plain text" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.keymap.set("n", "<F5>", "ox<Esc>")
+
+      fallback.run("n", "<F5>", { count = 3 })
+      flush()
+
+      assert.are.same({ "plain text", "x", "x", "x" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    it("keeps opts.count when the target routes back into markdown-plus", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "abcdef" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.keymap.set("n", "x", function()
+        return "<Plug>(MarkdownPlusListBackspace)"
+      end, { expr = true, replace_keycodes = true })
+
+      fallback.run("n", "x", { count = 3 })
+      flush()
+
+      -- The bounce degrades to the raw key, which replaces the whole target execution:
+      -- `3x` must still delete three characters.
+      assert.are.equal("def", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
   end)
 
   -- Regression: a *remappable* foreign mapping whose keys start with its own lhs (the
