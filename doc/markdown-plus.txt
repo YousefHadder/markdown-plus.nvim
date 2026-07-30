@@ -2441,17 +2441,19 @@ markdown-plus.utils.build_markdown_image(alt, url, {title})
 PLUGIN INTEROP                                          *markdown-plus-interop*
 
 markdown-plus installs buffer-local defaults for keys other plugins commonly
-own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert) and `o` / `O`
-(normal). In list context markdown-plus acts. Everywhere else it hands the key
-back rather than reimplementing the default behavior.
+own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert), `o` / `O` (normal)
+and the table cell navigation keys `<A-h>` `<A-j>` `<A-k>` `<A-l>` (insert).
+In its own context — a list for the list keys, a table for the navigation keys
+— markdown-plus acts. Everywhere else it hands the key back rather than
+reimplementing the default behavior.
 
 
 AUTOMATIC FALLBACK ~
 
 No configuration is required — this is always on.
 
-For each keypress outside list context markdown-plus resolves the mapping that
-would have run instead, in this order:
+For each such keypress outside markdown-plus's own context it resolves the
+mapping that would have run instead, in this order:
 
   1. a buffer-local mapping that is not markdown-plus's own
   2. a global mapping
@@ -2461,13 +2463,19 @@ Resolution happens on every keypress rather than once at startup, so plugins
 that map lazily — on `InsertEnter`, for example — are still found after
 markdown-plus has already set up the buffer.
 
-What this preserves outside list context:
+What this preserves outside that context:
 - other plugins' mappings (mini.pairs `<BS>`/`<CR>`, blink.cmp and
   nvim-cmp `<CR>`/`<Tab>` confirm/select, LuaSnip and copilot.lua `<Tab>`)
 - your own mappings for those keys, including expression mappings
 - native behavior when nothing else is mapped: counts (`3o`), 'autoindent',
   'formatoptions' comment continuation, 'backspace' semantics, abbreviations
 - fenced code blocks, where markdown-plus never acts and always defers
+- `<A-h/j/k/l>` outside a table, where your own window-mover, snippet or
+  terminal mapping runs instead. With nothing mapped these keys still fall
+  back to plain cursor movement (`<Left>` `<Down>` `<Up>` `<Right>`), which is
+  their documented no-table behavior; set >lua
+      table = { keymaps = { insert_mode_navigation = false } }
+<  to leave them entirely alone.
 
 Plugins that *capture* the mapping they displace (blink.cmp's `fallback`,
 copilot.lua's passthrough) are handled: when such a plugin hands markdown-plus

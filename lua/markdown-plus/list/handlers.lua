@@ -25,13 +25,13 @@ end
 ---raw key unconditionally — as this did before — silently disabled every foreign mapping
 ---for these keys inside fenced code blocks.
 ---@param handler function The original handler function
----@param fallback_key string The key to fall through to (e.g., "<CR>", "<Tab>")
+---@param lhs string The key this handler is mapped from and yields back (e.g., "<CR>", "<Tab>")
 ---@param mode? string Mapping mode the key is registered in (defaults to "i")
 ---@return function Wrapped handler (not an expr mapping)
-function M.skip_in_codeblock(handler, fallback_key, mode)
+function M.skip_in_codeblock(handler, lhs, mode)
   return function()
     if utils.is_in_code_block() then
-      keymap_fallback.run(mode or "i", fallback_key)
+      keymap_fallback.run(mode or "i", lhs)
       return
     end
     handler()

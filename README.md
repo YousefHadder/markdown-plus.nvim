@@ -112,16 +112,17 @@ opts = {
 
 Use `<Plug>(MarkdownPlus...)` mappings for custom remaps instead of undocumented top-level `keymaps.*` action keys.
 
-## Interop with completion/pairs plugins
+## Interop with other plugins
 
-markdown-plus maps keys other plugins commonly own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert) and `o` / `O` (normal). In list context markdown-plus acts. **Everywhere else it hands the key back** instead of reimplementing the default behavior. No configuration required — this is always on.
+markdown-plus maps keys other plugins commonly own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert), `o` / `O` (normal) and the table cell navigation keys `<A-h>` / `<A-j>` / `<A-k>` / `<A-l>` (insert). In its own context — a list for the list keys, a table for the navigation keys — markdown-plus acts. **Everywhere else it hands the key back** instead of reimplementing the default behavior. No configuration required — this is always on.
 
-For each keypress outside list context it resolves what would have run instead: a non-markdown-plus buffer-local mapping → a global mapping → the raw key. Resolution happens per keypress, so lazily-mapping plugins (`InsertEnter` and friends) are still found after setup. That keeps working:
+For each such keypress outside markdown-plus's own context it resolves what would have run instead: a non-markdown-plus buffer-local mapping → a global mapping → the raw key. Resolution happens per keypress, so lazily-mapping plugins (`InsertEnter` and friends) are still found after setup. That keeps working:
 
 - other plugins' mappings — mini.pairs `<BS>`/`<CR>`, blink.cmp / nvim-cmp `<CR>`/`<Tab>`, LuaSnip and copilot.lua `<Tab>`
 - your own mappings for those keys, expression mappings included
 - native behavior when nothing else is mapped: counts (`3o`), `autoindent`, `formatoptions` comment continuation, `backspace` semantics
 - fenced code blocks, where markdown-plus never acts and always defers
+- `<A-h/j/k/l>` outside a table, where your window-mover, snippet or terminal mapping runs instead (with no mapping at all, the key still falls back to plain cursor movement)
 
 Plugins that *capture* the mapping they displace (blink.cmp's `fallback`, copilot.lua's passthrough) are handled: handing our own `<Plug>` back terminates in native behavior rather than bouncing forever.
 
@@ -173,7 +174,7 @@ Each kind answers "would the handler act here?":
 
 There is no dedicated `<A-CR>` kind. `continue_list_content` acts on any list item line, which is exactly `"indent"`'s scope — borrow that one when writing an `<A-CR>` recipe.
 
-A pre-existing **buffer-local** mapping stops markdown-plus from installing its default for that key at all, so map buffer-locally (as above) or disable default keymaps first.
+A pre-existing **buffer-local** mapping stops markdown-plus from installing its default for that key at all, so map buffer-locally (as above) or disable default keymaps first. To leave the table navigation keys entirely unmapped, set `table = { keymaps = { insert_mode_navigation = false } }`.
 
 See `:help markdown-plus-interop` for the full reference.
 

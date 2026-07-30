@@ -66,6 +66,11 @@ local normalized_cache = {}
 ---@field count? integer Normal-mode count (`v:count1`) to re-apply to the keys the fallback
 ---feeds — the resolved target's own keys, or the raw key when it degrades. Pass only from
 ---normal-mode handlers that have not acted on the count themselves.
+---@field fallback_key? string Key to feed instead of `lhs` on every degradation path (no
+---target, bounce, target error). For defaults that sit on a key with no native meaning of its
+---own — table navigation's `<A-l>` is inert in insert mode — degrading to the literal lhs
+---would swallow the press; naming the key the handler documents as its no-context behavior
+---(`<Right>`) keeps it. Resolution and the recursion rule still use `lhs`.
 
 ---Normalize a keymap left-hand side to its internal byte representation for comparison
 ---@param lhs string Left-hand side in any notation (e.g. "<BS>", "<F5>", "x")
@@ -173,18 +178,21 @@ local function feed(keys, noremap)
   vim.api.nvim_feedkeys(keys, noremap and "ni" or "mi", false)
 end
 
----Feed the literal `lhs` as a last resort when no target could be run.
+---Feed a literal key as a last resort when no target could be run.
+---
+---`key` is normally the lhs itself, but callers pass `opts.fallback_key` instead when the lhs
+---has no native meaning worth degrading to (see `markdown-plus.FallbackOpts`).
 ---
 ---A normal-mode count is consumed by *our* mapping, so feeding the bare key would drop it and
 ---turn `3o` into a single open-line. Re-prefixing the digits restores the native behavior.
 ---Only callers that know the count is still unspent pass one: on the error path a foreign target
 ---may already have acted on it, and re-applying would double it.
----@param lhs string Left-hand side to feed
+---@param key string Key to feed
 ---@param count? integer Normal-mode count to re-apply; ignored when nil or 1
 ---@return nil
-local function feed_raw(lhs, count)
+local function feed_raw(key, count)
   local prefix = (count and count > 1) and tostring(count) or ""
-  feed(prefix .. normalize(lhs), true)
+  feed(prefix .. normalize(key), true)
 end
 
 ---Feed keys produced by a *remappable* target, applying Vim's own recursion rule.
@@ -225,15 +233,20 @@ end
 ---the leading-lhs comparison that keeps a target reproducing its own lhs from looping, and a
 ---remapped key after the digits could re-enter us. Remappable string-rhs `o`-style maps
 ---therefore lose the multiplier; no real plugin uses that shape.
+---
+---`degrade` shares that carve-out: `feed_mapped` protects a target whose rhs starts with its own
+---lhs by feeding the literal `lhs`, never the substitute, because the substitute would not match
+---the leading-lhs comparison the loop guard depends on. Vanilla Neovim feeds the lhs there too.
 ---@param keys string Key sequence with termcodes already expanded
 ---@param target markdown-plus.FallbackTarget Resolved target
 ---@param lhs string Left-hand side the target was resolved for
 ---@param count? integer Normal-mode count to re-apply; ignored when nil or 1
+---@param degrade? string Key to feed instead of `lhs` when degrading (`opts.fallback_key`)
 ---@return nil
-local function feed_target(keys, target, lhs, count)
+local function feed_target(keys, target, lhs, count, degrade)
   if routes_back_to_us(keys) then
     -- The bounce replaces the target's execution entirely, so the raw key carries the count.
-    feed_raw(lhs, count)
+    feed_raw(degrade or lhs, count)
     return
   end
   if target.noremap then
@@ -282,32 +295,34 @@ end
 ---@param target markdown-plus.FallbackTarget Resolved target
 ---@param lhs string Left-hand side the target was resolved for
 ---@param count? integer Normal-mode count to re-apply to the produced keys
+---@param degrade? string Key to feed instead of `lhs` when degrading (`opts.fallback_key`)
 ---@return nil
-local function feed_expr_result(result, target, lhs, count)
+local function feed_expr_result(result, target, lhs, count, degrade)
   if type(result) ~= "string" or result == "" then
     return
   end
   local keys = target.replace_keycodes and vim.api.nvim_replace_termcodes(result, true, true, true) or result
-  feed_target(keys, target, lhs, count)
+  feed_target(keys, target, lhs, count, degrade)
 end
 
 ---Run a Lua callback target
 ---@param target markdown-plus.FallbackTarget Resolved target
 ---@param lhs string Left-hand side, used for error reporting and the raw-key fallback
 ---@param count? integer Normal-mode count to re-apply to the produced keys
+---@param degrade? string Key to feed instead of `lhs` when degrading (`opts.fallback_key`)
 ---@return nil
-local function run_callback(target, lhs, count)
+local function run_callback(target, lhs, count, degrade)
   local ok, result = pcall(target.callback)
   if not ok then
     notify_failure(lhs, result)
     -- Deliberately countless: a target that threw partway may already have acted on the count,
     -- so re-prefixing it here risks doubling. Unlike the `feed_mapped` punt, which drops the
     -- count because prefixing is *unsafe*, this one drops it because it may be *already spent*.
-    feed_raw(lhs)
+    feed_raw(degrade or lhs)
     return
   end
   if target.expr then
-    feed_expr_result(result, target, lhs, count)
+    feed_expr_result(result, target, lhs, count, degrade)
   end
 end
 
@@ -315,23 +330,24 @@ end
 ---@param target markdown-plus.FallbackTarget Resolved target
 ---@param lhs string Left-hand side, used for error reporting and the raw-key fallback
 ---@param count? integer Normal-mode count to re-apply to the produced keys
+---@param degrade? string Key to feed instead of `lhs` when degrading (`opts.fallback_key`)
 ---@return nil
-local function run_rhs(target, lhs, count)
+local function run_rhs(target, lhs, count, degrade)
   if target.expr then
     local ok, result = pcall(vim.api.nvim_eval, target.rhs)
     if not ok then
       notify_failure(lhs, result)
       -- Countless for the same reason as the callback error path above: possibly already spent.
-      feed_raw(lhs)
+      feed_raw(degrade or lhs)
       return
     end
-    feed_expr_result(result, target, lhs, count)
+    feed_expr_result(result, target, lhs, count, degrade)
     return
   end
 
   -- `from_part = false` here: an rhs is a full key sequence, unlike an lhs, where
   -- `normalize()` passes `from_part = true` to keep partial-key semantics for comparison.
-  feed_target(vim.api.nvim_replace_termcodes(target.rhs, true, false, true), target, lhs, count)
+  feed_target(vim.api.nvim_replace_termcodes(target.rhs, true, false, true), target, lhs, count, degrade)
 end
 
 ---Execute the mapping markdown-plus is deferring to, or feed the raw key when there is none.
@@ -346,18 +362,22 @@ end
 ---on the raw-key degradation.
 ---
 ---Remappable targets are the known gap: see `feed_target`.
+---
+---Every path that terminates in a raw key honours `opts.fallback_key` when one is given, so a
+---default whose lhs is inert on its own still ends in the behavior its handler documents.
 ---@param mode string Mapping mode ("i", "n", ...)
 ---@param lhs string Left-hand side (e.g. "<BS>")
 ---@param opts? markdown-plus.FallbackOpts Optional behavior overrides
 ---@return nil
 function M.run(mode, lhs, opts)
+  local degrade = opts and opts.fallback_key
   local guard_key = mode .. ":" .. vim.api.nvim_get_current_buf() .. ":" .. lhs
   if in_flight[guard_key] == buffer_tick() then
     -- Re-entered inside the same key-processing burst with nothing to show for the previous
     -- fallback: the target we deferred to routed the key straight back into us. Consume the
     -- guard so the chain ends here, and terminate with the raw key.
     in_flight[guard_key] = nil
-    feed_raw(lhs)
+    feed_raw(degrade or lhs)
     return
   end
 
@@ -365,20 +385,20 @@ function M.run(mode, lhs, opts)
   local count = opts and opts.count
 
   if not target then
-    feed_raw(lhs, count)
+    feed_raw(degrade or lhs, count)
     return
   end
 
   arm_guard(guard_key)
   local ok, err = pcall(function()
     if target.callback then
-      run_callback(target, lhs, count)
+      run_callback(target, lhs, count, degrade)
     elseif type(target.rhs) == "string" and target.rhs ~= "" then
-      run_rhs(target, lhs, count)
+      run_rhs(target, lhs, count, degrade)
     else
       -- Target with an empty rhs: nothing to run, so this is the raw-key path and still owns
       -- the count.
-      feed_raw(lhs, count)
+      feed_raw(degrade or lhs, count)
     end
   end)
 
