@@ -176,6 +176,7 @@ function M.teardown()
 
   clear_root_augroup()
   clear_plugin_default_keymaps()
+  require("markdown-plus.keymap_fallback").reset()
   reset_module_refs()
   M.config = vim.deepcopy(DEFAULT_CONFIG)
 end

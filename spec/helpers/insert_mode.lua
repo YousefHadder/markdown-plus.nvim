@@ -43,6 +43,11 @@ end
 ---@param col integer 0-indexed byte column for the insert cursor
 ---@return markdown-plus.spec.InsertResult
 function M.press(keys, row, col)
+  -- Each call models a fresh user keypress, so any fallback guard left over from a previous
+  -- press must be gone. In a real session the guard expires on the next event-loop turn;
+  -- specs drive the typeahead synchronously and never reach one.
+  require("markdown-plus.keymap_fallback").reset()
+
   -- Backspace behavior across line starts and the insert-start boundary depends on
   -- 'backspace'. Pin it so specs do not inherit whatever the ambient config happens to set.
   vim.o.backspace = "indent,eol,start"
@@ -63,26 +68,62 @@ function M.press(keys, row, col)
     }
 end
 
----Install a buffer-local `<BS>` default the way `keymap_helper` does in production:
----the buffer-local mapping targets a `<Plug>` rhs, which `keymap_fallback` recognizes as
----ours and skips when resolving a fallback.
+---`maparg()` dicts for the global `<Plug>` mappings overwritten by `map_default`, keyed by
+---"<mode>\0<plug>". The real ones are registered by `list/keymaps.lua` (which wraps the
+---handler in `skip_in_codeblock`), so they are restored rather than deleted on teardown.
+local saved_plugs = {}
+
+---Install a buffer-local default the way `keymap_helper` does in production: the
+---buffer-local mapping targets a `<Plug>` rhs, which `keymap_fallback` recognizes as ours
+---and skips when resolving a fallback.
+---@param mode string Mapping mode ("i", "n", ...)
+---@param lhs string Default key (e.g. "<CR>")
+---@param plug string `<Plug>` name the default forwards to
+---@param handler fun() Handler invoked by the `<Plug>` mapping
+---@param bufnr? integer Buffer to map in (defaults to the current buffer)
+---@return nil
+function M.map_default(mode, lhs, plug, handler, bufnr)
+  local existing = vim.fn.maparg(plug, mode, false, true)
+  saved_plugs[mode .. "\0" .. plug] = type(existing) == "table" and existing.lhs and existing or nil
+  vim.keymap.set(mode, plug, handler, { silent = true })
+  vim.keymap.set(mode, lhs, plug, { buffer = bufnr or 0 })
+end
+
+---Remove the mappings installed by `map_default`, restoring the production `<Plug>` mapping
+---when there was one. Leaving our stand-in behind would leak into every later spec in the
+---same Neovim instance.
+---@param mode string Mapping mode used with `map_default`
+---@param lhs string Default key used with `map_default`
+---@param plug string `<Plug>` name used with `map_default`
+---@param bufnr? integer Buffer the default was mapped in (defaults to the current buffer)
+---@return nil
+function M.unmap_default(mode, lhs, plug, bufnr)
+  pcall(vim.keymap.del, mode, lhs, { buffer = bufnr or 0 })
+
+  local key = mode .. "\0" .. plug
+  local saved = saved_plugs[key]
+  saved_plugs[key] = nil
+
+  if saved then
+    pcall(vim.fn.mapset, saved)
+    return
+  end
+  pcall(vim.keymap.del, mode, plug)
+end
+
+---Install the buffer-local `<BS>` default (see `map_default`).
 ---@param handler fun() Handler invoked by the `<Plug>` mapping
 ---@param bufnr? integer Buffer to map in (defaults to the current buffer)
 ---@return nil
 function M.map_backspace_default(handler, bufnr)
-  vim.keymap.set("i", "<Plug>(MarkdownPlusListBackspace)", handler, { silent = true })
-  vim.keymap.set("i", "<BS>", "<Plug>(MarkdownPlusListBackspace)", { buffer = bufnr or 0 })
+  M.map_default("i", "<BS>", "<Plug>(MarkdownPlusListBackspace)", handler, bufnr)
 end
 
 ---Remove the mappings installed by `map_backspace_default`.
----The `<Plug>` mapping is global and overwrites the real one registered by
----`list/keymaps.lua` (which wraps the handler in `skip_in_codeblock`), so leaving it behind
----would leak into every later spec in the same Neovim instance.
 ---@param bufnr? integer Buffer the default was mapped in (defaults to the current buffer)
 ---@return nil
 function M.unmap_backspace_default(bufnr)
-  pcall(vim.keymap.del, "i", "<BS>", { buffer = bufnr or 0 })
-  pcall(vim.keymap.del, "i", "<Plug>(MarkdownPlusListBackspace)")
+  M.unmap_default("i", "<BS>", "<Plug>(MarkdownPlusListBackspace)", bufnr)
 end
 
 ---Press `<BS>` in insert mode with the cursor at (row, col).

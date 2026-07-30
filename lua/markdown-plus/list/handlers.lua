@@ -4,6 +4,7 @@ local handler_utils = require("markdown-plus.list.handler_utils")
 local enter_handler = require("markdown-plus.list.enter_handler")
 local indent_handler = require("markdown-plus.list.indent_handler")
 local normal_handler = require("markdown-plus.list.normal_handler")
+local keymap_fallback = require("markdown-plus.keymap_fallback")
 
 local M = {}
 
@@ -18,16 +19,19 @@ function M.set_config(cfg)
 end
 
 ---Create a wrapper that skips the handler when inside a code block
----Falls through to default key behavior when in a code block
+---
+---Inside a code block the key is yielded back to whatever mapping would otherwise have run
+---(pairs/completion plugins), falling back to the raw key when there is none. Feeding the
+---raw key unconditionally — as this did before — silently disabled every foreign mapping
+---for these keys inside fenced code blocks.
 ---@param handler function The original handler function
 ---@param fallback_key string The key to fall through to (e.g., "<CR>", "<Tab>")
+---@param mode? string Mapping mode the key is registered in (defaults to "i")
 ---@return function Wrapped handler (not an expr mapping)
-function M.skip_in_codeblock(handler, fallback_key)
+function M.skip_in_codeblock(handler, fallback_key, mode)
   return function()
     if utils.is_in_code_block() then
-      -- Feed the original key to get default behavior
-      local key = vim.api.nvim_replace_termcodes(fallback_key, true, false, true)
-      vim.api.nvim_feedkeys(key, "n", false)
+      keymap_fallback.run(mode or "i", fallback_key)
       return
     end
     handler()

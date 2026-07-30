@@ -3,6 +3,7 @@ local utils = require("markdown-plus.utils")
 local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
 local handler_utils = require("markdown-plus.list.handler_utils")
+local keymap_fallback = require("markdown-plus.keymap_fallback")
 
 local M = {}
 
@@ -46,6 +47,11 @@ function M.create_next_list_item(list_info)
 end
 
 ---Handle Enter key in lists
+---
+---Outside of list context this yields to whatever `<CR>` mapping would otherwise have run
+---(completion confirm, pair expansion, …), falling back to Neovim's own newline when there
+---is none. Hand-rolling the line split here would clobber those mappings along with
+---abbreviations, `'formatoptions'` comment continuation and autoindent.
 ---@return nil
 function M.handle_enter()
   local current_line = utils.get_current_line()
@@ -62,13 +68,8 @@ function M.handle_enter()
     is_continuation_line = list_info ~= nil
 
     if not list_info then
-      -- Not in a list at all, simulate default Enter behavior
-      -- Use UTF-8 safe split to handle multibyte characters correctly
-      local line_before, line_after = utils.split_at_cursor(current_line, col)
-
-      utils.set_line(row, line_before)
-      utils.insert_line(row + 1, line_after)
-      utils.set_cursor(row + 1, 0)
+      -- Not in a list at all: defer to the mapping we are shadowing
+      keymap_fallback.run("i", "<CR>")
       return
     end
   end

@@ -7,6 +7,7 @@ local insert_mode = require("spec.helpers.insert_mode")
 
 describe("markdown-plus list normal_handler", function()
   before_each(function()
+    require("markdown-plus.keymap_fallback").reset()
     vim.cmd("enew")
     vim.bo.filetype = "markdown"
     -- Setup list module so parser works

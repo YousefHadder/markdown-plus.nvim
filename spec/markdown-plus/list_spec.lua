@@ -1929,6 +1929,12 @@ describe("markdown-plus list management", function()
   describe("skip_in_codeblock wrapper", function()
     local handlers = require("markdown-plus.list.handlers")
 
+    after_each(function()
+      -- Inside a code block the wrapper queues its fallback keys via `nvim_feedkeys`.
+      -- Drain the typeahead so those keys cannot leak into a later spec.
+      vim.api.nvim_feedkeys("", "x", false)
+    end)
+
     it("does not call handler when inside code block", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
         "```rust",
@@ -2002,6 +2008,206 @@ describe("markdown-plus list management", function()
       wrapped()
 
       assert.is_true(handler_called)
+    end)
+  end)
+
+  describe("keymap fallback for <CR>, <Tab>, <S-Tab> and code blocks", function()
+    local handlers = require("markdown-plus.list.handlers")
+
+    -- No typeahead-drain `after_each` is needed here: every case goes through
+    -- `insert_mode.press`, which feeds with the "x" flag and therefore flushes the
+    -- typeahead (including anything the fallback queued) before returning.
+
+    -- Defaults installed here mirror `list/keymaps.lua`: a buffer-local key mapped to a
+    -- `<Plug>` rhs whose handler is wrapped in `skip_in_codeblock`.
+    local DEFAULTS = {
+      { key = "<CR>", plug = "<Plug>(MarkdownPlusListEnter)", handler = "handle_enter" },
+      { key = "<Tab>", plug = "<Plug>(MarkdownPlusListIndent)", handler = "handle_tab" },
+      { key = "<S-Tab>", plug = "<Plug>(MarkdownPlusListOutdent)", handler = "handle_shift_tab" },
+      { key = "<BS>", plug = "<Plug>(MarkdownPlusListBackspace)", handler = "handle_backspace" },
+    }
+
+    ---Counts of foreign-mapping invocations, keyed by lhs
+    ---@type table<string, integer>
+    local foreign_calls
+
+    ---Install a foreign (non-markdown-plus) global insert-mode mapping for `lhs`
+    ---@param lhs string
+    ---@return nil
+    local function map_foreign(lhs)
+      vim.keymap.set("i", lhs, function()
+        foreign_calls[lhs] = (foreign_calls[lhs] or 0) + 1
+      end)
+    end
+
+    ---Number of times the foreign mapping for `lhs` fired
+    ---@param lhs string
+    ---@return integer
+    local function calls(lhs)
+      return foreign_calls[lhs] or 0
+    end
+
+    before_each(function()
+      foreign_calls = {}
+      for _, default in ipairs(DEFAULTS) do
+        insert_mode.map_default(
+          "i",
+          default.key,
+          default.plug,
+          handlers.skip_in_codeblock(list[default.handler], default.key, "i"),
+          buf
+        )
+        map_foreign(default.key)
+      end
+    end)
+
+    after_each(function()
+      for _, default in ipairs(DEFAULTS) do
+        insert_mode.unmap_default("i", default.key, default.plug, buf)
+        pcall(vim.keymap.del, "i", default.key)
+      end
+    end)
+
+    describe("<CR>", function()
+      it("runs the foreign mapping instead of splitting the line outside a list", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Regular text" })
+        local result = insert_mode.press("<CR>", 1, 7)
+        assert.are.equal(1, calls("<CR>"))
+        assert.are.same({ "Regular text" }, result.lines)
+      end)
+
+      it("continues the list and does not run the foreign mapping in list context", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Item" })
+        local result = insert_mode.press("<CR>", 1, 6)
+        assert.are.equal(0, calls("<CR>"))
+        assert.are.same({ "- Item", "- " }, result.lines)
+      end)
+
+      it("runs the foreign mapping inside a fenced code block", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "```lua", "code", "```" })
+        local result = insert_mode.press("<CR>", 2, 2)
+        assert.are.equal(1, calls("<CR>"))
+        assert.are.same({ "```lua", "code", "```" }, result.lines)
+      end)
+    end)
+
+    describe("<Tab>", function()
+      it("runs the foreign mapping instead of inserting a tab outside a list", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Regular text" })
+        local result = insert_mode.press("<Tab>", 1, 4)
+        assert.are.equal(1, calls("<Tab>"))
+        assert.are.same({ "Regular text" }, result.lines)
+      end)
+
+      it("indents and does not run the foreign mapping in list context", function()
+        vim.bo[buf].shiftwidth = 2
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- Item" })
+        local result = insert_mode.press("<Tab>", 1, 2)
+        assert.are.equal(0, calls("<Tab>"))
+        assert.are.same({ "  - Item" }, result.lines)
+      end)
+
+      it("runs the foreign mapping inside a fenced code block", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "```lua", "code", "```" })
+        local result = insert_mode.press("<Tab>", 2, 2)
+        assert.are.equal(1, calls("<Tab>"))
+        assert.are.same({ "```lua", "code", "```" }, result.lines)
+      end)
+    end)
+
+    describe("<S-Tab>", function()
+      it("runs the foreign mapping outside a list", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Regular text" })
+        local result = insert_mode.press("<S-Tab>", 1, 4)
+        assert.are.equal(1, calls("<S-Tab>"))
+        assert.are.same({ "Regular text" }, result.lines)
+      end)
+
+      it("outdents and does not run the foreign mapping in list context", function()
+        vim.bo[buf].shiftwidth = 2
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "  - Item" })
+        local result = insert_mode.press("<S-Tab>", 1, 4)
+        assert.are.equal(0, calls("<S-Tab>"))
+        assert.are.same({ "- Item" }, result.lines)
+      end)
+    end)
+
+    describe("<BS>", function()
+      it("runs the foreign mapping inside a fenced code block", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "```lua", "code", "```" })
+        local result = insert_mode.press("<BS>", 2, 4)
+        assert.are.equal(1, calls("<BS>"))
+        assert.are.same({ "```lua", "code", "```" }, result.lines)
+      end)
+    end)
+
+    -- `skip_in_codeblock` is shared by insert-mode keys and the normal-mode `o`/`O`
+    -- defaults, so the mode it resolves the fallback in must follow the mapping, not the
+    -- key. These cases invoke the wrapper directly: the mode argument is what is under
+    -- test, not the keypress plumbing.
+    describe("mode parameter", function()
+      ---Counts of foreign-mapping invocations, keyed by "<mode>:<lhs>"
+      ---@type table<string, integer>
+      local mode_calls
+
+      ---Install a foreign global mapping for `lhs` in `mode`
+      ---@param mode string
+      ---@param lhs string
+      ---@return nil
+      local function map_foreign_in(mode, lhs)
+        vim.keymap.set(mode, lhs, function()
+          local key = mode .. ":" .. lhs
+          mode_calls[key] = (mode_calls[key] or 0) + 1
+        end)
+      end
+
+      ---Number of times the foreign mapping for `mode`/`lhs` fired
+      ---@param mode string
+      ---@param lhs string
+      ---@return integer
+      local function calls_in(mode, lhs)
+        return mode_calls[mode .. ":" .. lhs] or 0
+      end
+
+      before_each(function()
+        mode_calls = {}
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "```lua", "code", "```" })
+        vim.api.nvim_win_set_cursor(0, { 2, 0 }) -- inside the code block
+      end)
+
+      after_each(function()
+        -- When no target resolves, the wrapper queues the raw key; execute the typeahead
+        -- and leave insert mode so nothing leaks into a later spec.
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "x", false)
+        for _, mode in ipairs({ "n", "i" }) do
+          pcall(vim.keymap.del, mode, "o")
+          pcall(vim.keymap.del, mode, "O")
+        end
+      end)
+
+      it("resolves o against normal-mode mappings", function()
+        map_foreign_in("n", "o")
+        handlers.skip_in_codeblock(list.handle_normal_o, "o", "n")()
+        assert.are.equal(1, calls_in("n", "o"))
+      end)
+
+      it("does not resolve o against insert-mode mappings", function()
+        map_foreign_in("i", "o")
+        handlers.skip_in_codeblock(list.handle_normal_o, "o", "n")()
+        assert.are.equal(0, calls_in("i", "o"))
+      end)
+
+      it("resolves O against normal-mode mappings", function()
+        map_foreign_in("n", "O")
+        handlers.skip_in_codeblock(list.handle_normal_O, "O", "n")()
+        assert.are.equal(1, calls_in("n", "O"))
+      end)
+
+      it("does not resolve O against insert-mode mappings", function()
+        map_foreign_in("i", "O")
+        handlers.skip_in_codeblock(list.handle_normal_O, "O", "n")()
+        assert.are.equal(0, calls_in("i", "O"))
+      end)
     end)
   end)
 

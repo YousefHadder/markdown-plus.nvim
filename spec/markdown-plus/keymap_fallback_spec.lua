@@ -20,6 +20,7 @@ end
 
 describe("markdown-plus keymap_fallback", function()
   before_each(function()
+    fallback.reset()
     vim.cmd("enew")
     vim.bo.filetype = "markdown"
   end)
@@ -28,8 +29,11 @@ describe("markdown-plus keymap_fallback", function()
     unmap("n", "<F5>")
     unmap("n", "<F6>")
     unmap("i", "<F5>")
+    unmap("i", "<F6>")
+    unmap("i", "<Plug>(MarkdownPlusFallbackSpec)")
     unmap("n", "x")
     unmap("n", "<F5>", { buffer = true })
+    unmap("i", "<F5>", { buffer = true })
     unmap("i", "<BS>", { buffer = true })
     unmap("i", "<BS>")
     vim.cmd("bdelete!")
@@ -228,6 +232,193 @@ describe("markdown-plus keymap_fallback", function()
 
       assert.are.equal(1, count)
       assert.are.equal("bc", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
+  end)
+
+  -- Regression: a *remappable* foreign mapping whose keys start with its own lhs (the
+  -- LuaSnip-style `<Tab>` pattern) used to loop forever, because the keys we fed were
+  -- re-resolved through our own buffer-local default in a later event-loop turn.
+  describe("remappable targets that reproduce their own lhs", function()
+    ---Mirror the real plugin wiring: buffer-local default → `<Plug>` → `fallback.run`
+    ---@param state table Mutable state table; `state.calls` counts handler invocations
+    ---@return nil
+    local function install_our_default(state)
+      vim.keymap.set("i", "<Plug>(MarkdownPlusFallbackSpec)", function()
+        state.calls = state.calls + 1
+        -- Circuit breaker: without it an unfixed recursion would spin the event loop
+        -- forever and hang the suite instead of failing with a readable assertion.
+        if state.calls > 1 then
+          return
+        end
+        fallback.run("i", "<F5>")
+      end)
+      vim.keymap.set("i", "<F5>", "<Plug>(MarkdownPlusFallbackSpec)", { buffer = true, remap = true })
+    end
+
+    ---Type `keys` and drain the typeahead
+    ---@param keys string Key notation (e.g. "i<F5><Esc>")
+    ---@return nil
+    local function press(keys)
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(keys, true, false, true), "mx", false)
+    end
+
+    before_each(function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    end)
+
+    it("terminates when a remappable expr target returns its own lhs", function()
+      local state = { calls = 0 }
+      install_our_default(state)
+      vim.keymap.set("i", "<F5>", function()
+        return "<F5>"
+      end, { expr = true, remap = true, replace_keycodes = true })
+
+      press("i<F5><Esc>")
+
+      assert.are.equal(1, state.calls)
+      -- The lhs prefix is fed noremap, so it reaches insert mode unmapped and degrades to
+      -- the literal key instead of being resolved through our default a second time.
+      assert.are.equal("<F5>", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
+
+    it("feeds the lhs prefix noremap but keeps the remainder remappable", function()
+      local state = { calls = 0 }
+      local remainder_fired = 0
+      install_our_default(state)
+      vim.keymap.set("i", "<F6>", function()
+        remainder_fired = remainder_fired + 1
+      end)
+      vim.keymap.set("i", "<F5>", function()
+        return "<F5><F6>"
+      end, { expr = true, remap = true, replace_keycodes = true })
+
+      press("i<F5><Esc>")
+
+      assert.are.equal(1, state.calls)
+      assert.are.equal(1, remainder_fired)
+    end)
+
+    it("terminates when a remappable string rhs equals its own lhs", function()
+      local state = { calls = 0 }
+      install_our_default(state)
+      vim.keymap.set("i", "<F5>", "<F5>", { remap = true })
+
+      press("i<F5><Esc>")
+
+      assert.are.equal(1, state.calls)
+      -- The lhs prefix is fed noremap, so it reaches insert mode unmapped and degrades to
+      -- the literal key instead of being resolved through our default a second time.
+      assert.are.equal("<F5>", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
+
+    it("still resolves a remappable rhs that does not start with the lhs", function()
+      local state = { calls = 0 }
+      local nested = 0
+      install_our_default(state)
+      vim.keymap.set("i", "<F6>", function()
+        nested = nested + 1
+      end)
+      vim.keymap.set("i", "<F5>", "<F6>", { remap = true })
+
+      press("i<F5><Esc>")
+
+      assert.are.equal(1, state.calls)
+      assert.are.equal(1, nested)
+    end)
+  end)
+
+  -- Regression: completion plugins *replace* our buffer-local default and keep the mapping
+  -- they displaced as their own fallback. Pressing the key then bounced foreign → our
+  -- `<Plug>` → our handler → fallback → foreign → … forever, freezing the editor.
+  -- blink.cmp (`keymap/fallback.lua`) and copilot.lua (`register_keymap_with_passthrough`)
+  -- are the two real-world shapes; both are covered here.
+  describe("targets that route back into markdown-plus", function()
+    local OUR_PLUG = "<Plug>(MarkdownPlusFallbackSpec)"
+
+    ---Install our handler behind a `<Plug>` mapping, mirroring the real plugin wiring
+    ---@param state table Mutable state table; `state.calls` counts handler invocations
+    ---@return nil
+    local function install_our_handler(state)
+      vim.keymap.set("i", OUR_PLUG, function()
+        state.calls = state.calls + 1
+        -- Circuit breaker: without the fix this recursion spins the event loop forever and
+        -- would hang the suite instead of failing with a readable assertion.
+        if state.calls > 4 then
+          return
+        end
+        fallback.run("i", "<F5>")
+      end)
+    end
+
+    ---Type `keys` and drain the typeahead
+    ---@param keys string Key notation (e.g. "i<F5><Esc>")
+    ---@return nil
+    local function press(keys)
+      vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(keys, true, false, true), "mx", false)
+    end
+
+    before_each(function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    end)
+
+    it("degrades to the raw key when an expr target returns our own <Plug>", function()
+      -- blink.cmp shape: buffer-local, expr, noremap, replace_keycodes = false. Its
+      -- `fallback` command returns the keycodes of the mapping it displaced — ours.
+      local state = { calls = 0, foreign = 0 }
+      install_our_handler(state)
+      vim.api.nvim_buf_set_keymap(0, "i", "<F5>", "", {
+        callback = function()
+          state.foreign = state.foreign + 1
+          return vim.api.nvim_replace_termcodes(OUR_PLUG, true, true, true)
+        end,
+        expr = true,
+        noremap = true,
+        replace_keycodes = false,
+        silent = true,
+      })
+
+      press("i<F5><Esc>")
+
+      assert.are.equal(1, state.calls)
+      assert.are.equal(2, state.foreign)
+      -- The bounce terminates in the raw key: `<F5>` has no insert-mode meaning of its own, so
+      -- it degrades to its literal notation in the buffer. Pins that the raw key really landed
+      -- instead of the chain dying silently.
+      assert.are.equal("<F5>", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
+
+    it("degrades to the raw key when a target feeds our <Plug> into the typeahead", function()
+      -- copilot.lua shape: buffer-local expr passthrough that feeds the displaced mapping
+      -- itself and returns <Ignore>, so the bounce arrives in a later event-loop turn.
+      local state = { calls = 0 }
+      install_our_handler(state)
+      vim.keymap.set("i", "<F5>", function()
+        vim.api.nvim_feedkeys(vim.api.nvim_replace_termcodes(OUR_PLUG, true, false, true), "i", true)
+        return "<Ignore>"
+      end, { expr = true, replace_keycodes = true, silent = true, buffer = true })
+
+      press("i<F5><Esc>")
+
+      -- One real pass plus a single bounce that the in-flight guard terminates.
+      assert.are.equal(2, state.calls)
+    end)
+
+    it("still runs the foreign target on a repeat press within the same burst", function()
+      local state = { calls = 0 }
+      local foreign = 0
+      install_our_handler(state)
+      vim.keymap.set("i", "<F5>", "<Plug>(MarkdownPlusFallbackSpec)", { buffer = true, remap = true })
+      vim.keymap.set("i", "<F5>", function()
+        foreign = foreign + 1
+        return "x"
+      end, { expr = true, replace_keycodes = true })
+
+      press("i<F5><F5><Esc>")
+
+      assert.are.equal(2, foreign)
+      assert.are.equal("xx", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
     end)
   end)
 end)
