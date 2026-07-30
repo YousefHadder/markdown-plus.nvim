@@ -1496,14 +1496,9 @@ describe("markdown-plus list management", function()
         assert.are.equal(2, cursor[2]) -- At indentation start (after "  ")
       end)
 
-      it("falls back to default Enter when not in a list", function()
-        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Regular text here" })
-        vim.api.nvim_win_set_cursor(0, { 1, 8 })
-        list.continue_list_content()
-        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
-        assert.are.equal("Regular ", lines[1])
-        assert.are.equal("text here", lines[2])
-      end)
+      -- Outside a list `<A-CR>` is not ours: it yields through `keymap_fallback` like every
+      -- other default key, rather than hand-rolling a line split. Covered by the
+      -- "keymap fallback" suite below, which drives a real keypress.
     end)
 
     describe("handle_enter with continuation lines", function()
@@ -2025,6 +2020,7 @@ describe("markdown-plus list management", function()
       { key = "<Tab>", plug = "<Plug>(MarkdownPlusListIndent)", handler = "handle_tab" },
       { key = "<S-Tab>", plug = "<Plug>(MarkdownPlusListOutdent)", handler = "handle_shift_tab" },
       { key = "<BS>", plug = "<Plug>(MarkdownPlusListBackspace)", handler = "handle_backspace" },
+      { key = "<A-CR>", plug = "<Plug>(MarkdownPlusListShiftEnter)", handler = "continue_list_content" },
     }
 
     ---Counts of foreign-mapping invocations, keyed by lhs
@@ -2088,6 +2084,56 @@ describe("markdown-plus list management", function()
         local result = insert_mode.press("<CR>", 2, 2)
         assert.are.equal(1, calls("<CR>"))
         assert.are.same({ "```lua", "code", "```" }, result.lines)
+      end)
+    end)
+
+    -- `<A-CR>` (continue list content) used to hand-roll a line split outside list context,
+    -- which clobbered any terminal/multicursor plugin owning the key. It now defers like the
+    -- rest of the default surface.
+    describe("<A-CR>", function()
+      it("runs the foreign mapping instead of splitting the line outside a list", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Regular text here" })
+        local result = insert_mode.press("<A-CR>", 1, 8)
+        assert.are.equal(1, calls("<A-CR>"))
+        assert.are.same({ "Regular text here" }, result.lines)
+      end)
+
+      it("continues list content and does not run the foreign mapping in list context", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- First line text" })
+        local result = insert_mode.press("<A-CR>", 1, 12)
+        assert.are.equal(0, calls("<A-CR>"))
+        assert.are.same({ "- First line", "  text" }, result.lines)
+      end)
+
+      it("runs the foreign mapping inside a fenced code block", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "```lua", "code", "```" })
+        local result = insert_mode.press("<A-CR>", 2, 2)
+        assert.are.equal(1, calls("<A-CR>"))
+        assert.are.same({ "```lua", "code", "```" }, result.lines)
+      end)
+
+      -- With nothing to defer to, the fallback degrades to the raw key. Vanilla Neovim ignores
+      -- the Alt modifier on `<CR>` and splits the line, so the visible result matches the
+      -- hand-rolled split this replaced — but it now comes from Neovim, honouring 'autoindent',
+      -- 'formatoptions' and abbreviations, which the hand-roll silently dropped.
+      it("degrades to native behavior when no foreign mapping exists", function()
+        pcall(vim.keymap.del, "i", "<A-CR>")
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "Regular text here" })
+        local result = insert_mode.press("<A-CR>", 1, 8)
+        assert.are.same({ "Regular ", "text here" }, result.lines)
+      end)
+
+      -- The hand-rolled split ignored 'autoindent'; the native path restores it.
+      it("preserves 'autoindent' on the native fallback", function()
+        pcall(vim.keymap.del, "i", "<A-CR>")
+        local saved_autoindent = vim.bo[buf].autoindent
+        vim.bo[buf].autoindent = true
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "    indented text" })
+
+        local result = insert_mode.press("<A-CR>", 1, 12)
+        vim.bo[buf].autoindent = saved_autoindent
+
+        assert.are.same({ "    indented", "    text" }, result.lines)
       end)
     end)
 

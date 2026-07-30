@@ -52,6 +52,9 @@ end
 M.setup_renumber_autocmds = autocmds.setup_renumber_autocmds
 M.teardown = autocmds.teardown
 
+-- Public API: composition hook for users and plugin authors (see `list/context.lua`)
+M.in_list_context = require("markdown-plus.list.context").in_list_context
+
 -- Re-export functions from sub-modules for backwards compatibility
 M.parse_list_line = parser.parse_list_line
 M.is_empty_list_item = parser.is_empty_list_item

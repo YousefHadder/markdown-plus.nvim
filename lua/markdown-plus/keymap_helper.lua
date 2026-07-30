@@ -149,6 +149,19 @@ function M.clear_default_keymaps()
   end
 end
 
+---Forget which `<Plug>` mappings have been registered.
+---
+---`registered_plugs` guards against redundant global re-registration, but it is module state
+---that outlives a `teardown()`. Without this reset the helper would still believe a `<Plug>` is
+---registered after teardown dropped the runtime behind it, so a later `setup()` would skip
+---re-registering and leave the mapping pointing at stale state (or missing entirely).
+---Registration is idempotent, so clearing the table only ever costs one redundant
+---`vim.keymap.set` per plug.
+---@return nil
+function M.reset_registered_plugs()
+  registered_plugs = {}
+end
+
 ---Create a standard <Plug> mapping name
 ---@param feature string Feature name (e.g., "Bold", "NextHeader")
 ---@return string Full <Plug> name without <Plug>() wrapper

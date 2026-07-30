@@ -23,6 +23,7 @@ Table of Contents                            *markdown-plus-table-of-contents*
   - Options                                  |markdown-plus-configuration-options|
 5. Commands                                               |markdown-plus-commands|
 6. API                                                         |markdown-plus-api|
+  - Plugin interop                                      |markdown-plus-interop|
 7. Troubleshooting                                 |markdown-plus-troubleshooting|
 8. Contributing                                       |markdown-plus-contributing|
 9. License                                                 |markdown-plus-license|
@@ -629,8 +630,17 @@ exclude Markdown from that formatter (or disable it) so the two don't fight.
 SMART BACKSPACE ~
 
 The `<BS>` key in insert mode is context-aware:
-- In empty list items: removes the list marker
-- Otherwise: deletes character normally
+- At the start of list content: removes the list marker
+- Otherwise: yields to whatever `<BS>` would have done without markdown-plus —
+  your own mapping, another plugin's (mini.pairs and friends), or Neovim's
+  native backspace including 'backspace' semantics
+
+The same rule applies to every default key markdown-plus shares with other
+plugins: `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` in insert mode and `o` / `O` in
+normal mode. Outside list context markdown-plus hands the key back instead of
+reimplementing the default behavior, so counts (`3o`), 'autoindent',
+'formatoptions' comment continuation and other plugins' mappings all keep
+working. See |markdown-plus-interop|.
 
 
 FORMATTING                                      *markdown-plus-usage-formatting*
@@ -2027,6 +2037,26 @@ markdown-plus.thematic_break.cycle_style()
 
 LIST MODULE                                              *markdown-plus.list*
 
+                                            *markdown-plus.list.in_list_context*
+markdown-plus.list.in_list_context({kind})
+    Whether the cursor is in list context for a given handler kind. Also
+    available as `require('markdown-plus').in_list_context({kind})`.
+
+    Read-only and cheap — it parses the current line (plus a bounded look-back
+    for `'enter'`) and never touches the buffer, so it is safe to call from an
+    expression mapping. Use it to own a default key yourself and still let
+    markdown-plus act in list context. See |markdown-plus-interop|.
+    Parameters: ~
+        {kind}  (string, optional)  One of:
+                `'enter'`      `<CR>`: on a list item line or a wrapped
+                               continuation line (default)
+                `'backspace'`  `<BS>`: in the marker zone of a list item
+                               line, where the marker would be removed
+                `'indent'`     `<Tab>`/`<S-Tab>`: on a list item line
+    Returns: ~
+        {boolean}  true when the matching handler would act. An unknown
+                   {kind} reports an error and returns false.
+
                                               *markdown-plus.list.handle_enter*
 markdown-plus.list.handle_enter()
     Handles Enter key in insert mode for auto-continuing lists or splitting
@@ -2037,7 +2067,8 @@ markdown-plus.list.handle_enter()
 markdown-plus.list.continue_list_content()
     Continue list content on next line. Creates a continuation line with
     proper indentation aligned with the list content start position. Typically
-    bound to Alt+Enter (<A-CR>) in insert mode.
+    bound to Alt+Enter (<A-CR>) in insert mode. Outside list context the key is
+    handed back to your own `<A-CR>` mapping (|markdown-plus-interop|).
 
                                                 *markdown-plus.list.handle_tab*
 markdown-plus.list.handle_tab()
@@ -2404,6 +2435,105 @@ markdown-plus.utils.build_markdown_image(alt, url, {title})
         {title}  (string, optional)  Image title
     Returns: ~
         {string}  Formatted image: `![alt](url)` or `![alt](url "title")`
+
+
+==============================================================================
+PLUGIN INTEROP                                          *markdown-plus-interop*
+
+markdown-plus installs buffer-local defaults for keys other plugins commonly
+own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert) and `o` / `O`
+(normal). In list context markdown-plus acts. Everywhere else it hands the key
+back rather than reimplementing the default behavior.
+
+
+AUTOMATIC FALLBACK ~
+
+No configuration is required — this is always on.
+
+For each keypress outside list context markdown-plus resolves the mapping that
+would have run instead, in this order:
+
+  1. a buffer-local mapping that is not markdown-plus's own
+  2. a global mapping
+  3. the raw key (native Neovim behavior)
+
+Resolution happens on every keypress rather than once at startup, so plugins
+that map lazily — on `InsertEnter`, for example — are still found after
+markdown-plus has already set up the buffer.
+
+What this preserves outside list context:
+- other plugins' mappings (mini.pairs `<BS>`/`<CR>`, blink.cmp and
+  nvim-cmp `<CR>`/`<Tab>` confirm/select, LuaSnip and copilot.lua `<Tab>`)
+- your own mappings for those keys, including expression mappings
+- native behavior when nothing else is mapped: counts (`3o`), 'autoindent',
+  'formatoptions' comment continuation, 'backspace' semantics, abbreviations
+- fenced code blocks, where markdown-plus never acts and always defers
+
+Plugins that *capture* the mapping they displace (blink.cmp's `fallback`,
+copilot.lua's passthrough) are handled: when such a plugin hands markdown-plus
+its own `<Plug>` back, the key terminates in native behavior instead of
+bouncing between the two.
+
+Known limits:
+- A pre-existing *buffer-local* mapping stops markdown-plus from installing its
+  default at all — that mapping simply wins, and list features are not bound to
+  that key in the buffer.
+- A remappable target that reproduces its own left-hand side loses a normal-mode
+  count multiplier (`3o`). Expression and Lua-callback mappings — what modern
+  plugins use — are unaffected.
+
+
+TAKING OVER A KEY YOURSELF                            *markdown-plus-recipes*
+
+When you want your mapping to be the one in charge, map the key yourself and
+ask markdown-plus whether it would have acted with
+|markdown-plus.list.in_list_context|. Disable the default keymaps first (see
+|markdown-plus-configuration-keymaps|) or map buffer-locally, since a
+pre-existing buffer-local mapping wins.
+
+mini.pairs `<BS>` with list-marker deletion preserved:
+>lua
+    vim.keymap.set('i', '<BS>', function()
+      if require('markdown-plus').in_list_context('backspace') then
+        return '<Plug>(MarkdownPlusListBackspace)'
+      end
+      return require('mini.pairs').bs()
+    end, { expr = true, buffer = true })
+<
+Completion `<CR>`: confirm when the menu is open, continue the list otherwise:
+>lua
+    vim.keymap.set('i', '<CR>', function()
+      if vim.fn.pumvisible() == 1 then
+        return '<C-y>'
+      end
+      if require('markdown-plus').in_list_context('enter') then
+        return '<Plug>(MarkdownPlusListEnter)'
+      end
+      return '<CR>'
+    end, { expr = true, buffer = true })
+<
+`<Tab>`: let a snippet plugin win, keep list indentation:
+>lua
+    vim.keymap.set('i', '<Tab>', function()
+      if require('markdown-plus').in_list_context('indent') then
+        return '<Plug>(MarkdownPlusListIndent)'
+      end
+      return '<Tab>'
+    end, { expr = true, buffer = true })
+<
+Each kind answers "would the handler act here?":
+
+- `'enter'`     broadest: on a list item line and on a wrapped continuation
+                line beneath one, where `<CR>` continues the list
+- `'indent'`    anywhere on a list item line
+- `'backspace'` narrowest: only where the marker would actually be removed —
+                the marker zone, at the start of list content. Mid-content it
+                is false, because `<BS>` there belongs to your pairs plugin,
+                not to markdown-plus.
+
+There is no dedicated `<A-CR>` kind. |markdown-plus.list.continue_list_content|
+acts on any list item line, which is exactly `'indent'`'s scope — borrow that
+one when writing an `<A-CR>` recipe.
 
 
 ==============================================================================
