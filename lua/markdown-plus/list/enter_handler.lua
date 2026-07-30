@@ -124,6 +124,11 @@ end
 
 ---Continue list content on next line with proper indentation
 ---Splits the line at cursor and creates a continuation line aligned with content start
+---
+---Outside of list context this yields to whatever `<A-CR>` mapping would otherwise have run
+---(terminal and multicursor plugins commonly own the key). Hand-rolling a line split here made
+---`<A-CR>` behave like `<CR>` on plain lines, which is neither what the user mapped nor what
+---the key does natively.
 ---@return nil
 function M.continue_list_content()
   local current_line = utils.get_current_line()
@@ -134,13 +139,8 @@ function M.continue_list_content()
   local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
-    -- Not in a list, simulate default Enter behavior
-    -- Use UTF-8 safe split to handle multibyte characters correctly
-    local line_before, line_after = utils.split_at_cursor(current_line, col)
-
-    utils.set_line(row, line_before)
-    utils.insert_line(row + 1, line_after)
-    utils.set_cursor(row + 1, 0)
+    -- Not in a list at all: defer to the mapping we are shadowing
+    keymap_fallback.run("i", "<A-CR>")
     return
   end
 

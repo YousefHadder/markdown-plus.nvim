@@ -448,6 +448,59 @@ describe("markdown-plus configuration", function()
       assert.are.equal("<Plug>(MarkdownPlusUserMapping)", user_mapping.rhs)
       assert.are.equal("User mapping", user_mapping.desc)
     end)
+
+    -- `registered_plugs` is module-level state that survives `teardown()`. Without a reset the
+    -- helper believes a `<Plug>` is still registered after teardown removed the runtime that
+    -- backs it, and a later `setup()` silently skips re-registering it.
+    it("re-registers <Plug> mappings after reset_registered_plugs", function()
+      local test_config = { keymaps = { enabled = true } }
+      local definition = {
+        {
+          plug = "MarkdownPlusTestReregister",
+          fn = function() end,
+          modes = "n",
+          default_key = "<localleader>tr",
+          desc = "Re-register test",
+        },
+      }
+
+      keymap_helper.setup_keymaps(test_config, definition)
+      assert.is_truthy(next(vim.fn.maparg("<Plug>(MarkdownPlusTestReregister)", "n", false, true)))
+
+      -- Simulate teardown dropping the runtime behind the <Plug>
+      vim.keymap.del("n", "<Plug>(MarkdownPlusTestReregister)")
+      keymap_helper.reset_registered_plugs()
+
+      keymap_helper.setup_keymaps(test_config, definition)
+      local plug_mapping = vim.fn.maparg("<Plug>(MarkdownPlusTestReregister)", "n", false, true)
+      pcall(vim.keymap.del, "n", "<Plug>(MarkdownPlusTestReregister)")
+
+      assert.is_truthy(next(plug_mapping))
+    end)
+
+    it("resets registered <Plug> tracking as part of plugin teardown", function()
+      local test_config = { keymaps = { enabled = true } }
+      local definition = {
+        {
+          plug = "MarkdownPlusTestTeardownPlug",
+          fn = function() end,
+          modes = "n",
+          default_key = "<localleader>tt",
+          desc = "Teardown plug test",
+        },
+      }
+
+      keymap_helper.setup_keymaps(test_config, definition)
+      vim.keymap.del("n", "<Plug>(MarkdownPlusTestTeardownPlug)")
+
+      markdown_plus.teardown()
+      keymap_helper.setup_keymaps(test_config, definition)
+
+      local plug_mapping = vim.fn.maparg("<Plug>(MarkdownPlusTestTeardownPlug)", "n", false, true)
+      pcall(vim.keymap.del, "n", "<Plug>(MarkdownPlusTestTeardownPlug)")
+
+      assert.is_truthy(next(plug_mapping))
+    end)
   end)
 
   describe("lazy-loading behavior", function()

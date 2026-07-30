@@ -112,6 +112,71 @@ opts = {
 
 Use `<Plug>(MarkdownPlus...)` mappings for custom remaps instead of undocumented top-level `keymaps.*` action keys.
 
+## Interop with completion/pairs plugins
+
+markdown-plus maps keys other plugins commonly own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert) and `o` / `O` (normal). In list context markdown-plus acts. **Everywhere else it hands the key back** instead of reimplementing the default behavior. No configuration required — this is always on.
+
+For each keypress outside list context it resolves what would have run instead: a non-markdown-plus buffer-local mapping → a global mapping → the raw key. Resolution happens per keypress, so lazily-mapping plugins (`InsertEnter` and friends) are still found after setup. That keeps working:
+
+- other plugins' mappings — mini.pairs `<BS>`/`<CR>`, blink.cmp / nvim-cmp `<CR>`/`<Tab>`, LuaSnip and copilot.lua `<Tab>`
+- your own mappings for those keys, expression mappings included
+- native behavior when nothing else is mapped: counts (`3o`), `autoindent`, `formatoptions` comment continuation, `backspace` semantics
+- fenced code blocks, where markdown-plus never acts and always defers
+
+Plugins that *capture* the mapping they displace (blink.cmp's `fallback`, copilot.lua's passthrough) are handled: handing our own `<Plug>` back terminates in native behavior rather than bouncing forever.
+
+### Taking over a key yourself
+
+Map the key yourself and ask whether markdown-plus would have acted, via `require("markdown-plus").in_list_context(kind)` — `kind` is `"enter"` (default), `"backspace"` or `"indent"`. It is read-only and cheap, so it is safe from an expression mapping.
+
+mini.pairs `<BS>` with list-marker deletion preserved:
+
+```lua
+vim.keymap.set("i", "<BS>", function()
+  if require("markdown-plus").in_list_context("backspace") then
+    return "<Plug>(MarkdownPlusListBackspace)"
+  end
+  return require("mini.pairs").bs()
+end, { expr = true, buffer = true })
+```
+
+Completion `<CR>`: confirm when the menu is open, continue the list otherwise:
+
+```lua
+vim.keymap.set("i", "<CR>", function()
+  if vim.fn.pumvisible() == 1 then
+    return "<C-y>"
+  end
+  if require("markdown-plus").in_list_context("enter") then
+    return "<Plug>(MarkdownPlusListEnter)"
+  end
+  return "<CR>"
+end, { expr = true, buffer = true })
+```
+
+`<Tab>`: let a snippet plugin win, keep list indentation:
+
+```lua
+vim.keymap.set("i", "<Tab>", function()
+  if require("markdown-plus").in_list_context("indent") then
+    return "<Plug>(MarkdownPlusListIndent)"
+  end
+  return "<Tab>"
+end, { expr = true, buffer = true })
+```
+
+Each kind answers "would the handler act here?":
+
+- `"enter"` — broadest: on a list item line *and* on a wrapped continuation line under one.
+- `"indent"` — anywhere on a list item line.
+- `"backspace"` — narrowest: only where the marker would actually be removed (cursor in the marker zone, at the start of list content). Mid-content it is `false`, because `<BS>` there belongs to your pairs plugin, not to us.
+
+There is no dedicated `<A-CR>` kind. `continue_list_content` acts on any list item line, which is exactly `"indent"`'s scope — borrow that one when writing an `<A-CR>` recipe.
+
+A pre-existing **buffer-local** mapping stops markdown-plus from installing its default for that key at all, so map buffer-locally (as above) or disable default keymaps first.
+
+See `:help markdown-plus-interop` for the full reference.
+
 ## License
 
 MIT License - see [LICENSE](./LICENSE) file for details.

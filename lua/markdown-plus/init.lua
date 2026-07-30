@@ -176,6 +176,7 @@ function M.teardown()
 
   clear_root_augroup()
   clear_plugin_default_keymaps()
+  require("markdown-plus.keymap_helper").reset_registered_plugs()
   require("markdown-plus.keymap_fallback").reset()
   reset_module_refs()
   M.config = vim.deepcopy(DEFAULT_CONFIG)
@@ -334,6 +335,17 @@ function M.setup_autocmds()
       M.enable_features_for_buffer()
     end,
   })
+end
+
+---Check whether the cursor is in list context for a given handler kind.
+---
+---Public composition hook: own a key yourself and ask whether markdown-plus would have acted
+---on it. See `markdown-plus.list.context` for details and a recipe. Resolved through `require`
+---rather than `M.list` so it works regardless of feature flags and teardown state.
+---@param kind? markdown-plus.ListContextKind Handler context to query; defaults to `"enter"`
+---@return boolean in_context `true` when the matching handler would act on the current cursor
+function M.in_list_context(kind)
+  return require("markdown-plus.list.context").in_list_context(kind)
 end
 
 return M
