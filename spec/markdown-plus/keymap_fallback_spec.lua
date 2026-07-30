@@ -278,6 +278,109 @@ describe("markdown-plus keymap_fallback", function()
       -- `3x` must still delete three characters.
       assert.are.equal("def", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
     end)
+
+    -- The in-flight guard's bounce branch is a degradation path like any other: the previous
+    -- fallback left the buffer untouched, so the count the user typed was never spent and the
+    -- raw key we terminate with still owns it.
+    it("keeps opts.count on the guard-bounce path", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "abcdef" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      -- Capture-shape target: it swallows the key and does nothing, leaving the changedtick
+      -- unchanged, which is exactly what makes the next run() inside the burst a bounce.
+      vim.keymap.set("n", "<F5>", function()
+        return ""
+      end, { expr = true })
+
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      flush()
+
+      assert.are.equal("def", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
+
+    -- Some of our defaults sit on keys that mean nothing on their own — table navigation's
+    -- `<A-l>` is inert in insert mode, so degrading to the literal lhs would swallow the
+    -- keypress. `opts.fallback_key` names the key that degradation should feed instead, so
+    -- every terminal path (no target, bounce, target error) ends in real behavior.
+    describe("opts.fallback_key", function()
+      before_each(function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "abcdef" })
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      end)
+
+      it("feeds the substitute key when no target resolves", function()
+        fallback.run("n", "<F5>", { fallback_key = "x" })
+        flush()
+
+        assert.are.equal("bcdef", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+      end)
+
+      it("applies opts.count to the substitute key", function()
+        fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+        flush()
+
+        assert.are.equal("def", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+      end)
+
+      it("feeds the substitute key when the target routes back into markdown-plus", function()
+        -- copilot/blink shape: the target hands our own `<Plug>` back. Without the option the
+        -- chain terminates in the inert raw lhs; with it, the substitute key runs.
+        vim.keymap.set("n", "<F5>", function()
+          return "<Plug>(MarkdownPlusListBackspace)"
+        end, { expr = true, replace_keycodes = true })
+
+        fallback.run("n", "<F5>", { fallback_key = "x" })
+        flush()
+
+        assert.are.equal("bcdef", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+      end)
+
+      it("feeds the substitute key when the resolved target errors", function()
+        local original_notify = vim.notify
+        local messages = {}
+        vim.notify = function(msg, level)
+          table.insert(messages, { msg = msg, level = level })
+        end
+
+        vim.keymap.set("n", "<F5>", function()
+          error("target exploded")
+        end)
+
+        fallback.run("n", "<F5>", { fallback_key = "x" })
+        flush()
+        vim.notify = original_notify
+
+        assert.are.equal(1, #messages)
+        assert.are.equal("bcdef", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+      end)
+
+      it("feeds the substitute key when the target re-enters run for the same key", function()
+        local calls = 0
+        vim.keymap.set("n", "<F5>", function()
+          calls = calls + 1
+          fallback.run("n", "<F5>", { fallback_key = "x" })
+        end)
+
+        fallback.run("n", "<F5>", { fallback_key = "x" })
+        flush()
+
+        assert.are.equal(1, calls)
+        assert.are.equal("bcdef", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+      end)
+
+      it("still runs a resolved target instead of the substitute key", function()
+        local calls = 0
+        vim.keymap.set("n", "<F5>", function()
+          calls = calls + 1
+        end)
+
+        fallback.run("n", "<F5>", { fallback_key = "x" })
+        flush()
+
+        assert.are.equal(1, calls)
+        assert.are.equal("abcdef", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+      end)
+    end)
   end)
 
   -- Regression: a *remappable* foreign mapping whose keys start with its own lhs (the

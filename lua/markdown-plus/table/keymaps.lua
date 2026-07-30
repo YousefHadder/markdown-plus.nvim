@@ -11,17 +11,28 @@ local keymap_helper = require("markdown-plus.keymap_helper")
 
 local plug_mappings_registered = false
 
----@param direction "left"|"right"|"up"|"down"
----@param fallback_key string
----@return fun()
-local function insert_nav_with_fallback(direction, fallback_key)
+---Build an insert-mode cell-navigation handler that yields the key when it has no table to move in.
+---
+---`<A-h/j/k/l>` are commonly owned by other plugins (window movers, snippet engines, terminal
+---mappings). Outside a table markdown-plus has nothing to do with the key, so it defers through
+---`keymap_fallback` and lets the user's or another plugin's mapping run. A successful cell move
+---still consumes the key.
+---
+---`opts.fallback_key` carries the arrow: a bare `<A-l>` means nothing in insert mode, so every
+---degradation path (nothing mapped, a target that bounces our own `<Plug>` back, a target that
+---errors) must end in the plain cursor movement this handler documents rather than in a swallowed
+---keypress.
+---@param direction "left"|"right"|"up"|"down" Cell direction to attempt
+---@param lhs string Default key this navigation is mapped from (e.g. "<A-l>")
+---@param arrow_key string Native key degradation falls back to (e.g. "<Right>")
+---@return fun() handler Insert-mode handler
+local function insert_nav_with_fallback(direction, lhs, arrow_key)
   return function()
     local navigation = require("markdown-plus.table.navigation")
-    local success = navigation["move_" .. direction]()
-    if not success then
-      local key = vim.api.nvim_replace_termcodes(fallback_key, true, false, true)
-      vim.api.nvim_feedkeys(key, "n", false)
+    if navigation["move_" .. direction]() then
+      return
     end
+    require("markdown-plus.keymap_fallback").run("i", lhs, { fallback_key = arrow_key })
   end
 end
 
@@ -281,28 +292,28 @@ local function get_keymap_defs(prefix, include_insert_defaults)
     -- Insert mode navigation (with fallback behavior)
     {
       plug = keymap_helper.plug_name("TableNavLeft"),
-      fn = insert_nav_with_fallback("left", "<Left>"),
+      fn = insert_nav_with_fallback("left", "<A-h>", "<Left>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-h>" or nil,
       desc = "Navigate to cell left or move cursor left",
     },
     {
       plug = keymap_helper.plug_name("TableNavRight"),
-      fn = insert_nav_with_fallback("right", "<Right>"),
+      fn = insert_nav_with_fallback("right", "<A-l>", "<Right>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-l>" or nil,
       desc = "Navigate to cell right or move cursor right",
     },
     {
       plug = keymap_helper.plug_name("TableNavUp"),
-      fn = insert_nav_with_fallback("up", "<Up>"),
+      fn = insert_nav_with_fallback("up", "<A-k>", "<Up>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-k>" or nil,
       desc = "Navigate to cell above or move cursor up",
     },
     {
       plug = keymap_helper.plug_name("TableNavDown"),
-      fn = insert_nav_with_fallback("down", "<Down>"),
+      fn = insert_nav_with_fallback("down", "<A-j>", "<Down>"),
       modes = "i",
       default_key = include_insert_defaults and "<A-j>" or nil,
       desc = "Navigate to cell below or move cursor down",

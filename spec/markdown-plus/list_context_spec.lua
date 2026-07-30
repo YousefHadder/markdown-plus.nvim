@@ -117,6 +117,84 @@ describe("markdown-plus list context API", function()
     assert.are.equal(vim.log.levels.ERROR, messages[1].level)
   end)
 
+  -- Every list handler is wrapped in `skip_in_codeblock`, so a `- item` inside a fence is
+  -- *not* a context the handler acts in. The predicate must agree, or a recipe keyed on it
+  -- routes the key into a handler that immediately hands it back.
+  describe("inside a fenced code block", function()
+    local FENCED = {
+      "Intro",
+      "```markdown",
+      "- item",
+      "  wrapped text",
+      "```",
+    }
+
+    ---Run `fn` with `treesitter.is_in_fenced_code_block` stubbed to `value`.
+    ---`true`/`false` exercise the treesitter path in `utils.is_in_code_block`; `nil` makes it
+    ---fall through to the regex scan, which is the path Neovim takes without a markdown parser.
+    ---@param value boolean|nil Stubbed treesitter verdict
+    ---@param fn fun() Body to run under the stub
+    ---@return nil
+    local function with_treesitter(value, fn)
+      local ts = require("markdown-plus.treesitter")
+      local original = ts.is_in_fenced_code_block
+      ts.is_in_fenced_code_block = function()
+        return value
+      end
+      local ok, err = pcall(fn)
+      ts.is_in_fenced_code_block = original
+      assert(ok, err)
+    end
+
+    it("reports no context for any kind on the treesitter path", function()
+      with_treesitter(true, function()
+        fixture(FENCED, 3, 2)
+        assert.is_false(list.in_list_context("backspace"))
+        assert.is_false(list.in_list_context("indent"))
+        assert.is_false(list.in_list_context("enter"))
+      end)
+    end)
+
+    it("reports no context for any kind on the regex fallback path", function()
+      with_treesitter(nil, function()
+        fixture(FENCED, 3, 2)
+        assert.is_false(list.in_list_context("backspace"))
+        assert.is_false(list.in_list_context("indent"))
+        assert.is_false(list.in_list_context("enter"))
+      end)
+    end)
+
+    -- `enter` reaches back to a parent list item, so a continuation line inside the fence would
+    -- otherwise report context from a marker line that is itself fenced.
+    it("reports no enter context on a continuation line inside the fence", function()
+      with_treesitter(nil, function()
+        fixture(FENCED, 4, 4)
+        assert.is_false(list.in_list_context("enter"))
+      end)
+      with_treesitter(true, function()
+        fixture(FENCED, 4, 4)
+        assert.is_false(list.in_list_context("enter"))
+      end)
+    end)
+
+    it("still reports context on a list line outside the fence", function()
+      local lines = { "```", "code", "```", "- item" }
+      with_treesitter(nil, function()
+        fixture(lines, 4, 2)
+        assert.is_true(list.in_list_context("backspace"))
+        assert.is_true(list.in_list_context("indent"))
+        assert.is_true(list.in_list_context("enter"))
+      end)
+    end)
+
+    it("reports no context in a real fenced buffer with no stubbing", function()
+      fixture(FENCED, 3, 2)
+      assert.is_false(list.in_list_context("backspace"))
+      assert.is_false(list.in_list_context("indent"))
+      assert.is_false(list.in_list_context("enter"))
+    end)
+  end)
+
   it("does not modify the buffer", function()
     fixture({ "- item" }, 1, 6)
     local tick = vim.api.nvim_buf_get_changedtick(0)

@@ -112,16 +112,17 @@ opts = {
 
 Use `<Plug>(MarkdownPlus...)` mappings for custom remaps instead of undocumented top-level `keymaps.*` action keys.
 
-## Interop with completion/pairs plugins
+## Interop with other plugins
 
-markdown-plus maps keys other plugins commonly own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert) and `o` / `O` (normal). In list context markdown-plus acts. **Everywhere else it hands the key back** instead of reimplementing the default behavior. No configuration required — this is always on.
+markdown-plus maps keys other plugins commonly own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert), `o` / `O` (normal) and the table cell navigation keys `<A-h>` / `<A-j>` / `<A-k>` / `<A-l>` (insert). In its own context — a list for the list keys, a table for the navigation keys — markdown-plus acts. **Everywhere else it hands the key back** instead of reimplementing the default behavior. No configuration required — this is always on.
 
-For each keypress outside list context it resolves what would have run instead: a non-markdown-plus buffer-local mapping → a global mapping → the raw key. Resolution happens per keypress, so lazily-mapping plugins (`InsertEnter` and friends) are still found after setup. That keeps working:
+For each such keypress outside markdown-plus's own context it resolves what would have run instead: a non-markdown-plus buffer-local mapping → a global mapping → the raw key. Resolution happens per keypress, so lazily-mapping plugins (`InsertEnter` and friends) are still found after setup. That keeps working:
 
 - other plugins' mappings — mini.pairs `<BS>`/`<CR>`, blink.cmp / nvim-cmp `<CR>`/`<Tab>`, LuaSnip and copilot.lua `<Tab>`
 - your own mappings for those keys, expression mappings included
 - native behavior when nothing else is mapped: counts (`3o`), `autoindent`, `formatoptions` comment continuation, `backspace` semantics
 - fenced code blocks, where markdown-plus never acts and always defers
+- `<A-h/j/k/l>` outside a table, where your window-mover, snippet or terminal mapping runs instead (with no mapping at all, the key still falls back to plain cursor movement)
 
 Plugins that *capture* the mapping they displace (blink.cmp's `fallback`, copilot.lua's passthrough) are handled: handing our own `<Plug>` back terminates in native behavior rather than bouncing forever.
 
@@ -154,10 +155,13 @@ vim.keymap.set("i", "<CR>", function()
 end, { expr = true, buffer = true })
 ```
 
-`<Tab>`: let a snippet plugin win, keep list indentation:
+`<Tab>`: let a snippet jump win, keep list indentation:
 
 ```lua
 vim.keymap.set("i", "<Tab>", function()
+  if vim.snippet.active({ direction = 1 }) then
+    return "<Cmd>lua vim.snippet.jump(1)<CR>"
+  end
   if require("markdown-plus").in_list_context("indent") then
     return "<Plug>(MarkdownPlusListIndent)"
   end
@@ -165,15 +169,28 @@ vim.keymap.set("i", "<Tab>", function()
 end, { expr = true, buffer = true })
 ```
 
+> [!IMPORTANT]
+> Ask the snippet engine **explicitly**, as above. A buffer-local mapping shadows the global
+> `<Tab>` your snippet plugin installed, and returning `"<Tab>"` from it does not fall through to
+> that global mapping — Neovim resolves the buffer-local one first, and its own recursion guard
+> then terminates in a literal tab. Swap the two `vim.snippet` calls for your plugin's equivalents
+> (`require("luasnip").jumpable(1)` / `.jump(1)`, and so on) if you do not use the built-in engine.
+>
+> This is only a concern when *you* own the key. markdown-plus's own default `<Tab>` resolves and
+> runs the mapping it displaced, global ones included — that is what the section above describes.
+
 Each kind answers "would the handler act here?":
 
 - `"enter"` — broadest: on a list item line *and* on a wrapped continuation line under one.
 - `"indent"` — anywhere on a list item line.
 - `"backspace"` — narrowest: only where the marker would actually be removed (cursor in the marker zone, at the start of list content). Mid-content it is `false`, because `<BS>` there belongs to your pairs plugin, not to us.
 
+Every kind is `false` inside a fenced code block, whatever the line looks like — a `- item` in a
+` ```markdown ` fence included. markdown-plus never acts there, so neither does the predicate.
+
 There is no dedicated `<A-CR>` kind. `continue_list_content` acts on any list item line, which is exactly `"indent"`'s scope — borrow that one when writing an `<A-CR>` recipe.
 
-A pre-existing **buffer-local** mapping stops markdown-plus from installing its default for that key at all, so map buffer-locally (as above) or disable default keymaps first.
+A pre-existing **buffer-local** mapping stops markdown-plus from installing its default for that key at all, so map buffer-locally (as above) or disable default keymaps first. To leave the table navigation keys entirely unmapped, set `table = { keymaps = { insert_mode_navigation = false } }`.
 
 See `:help markdown-plus-interop` for the full reference.
 
