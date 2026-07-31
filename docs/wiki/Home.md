@@ -27,7 +27,7 @@ A complete reference of all default keybindings for Normal, Insert, and Visual m
 How to disable defaults and map `<Plug>` actions your own way.
 
 ### [🔌 `<Plug>` Mappings Reference](https://github.com/YousefHadder/markdown-plus.nvim/wiki/12.Plug-Mappings)
-Every one of the 105 `<Plug>` mappings, grouped by module, with modes and default keys.
+Every one of the 110 `<Plug>` mappings, grouped by module, with modes and default keys.
 
 ### [🧩 Lua API](https://github.com/YousefHadder/markdown-plus.nvim/wiki/10.Lua-API)
 Call plugin functions directly from Lua — for custom keymaps, autocmds, and scripting.
