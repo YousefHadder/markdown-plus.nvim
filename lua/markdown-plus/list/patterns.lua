@@ -41,6 +41,13 @@ M.TS_CHECKBOX_TYPES = {
 ---@field ordered_paren_checkbox string Pattern for parenthesized ordered checkbox lists (1) [ ])
 ---@field letter_lower_paren_checkbox string Pattern for parenthesized lowercase letter checkbox lists (a) [ ])
 ---@field letter_upper_paren_checkbox string Pattern for parenthesized uppercase letter checkbox lists (A) [ ])
+---@field checkbox_empty string Pattern for unordered checkbox items with nothing after `]` (- [ ])
+---@field ordered_checkbox_empty string Pattern for ordered checkbox items with nothing after `]` (1. [ ])
+---@field letter_lower_checkbox_empty string Pattern for lowercase letter checkbox items at EOL (a. [ ])
+---@field letter_upper_checkbox_empty string Pattern for uppercase letter checkbox items at EOL (A. [ ])
+---@field ordered_paren_checkbox_empty string Pattern for parenthesized ordered checkbox items at EOL (1) [ ])
+---@field letter_lower_paren_checkbox_empty string Pattern for parenthesized lowercase letter checkboxes at EOL (a) [ ])
+---@field letter_upper_paren_checkbox_empty string Pattern for parenthesized uppercase letter checkboxes at EOL (A) [ ])
 ---@field unordered_empty string Pattern for empty unordered lists at EOL (-, +, *)
 ---@field ordered_empty string Pattern for empty ordered lists at EOL (1., 2., etc.)
 ---@field letter_lower_empty string Pattern for empty lowercase letter lists at EOL (a., b., c.)
@@ -65,6 +72,23 @@ M.patterns = {
   ordered_paren_checkbox = "^(%s*)(%d+)%)%s+%[(.?)%]%s+",
   letter_lower_paren_checkbox = "^(%s*)([a-z])%)%s+%[(.?)%]%s+",
   letter_upper_paren_checkbox = "^(%s*)([A-Z])%)%s+%[(.?)%]%s+",
+  -- Empty checkbox patterns: closing bracket is the last thing on the line.
+  -- The with-content variants above require whitespace after `]`, so an untouched empty task
+  -- (the normal state once trailing whitespace is trimmed) would otherwise parse as a plain
+  -- list item whose content is "[ ]" (issue #387). Anchored with `$` so a checkbox prefix
+  -- followed by real content never matches here.
+  -- The state capture is `.?`, matching the with-content variants above: any single character
+  -- counts as a checkbox state, which keeps custom states ("-", "~", …) working. The knock-on
+  -- effect is that a CommonMark shortcut reference link alone on the line ("- [a]") reads as
+  -- checkbox state "a" — deliberate, not an oversight: "- [a] text" already parses that way,
+  -- so treating the EOL form differently would be the inconsistency.
+  checkbox_empty = "^(%s*)([%-%+%*])%s+%[(.?)%]$",
+  ordered_checkbox_empty = "^(%s*)(%d+)%.%s+%[(.?)%]$",
+  letter_lower_checkbox_empty = "^(%s*)([a-z])%.%s+%[(.?)%]$",
+  letter_upper_checkbox_empty = "^(%s*)([A-Z])%.%s+%[(.?)%]$",
+  ordered_paren_checkbox_empty = "^(%s*)(%d+)%)%s+%[(.?)%]$",
+  letter_lower_paren_checkbox_empty = "^(%s*)([a-z])%)%s+%[(.?)%]$",
+  letter_upper_paren_checkbox_empty = "^(%s*)([A-Z])%)%s+%[(.?)%]$",
   -- Empty item patterns (marker at end of line, no trailing space required)
   -- These handle the case where trim_trailing_whitespace removes the space
   unordered_empty = "^(%s*)([%-%+%*])$",
@@ -91,6 +115,33 @@ M.PATTERN_CONFIG = {
   },
   {
     pattern = "letter_upper_paren_checkbox",
+    type = "letter_upper_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = true,
+  },
+  -- Empty checkbox variants (nothing after `]`). They must precede the plain marker patterns
+  -- below, which would otherwise swallow "- [ ]" as an unordered item with content "[ ]".
+  -- Unlike the bare empty-marker patterns at the end of this list these are NOT flagged
+  -- `is_empty`, so callers passing `skip_empty_patterns` (group scanning) still see these lines
+  -- as list items — exactly as they already see the trailing-space form "- [ ] ".
+  { pattern = "ordered_checkbox_empty", type = "ordered", delimiter = DELIMITER_DOT, has_checkbox = true },
+  { pattern = "letter_lower_checkbox_empty", type = "letter_lower", delimiter = DELIMITER_DOT, has_checkbox = true },
+  { pattern = "letter_upper_checkbox_empty", type = "letter_upper", delimiter = DELIMITER_DOT, has_checkbox = true },
+  { pattern = "checkbox_empty", type = "unordered", delimiter = "", has_checkbox = true },
+  {
+    pattern = "ordered_paren_checkbox_empty",
+    type = "ordered_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = true,
+  },
+  {
+    pattern = "letter_lower_paren_checkbox_empty",
+    type = "letter_lower_paren",
+    delimiter = DELIMITER_PAREN,
+    has_checkbox = true,
+  },
+  {
+    pattern = "letter_upper_paren_checkbox_empty",
     type = "letter_upper_paren",
     delimiter = DELIMITER_PAREN,
     has_checkbox = true,

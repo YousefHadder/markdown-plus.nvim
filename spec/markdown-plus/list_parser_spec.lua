@@ -131,6 +131,99 @@ describe("markdown-plus list parser", function()
     end)
   end)
 
+  describe("empty checkbox at end of line (#387)", function()
+    ---Marker families × checkbox states with nothing after the closing bracket.
+    ---@type { line: string, type: string, marker: string, checkbox: string }[]
+    local EMPTY_CHECKBOX_CASES = {
+      { line = "- [ ]", type = "unordered", marker = "-", checkbox = " " },
+      { line = "* [ ]", type = "unordered", marker = "*", checkbox = " " },
+      { line = "+ [ ]", type = "unordered", marker = "+", checkbox = " " },
+      { line = "- [x]", type = "unordered", marker = "-", checkbox = "x" },
+      { line = "- [X]", type = "unordered", marker = "-", checkbox = "X" },
+      { line = "- [-]", type = "unordered", marker = "-", checkbox = "-" },
+      { line = "- [~]", type = "unordered", marker = "-", checkbox = "~" },
+      { line = "1. [ ]", type = "ordered", marker = "1.", checkbox = " " },
+      { line = "2. [x]", type = "ordered", marker = "2.", checkbox = "x" },
+      { line = "1) [ ]", type = "ordered_paren", marker = "1)", checkbox = " " },
+      { line = "3) [X]", type = "ordered_paren", marker = "3)", checkbox = "X" },
+      { line = "a. [ ]", type = "letter_lower", marker = "a.", checkbox = " " },
+      { line = "A. [x]", type = "letter_upper", marker = "A.", checkbox = "x" },
+      { line = "b) [ ]", type = "letter_lower_paren", marker = "b)", checkbox = " " },
+      { line = "B) [x]", type = "letter_upper_paren", marker = "B)", checkbox = "x" },
+    }
+
+    for _, case in ipairs(EMPTY_CHECKBOX_CASES) do
+      it(("parses %q as a checkbox item via the treesitter-assisted path"):format(case.line), function()
+        local info = set_and_parse(case.line)
+        assert.is_not_nil(info)
+        assert.are.equal(case.type, info.type)
+        assert.are.equal(case.marker, info.marker)
+        assert.are.equal(case.checkbox, info.checkbox)
+        assert.are.equal(case.marker .. " [" .. case.checkbox .. "]", info.full_marker)
+      end)
+
+      it(("parses %q as a checkbox item via the regex fallback"):format(case.line), function()
+        local info = parser.parse_list_line(case.line)
+        assert.is_not_nil(info)
+        assert.are.equal(case.type, info.type)
+        assert.are.equal(case.marker, info.marker)
+        assert.are.equal(case.checkbox, info.checkbox)
+      end)
+    end
+
+    it("parses an indented empty checkbox", function()
+      local info = set_and_parse("  - [ ]")
+      assert.is_not_nil(info)
+      assert.are.equal("unordered", info.type)
+      assert.are.equal("  ", info.indent)
+      assert.are.equal(" ", info.checkbox)
+    end)
+
+    it("treats an empty checkbox line as an empty list item", function()
+      local info = set_and_parse("- [ ]")
+      assert.is_not_nil(info)
+      assert.is_true(parser.is_empty_list_item("- [ ]", info))
+    end)
+
+    it("still parses checkbox items with trailing content unchanged", function()
+      local info = set_and_parse("- [ ] task")
+      assert.is_not_nil(info)
+      assert.are.equal("unordered", info.type)
+      assert.are.equal(" ", info.checkbox)
+      assert.is_false(parser.is_empty_list_item("- [ ] task", info))
+    end)
+
+    it("still parses the trailing-space empty checkbox form", function()
+      local info = set_and_parse("- [ ] ")
+      assert.is_not_nil(info)
+      assert.are.equal(" ", info.checkbox)
+    end)
+
+    it("does not treat an unterminated bracket as a checkbox", function()
+      local info = set_and_parse("- [not a checkbox")
+      assert.is_not_nil(info)
+      assert.are.equal("unordered", info.type)
+      assert.is_nil(info.checkbox)
+    end)
+
+    it("does not treat a bracket followed by glued content as a checkbox", function()
+      local info = set_and_parse("- [ ]x")
+      assert.is_not_nil(info)
+      assert.are.equal("unordered", info.type)
+      assert.is_nil(info.checkbox)
+    end)
+
+    it("keeps recognizing empty checkboxes when skip_empty_patterns is set", function()
+      local info = parser.parse_list_line("- [ ]", nil, { skip_empty_patterns = true })
+      assert.is_not_nil(info)
+      assert.are.equal(" ", info.checkbox)
+    end)
+
+    it("still skips a bare empty marker when skip_empty_patterns is set", function()
+      assert.is_nil(parser.parse_list_line("-", nil, { skip_empty_patterns = true }))
+    end)
+  end)
+
   describe("is_empty_list_item", function()
     it("returns true for a marker with no content", function()
       local info = set_and_parse("- ")

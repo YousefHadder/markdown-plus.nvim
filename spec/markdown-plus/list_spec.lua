@@ -33,6 +33,16 @@ describe("markdown-plus list management", function()
   end)
 
   after_each(function()
+    -- Handlers that yield to `keymap_fallback` (and `skip_in_codeblock` inside a code block)
+    -- queue their keys via `nvim_feedkeys` instead of editing the buffer. A spec that calls
+    -- such a handler directly never drives a key-processing burst, so those keys sit in the
+    -- typeahead and would be flushed by the first burst a *later* spec performs — landing in
+    -- the wrong buffer. Cancel any pending `startinsert` and drain the typeahead here, once,
+    -- rather than per-describe.
+    vim.cmd("stopinsert")
+    vim.api.nvim_feedkeys("", "x", false)
+    vim.cmd("stopinsert")
+
     if vim.api.nvim_buf_is_valid(buf) then
       vim.api.nvim_buf_delete(buf, { force = true })
     end
@@ -1328,6 +1338,91 @@ describe("markdown-plus list management", function()
       end)
     end)
 
+    -- Regression: an empty task whose closing bracket ends the line parsed as a plain list
+    -- item with content "[ ]", so toggling *added* a second checkbox and silently corrupted
+    -- the line ("- [ ]" -> "- [ ] [ ]"). See issue #387. Assertions compare the whole line:
+    -- a "contains [x]" check would have passed on the corrupted output.
+    describe("empty checkbox at EOL (#387 regression)", function()
+      ---Toggle line 1 of a single-line buffer and return the resulting line
+      ---@param line string
+      ---@return string
+      local function toggle_line(line)
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { line })
+        list.toggle_checkbox_on_line(1)
+        return vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1]
+      end
+
+      ---@type { input: string, expected: string }[]
+      local CASES = {
+        { input = "- [ ]", expected = "- [x] " },
+        { input = "- [x]", expected = "- [ ] " },
+        { input = "- [X]", expected = "- [ ] " },
+        { input = "* [ ]", expected = "* [x] " },
+        { input = "+ [x]", expected = "+ [ ] " },
+        { input = "1. [ ]", expected = "1. [x] " },
+        { input = "2. [x]", expected = "2. [ ] " },
+        { input = "1) [ ]", expected = "1) [x] " },
+        { input = "a. [ ]", expected = "a. [x] " },
+        { input = "A. [x]", expected = "A. [ ] " },
+        { input = "b) [ ]", expected = "b) [x] " },
+        -- Custom/extended states are anything but x/X, so they toggle to checked
+        { input = "- [-]", expected = "- [x] " },
+        { input = "- [~]", expected = "- [x] " },
+        { input = "  - [ ]", expected = "  - [x] " },
+        { input = "\t- [x]", expected = "\t- [ ] " },
+      }
+
+      for _, case in ipairs(CASES) do
+        it(("toggles %q in place without duplicating the bracket"):format(case.input), function()
+          assert.are.equal(case.expected, toggle_line(case.input))
+        end)
+      end
+
+      it("round-trips back to unchecked", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ]" })
+        list.toggle_checkbox_on_line(1)
+        list.toggle_checkbox_on_line(1)
+        -- The marker→content pad is re-emitted, so the line keeps a single trailing space;
+        -- the checkbox itself round-trips and is never duplicated.
+        assert.are.same({ "- [ ] " }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+      end)
+
+      it("toggles via toggle_checkbox_line (normal mode entry point)", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ]" })
+        vim.api.nvim_win_set_cursor(0, { 1, 0 })
+        list.toggle_checkbox_line()
+        assert.are.same({ "- [x] " }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+      end)
+
+      it("toggles via toggle_checkbox_insert (insert mode entry point)", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ]" })
+        vim.api.nvim_win_set_cursor(0, { 1, 4 })
+        list.toggle_checkbox_insert()
+        assert.are.same({ "- [x] " }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+      end)
+
+      it("toggles a range mixing empty and content checkboxes", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+          "- [ ]",
+          "- [ ] has content",
+          "- [x]",
+          "1. [ ]",
+        })
+        vim.cmd("normal! ggVGG")
+        list.toggle_checkbox_range()
+        assert.are.same({
+          "- [x] ",
+          "- [x] has content",
+          "- [ ] ",
+          "1. [x] ",
+        }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+      end)
+
+      it("leaves an unterminated bracket alone (adds a checkbox, does not invent a state)", function()
+        assert.are.equal("- [ ] [not a checkbox", toggle_line("- [not a checkbox"))
+      end)
+    end)
+
     describe("toggle_checkbox_range", function()
       it("adds checkboxes to multiple list items", function()
         vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
@@ -1923,12 +2018,6 @@ describe("markdown-plus list management", function()
 
   describe("skip_in_codeblock wrapper", function()
     local handlers = require("markdown-plus.list.handlers")
-
-    after_each(function()
-      -- Inside a code block the wrapper queues its fallback keys via `nvim_feedkeys`.
-      -- Drain the typeahead so those keys cannot leak into a later spec.
-      vim.api.nvim_feedkeys("", "x", false)
-    end)
 
     it("does not call handler when inside code block", function()
       vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
@@ -2746,6 +2835,63 @@ describe("markdown-plus list management", function()
       assert.are.equal("1. a", result[1])
       assert.are.equal("1. b", result[2])
       assert.are.equal("1. c", result[3])
+    end)
+  end)
+
+  -- Regression: an empty task item with the marker at end of line (trailing whitespace
+  -- trimmed) used to parse as a plain `-` item with content "[ ]", so <CR> created a new
+  -- `- ` item instead of breaking out of the list. See issue #387.
+  describe("<CR> on an empty checkbox item (#387)", function()
+    local handlers = require("markdown-plus.list.handlers")
+
+    before_each(function()
+      insert_mode.map_default(
+        "i",
+        "<CR>",
+        "<Plug>(MarkdownPlusListEnter)",
+        handlers.skip_in_codeblock(list.handle_enter, "<CR>", "i"),
+        buf
+      )
+    end)
+
+    after_each(function()
+      insert_mode.unmap_default("i", "<CR>", "<Plug>(MarkdownPlusListEnter)", buf)
+    end)
+
+    it("breaks out of the list on an unchecked empty task at EOL", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ]" })
+      local result = insert_mode.press("<CR>", 1, 5)
+      assert.are.same({ "" }, result.lines)
+    end)
+
+    it("breaks out of the list on a checked empty task at EOL", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x]" })
+      local result = insert_mode.press("<CR>", 1, 5)
+      assert.are.same({ "" }, result.lines)
+    end)
+
+    it("breaks out of the list on an empty ordered task at EOL", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. [ ]" })
+      local result = insert_mode.press("<CR>", 1, 6)
+      assert.are.same({ "" }, result.lines)
+    end)
+
+    it("keeps the indentation when breaking out of a nested empty task", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- parent", "  - [ ]" })
+      local result = insert_mode.press("<CR>", 2, 7)
+      assert.are.same({ "- parent", "  " }, result.lines)
+    end)
+
+    it("continues the list with a fresh unchecked checkbox when the task has content", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [x] task" })
+      local result = insert_mode.press("<CR>", 1, 10)
+      assert.are.same({ "- [x] task", "- [ ] " }, result.lines)
+    end)
+
+    it("still breaks out of a plain empty list item", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- " })
+      local result = insert_mode.press("<CR>", 1, 2)
+      assert.are.same({ "" }, result.lines)
     end)
   end)
 end)
