@@ -61,6 +61,23 @@ describe("markdown-plus list patterns", function()
       ordered_paren_empty = "1)",
       letter_lower_paren_empty = "a)",
       letter_upper_paren_empty = "A)",
+      checkbox_empty = "- [ ]",
+      ordered_checkbox_empty = "1. [x]",
+      letter_lower_checkbox_empty = "a. [ ]",
+      letter_upper_checkbox_empty = "A. [X]",
+      ordered_paren_checkbox_empty = "1) [ ]",
+      letter_lower_paren_checkbox_empty = "a) [x]",
+      letter_upper_paren_checkbox_empty = "A) [ ]",
+    }
+
+    ---Inputs that must NOT match the given pattern (anchoring guards, #387)
+    local negative_cases = {
+      { pattern = "checkbox_empty", input = "- [ ] task" },
+      { pattern = "checkbox_empty", input = "- [ ]x" },
+      { pattern = "checkbox_empty", input = "- [not a checkbox" },
+      { pattern = "ordered_checkbox_empty", input = "1. [ ] task" },
+      { pattern = "ordered_paren_checkbox_empty", input = "1) [x] task" },
+      { pattern = "letter_lower_checkbox_empty", input = "a. [ ] task" },
     }
 
     it("defines all expected pattern keys", function()
@@ -74,6 +91,18 @@ describe("markdown-plus list patterns", function()
         local m = input:match(patterns.patterns[key])
         assert.is_not_nil(m, "pattern did not match: " .. key .. " input=" .. input)
       end
+    end)
+
+    it("empty-checkbox patterns stay anchored to end of line", function()
+      for _, case in ipairs(negative_cases) do
+        local m = case.input:match(patterns.patterns[case.pattern])
+        assert.is_nil(m, "pattern matched unexpectedly: " .. case.pattern .. " input=" .. case.input)
+      end
+    end)
+
+    it("empty-checkbox patterns capture the checkbox state", function()
+      local _, _, state = ("- [x]"):match(patterns.patterns.checkbox_empty)
+      assert.are.equal("x", state)
     end)
 
     it("indents are captured by patterns", function()
@@ -91,6 +120,20 @@ describe("markdown-plus list patterns", function()
       assert.is_true(idx.ordered_checkbox < idx.ordered)
       assert.is_true(idx.checkbox < idx.unordered)
       assert.is_true(idx.letter_lower_checkbox < idx.letter_lower)
+    end)
+
+    it("places empty-checkbox variants before the plain marker patterns", function()
+      local idx = {}
+      for i, config in ipairs(patterns.PATTERN_CONFIG) do
+        idx[config.pattern] = i
+      end
+      assert.is_true(idx.checkbox_empty < idx.unordered)
+      assert.is_true(idx.ordered_checkbox_empty < idx.ordered)
+      assert.is_true(idx.ordered_paren_checkbox_empty < idx.ordered_paren)
+      assert.is_true(idx.letter_lower_checkbox_empty < idx.letter_lower)
+      assert.is_true(idx.letter_upper_checkbox_empty < idx.letter_upper)
+      assert.is_true(idx.letter_lower_paren_checkbox_empty < idx.letter_lower_paren)
+      assert.is_true(idx.letter_upper_paren_checkbox_empty < idx.letter_upper_paren)
     end)
 
     it("places empty patterns last and flags them is_empty", function()

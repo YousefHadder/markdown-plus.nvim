@@ -167,6 +167,23 @@ function M.parse_list_line(line, row, opts)
   -- Try treesitter first (if row provided)
   local ts_result = row and parse_list_line_ts(row) or nil
   if ts_result then
+    -- Treesitter only emits a task-list-marker node for checkbox items that carry content, so
+    -- an empty task ("- [ ]", with or without a trailing space) comes back as a plain list
+    -- marker. That result must not hide the checkbox the regex path does recognize (#387).
+    --
+    -- Returning here deliberately bypasses the `skip_empty` rejection below: that check asks
+    -- "is this a bare marker at EOL?", and against the *treesitter* result "- [ ]" looks like
+    -- one (its full_marker is just "-", leaving " [ ]" as trailing content — so it would not
+    -- even be rejected, it would be returned as a checkbox-less item). An empty checkbox is a
+    -- complete, unambiguous list item, so it stays visible to `skip_empty` callers exactly as
+    -- the trailing-space form "- [ ] " already is. The regex path is authoritative for it.
+    if not ts_result.checkbox then
+      local regex_result = parse_list_line_regex(line, opts)
+      if regex_result and regex_result.checkbox then
+        return regex_result
+      end
+    end
+
     -- When skipping empty patterns, reject markers at EOL with no trailing content
     if skip_empty and is_empty_marker(line, ts_result) then
       return nil
