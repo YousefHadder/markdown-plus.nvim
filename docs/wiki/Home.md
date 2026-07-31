@@ -26,11 +26,24 @@ A complete reference of all default keybindings for Normal, Insert, and Visual m
 ### [🔧 Customizing keymaps](https://github.com/YousefHadder/markdown-plus.nvim/wiki/6.Customizing-Keymaps)
 How to disable defaults and map `<Plug>` actions your own way.
 
+### [🔌 `<Plug>` Mappings Reference](https://github.com/YousefHadder/markdown-plus.nvim/wiki/12.Plug-Mappings)
+Every one of the 110 `<Plug>` mappings, grouped by module, with modes and default keys.
+
+### [🧩 Lua API](https://github.com/YousefHadder/markdown-plus.nvim/wiki/10.Lua-API)
+Call plugin functions directly from Lua — for custom keymaps, autocmds, and scripting.
+
+### [🌳 Treesitter Integration](https://github.com/YousefHadder/markdown-plus.nvim/wiki/11.Treesitter)
+What Treesitter enables, how to install the parsers, and what happens without them.
+
 ### [🤝 Contributing](https://github.com/YousefHadder/markdown-plus.nvim/wiki/7.Contributing)
 Guidelines for contributing code, reporting bugs, and suggesting features.
 
 ### [🔧 Troubleshooting](https://github.com/YousefHadder/markdown-plus.nvim/wiki/8.Troubleshooting)
 Solutions to common issues and health-check guidance.
+
+> [!TIP]
+> The same reference material ships with the plugin. Run `:help markdown-plus`
+> inside Neovim, or `:checkhealth markdown-plus` to verify your setup.
 
 ## Why markdown-plus.nvim?
 

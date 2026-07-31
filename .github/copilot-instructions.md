@@ -6,19 +6,30 @@
 **Purpose:** Modern, feature-rich Markdown editing for Neovim
 
 ### Core Features
-- **List management:** Auto-continue, indent/outdent, renumbering, checkbox support
-- **Text formatting:** Bold, italic, strikethrough, inline code, clear formatting
-- **Headers & TOC:** Navigate, promote/demote, generate/update GitHub-compatible TOC
-- **Link management:** Insert, edit, convert inline/reference, auto-link URLs
+Eleven user-facing feature modules, each toggleable via `features.*`:
+- **list** — auto-continue, indent/outdent, renumbering, checkboxes, list-type toggling
+- **format** — bold, italic, strikethrough, inline code, highlight, escape, clear formatting
+- **headers** — navigate, promote/demote, ATX/setext toggle, generate/update GitHub-compatible TOC
+- **links** — insert, edit, convert inline/reference, auto-link URLs, smart paste
+- **table** — create, format, navigate, row/column ops, cell editor, CSV conversion
+- **footnotes** — insert, edit, delete, navigate, footnotes window
+- **code_block** — insert/wrap, navigate (`]b`/`[b`), change language
+- **callouts** — GFM admonitions, cycle types, custom types
+- **quote** — toggle blockquote markers
+- **images** — insert/edit image syntax
+- **thematic_break** — insert and cycle horizontal-rule styles
 
 ### Architecture
-- `lua/markdown-plus/` - Core modules (81 Lua files across 14 directories):
+- `lua/markdown-plus/` - Core modules (83 Lua files: 6 at root + 77 across 14 directories):
   - Feature modules: list/, format/, headers/, links/, table/, footnotes/, callouts/, quote/, images/, code_block/, thematic_break/
   - Shared: utils/ (buffer, text, selection, element, html), treesitter/, config/
-  - Root: init.lua, types.lua, utils.lua, keymap_helper.lua, health.lua
+  - Root: init.lua, types.lua, utils.lua, keymap_helper.lua, keymap_fallback.lua, health.lua
 - `plugin/markdown-plus.lua` - Entry point with lazy initialization guard
-- `spec/` - 45 Busted test suites
+- `spec/` - 49 Busted test suites, plus `spec/helpers/` and `spec/minimal_init.lua`
+- `test/e2e/` - Separate end-to-end keymap harness (real keypresses, isolated Neovim)
+- `scripts/` - `test` (coverage enforcement), `run-e2e.sh` (isolated e2e runner)
 - `doc/` - Vimdoc help files
+- `docs/wiki/` - Published wiki source (synced by wiki-sync.yml)
 - `rockspecs/` - LuaRocks package specifications
 
 ### Quality Tooling
@@ -26,7 +37,7 @@
 - **Linting:** .luacheckrc
 - **Formatting:** .stylua.toml
 - **Type checking:** .luarc.json (Lua 5.1 runtime)
-- **Testing:** Busted + Plenary (45 spec files, ~85% coverage)
+- **Testing:** Busted + Plenary (49 spec files, ~85% coverage)
 
 ---
 
@@ -56,6 +67,8 @@
 3. **Keymaps**
    - Expose ALL functionality through `<Plug>` mappings
    - Use `keymap_helper.lua` for defaults; it checks existing buffer-local mappings with `maparg()` before setting them
+   - `<Plug>` mappings are global and registered once per mode; user-facing defaults are buffer-local and tracked so teardown removes only our own
+   - Keys other plugins commonly own (`<CR>`, `<BS>`, `<Tab>`, `<S-Tab>`, `<A-CR>`, `o`/`O`, `<A-h/j/k/l>`) must hand the press back via `keymap_fallback.run()` when outside markdown-plus's own context — never reimplement native behavior, and never feed a key that routes back into our own `<Plug>`
    - Never create global normal-mode maps that conflict with common user mappings
    - Keep keymaps buffer-local and properly scoped
 
@@ -87,15 +100,20 @@ make test              # Run all tests
 make test-coverage     # Run tests with coverage threshold checks (85% overall, 80% critical)
 make test-file         # Run tests for a specific file (set FILE=path/to/spec.lua)
 make test-watch        # Run tests in watch mode
+make test-e2e          # Real keypresses through real keymaps in an isolated Neovim
 
 # Code Quality
-make lint              # Run luacheck
-make format            # Format code with stylua
+make lint              # luacheck on lua/ spec/ test/
+make format            # stylua on lua/ spec/ plugin/ test/
 make format-check      # Check formatting without modifying files
 
 # Combined
-make check             # Run lint + format-check + test
+make check             # lint + format-check + test (does NOT include test-e2e)
 ```
+
+Coverage enforcement lives in `scripts/test`, gated by `MARKDOWN_PLUS_ENFORCE_COVERAGE=1`.
+Critical files held to 80%: `headers/init.lua`, `headers/toc.lua`, `list/init.lua`, `links/http_fetch.lua`.
+CI is a reused workflow (`folke/github/.github/workflows/ci.yml`), so most checks are not defined in this repo.
 
 ### Best Practices Checklist
 
@@ -199,13 +217,21 @@ make check             # Run lint + format-check + test
 - `lua/markdown-plus/types.lua` - Type definitions (extend here first)
 - `lua/markdown-plus/config/validate.lua` - Config validation
 - `lua/markdown-plus/utils.lua` - Shared utilities
+- `lua/markdown-plus/keymap_helper.lua` - `<Plug>` + default keymap registration
+- `lua/markdown-plus/keymap_fallback.lua` - Hands keys back to other plugins
 - `plugin/markdown-plus.lua` - Initialization entry point
 - `spec/markdown-plus/*` - Test files
 
+### Gotchas
+- `docs/*` is gitignored except `docs/wiki/` and `docs/manual-testing/` — new files elsewhere under `docs/` are silently untracked
+- `lint` covers `lua/ spec/ test/`; `format`/`format-check` also cover `plugin/`
+- `spec/` (Busted) and `test/e2e/` (real keypresses) are different harnesses; `make check` runs only the former
+- Reset module state in `before_each`/`after_each` — plenary never reaches an event-loop turn between `it` blocks, so `vim.schedule`-released state leaks between tests
+- Requires are mixed by design: shared infra (`utils`, `treesitter`) at module top, feature/sibling modules required inside functions to break cycles
+- Use `vim.notify("markdown-plus: ...")` for user-facing errors; the only `error(`-shaped calls in `lua/` are `health.error()` (vim.health API)
+
 ### Testing Coverage
-✅ Config merging & validation  
-✅ Utility helpers  
-✅ List management  
-✅ Headers & TOC  
-✅ Text formatting  
-✅ Link management
+49 spec files, ~85% overall. Covered areas: config merging & validation, utils, treesitter,
+health, keymap fallback & plugin interop, and all 11 feature modules — list (10 specs),
+table (9), footnotes (7), headers (6), format (3), images (2), links, smart paste,
+callouts, quote, code_block, thematic_break.
