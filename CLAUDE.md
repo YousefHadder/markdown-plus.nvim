@@ -5,7 +5,7 @@
 **Stack**: Lua 5.1 / Neovim 0.11+ / Zero dependencies
 **Architecture**: Feature-based modular plugin — 11 user-facing feature modules plus shared config/utils/treesitter infrastructure under `lua/markdown-plus/`
 **Entry points**: `plugin/markdown-plus.lua` (load guard) → `lua/markdown-plus/init.lua` (setup + orchestration)
-**Test command**: `make test` (Busted + plenary.nvim, 45 spec files)
+**Test command**: `make test` (Busted + plenary.nvim, 49 spec files)
 **Build command**: `make check` (lint + format-check + test)
 
 ## Commands
@@ -14,21 +14,29 @@
 make test              # Run all tests (plenary.nvim harness)
 make test-file FILE=spec/markdown-plus/list_spec.lua
 make test-coverage     # Coverage thresholds: 85% overall, 80% critical files
-make lint              # luacheck
-make format            # stylua (120 col, 2-space indent, double quotes)
+make test-e2e          # Real keypresses through real keymaps in an isolated Neovim
+make lint              # luacheck on lua/ spec/ test/
+make format            # stylua on lua/ spec/ plugin/ test/ (120 col, 2-space, double quotes)
 make format-check      # Check only
-make check             # Full CI: lint + format-check + test
+make check             # lint + format-check + test — does NOT include test-e2e
 ```
+
+Coverage enforcement lives in `scripts/test`, gated by `MARKDOWN_PLUS_ENFORCE_COVERAGE=1`.
+Critical files held to 80%: `headers/init.lua`, `headers/toc.lua`, `list/init.lua`, `links/http_fetch.lua`.
 
 ## Key Directories
 
-- `lua/markdown-plus/` — Core plugin code (81 Lua files across 14 module directories)
+- `lua/markdown-plus/` — Core plugin code (83 Lua files: 6 at root + 77 across 14 module dirs)
 - `lua/markdown-plus/types.lua` — LuaCATS type definitions (update FIRST for new types)
 - `lua/markdown-plus/config/validate.lua` — Schema-based config validation
-- `lua/markdown-plus/utils.lua` — Shared utilities (cursor, line, buffer ops)
+- `lua/markdown-plus/utils.lua` — Facade over `utils/` (buffer, text, selection, element, html)
 - `lua/markdown-plus/keymap_helper.lua` — Centralized `<Plug>` + default keymap registration
-- `spec/markdown-plus/` — 45 Busted test suites
+- `lua/markdown-plus/keymap_fallback.lua` — Hands keys back to other plugins outside our context
+- `spec/markdown-plus/` — 49 Busted test suites (plus `spec/helpers/`, `spec/minimal_init.lua`)
+- `test/e2e/` — Separate e2e harness (real keypresses, isolated Neovim) — not Busted
+- `scripts/` — `test` (coverage enforcement), `run-e2e.sh` (isolated e2e runner)
 - `doc/markdown-plus.txt` — Vimdoc help file
+- `docs/wiki/` — Published wiki source (synced by `wiki-sync.yml`)
 - `plugin/markdown-plus.lua` — Load guard (no logic here)
 
 ## Feature Module Pattern
@@ -38,6 +46,8 @@ Features are conditionally loaded based on `config.features.*` flags in `init.lu
 Features are mostly isolated; all depend on `utils.lua` and `keymap_helper.lua`.
 Note: `utils/element.lua` has a soft cross-reference into `treesitter` and `code_block.parser`.
 Table is the main special case: `init.lua` passes `config.table` to `table.setup()` and wires table keymaps directly without a `table.enable()` call.
+
+Keys other plugins commonly own — `<CR>`, `<BS>`, `<Tab>`, `<S-Tab>`, `<A-CR>`, `o`/`O`, `<A-h/j/k/l>` — are only acted on inside markdown-plus's own context. Everywhere else `keymap_fallback.run()` resolves buffer-local → global → raw key and hands the press back. Never feed a key that routes back into our own `<Plug>`; that bounces.
 
 ## Conventions
 
@@ -64,9 +74,20 @@ require("markdown-plus").setup(opts)
 
 ## Testing
 
-- Framework: Busted via plenary.nvim (`spec/minimal_init.lua` bootstraps)
+- Framework: Busted via plenary.nvim (`spec/minimal_init.lua` bootstraps; finds plenary via `PLENARY_DIR` or common plugin-manager paths)
 - Pattern: `describe()`/`it()` blocks, buffer fixtures in `before_each`
-- 45 test files covering: config, utils, list (4 files: main + group_scanner/normal_handler/parser), format (3 files: main + escape/repeat), headers (6 files: main + manipulation/navigation + toc actions/render/state), links, smart_paste, table (7 files: main + cell_breaks/creator/cell_ops/column_ops/row_ops/row_mapper), footnotes (7 files: main + insertion/navigation/window/line_parser/query/scanner), callouts, health, treesitter, images (2 files: main + insertion), code_block, thematic_break, quote
+- Helpers in `spec/helpers/`: `mocks.lua` (stub `vim.notify` / `vim.ui.select` / `vim.fn.input`), `insert_mode.lua`, `async.lua`
+- Reset module state explicitly in `before_each`/`after_each` — plenary never reaches an event-loop turn between `it` blocks, so `vim.schedule`-released state leaks between tests
+- 49 spec files. Densest areas: list (10), table (9), footnotes (7), headers (6), format (3), images (2); plus `keymap_fallback_spec.lua` and `interop_recipes_spec.lua`
+- `test/e2e/` is a separate harness (`make test-e2e`) driving real keys through real buffer-local keymaps; not run by `make check` or CI
+
+## Gotchas
+
+- `docs/*` is gitignored except `docs/wiki/` and `docs/manual-testing/` — new files elsewhere under `docs/` are silently untracked
+- `lint` covers `lua/ spec/ test/`; `format`/`format-check` also cover `plugin/`
+- Requires are mixed by design: shared infra (`utils`, `treesitter`) at module top, feature/sibling modules required inside functions to break cycles — follow the surrounding file
+- The only `error(`-shaped calls in `lua/` are `health.error()` (vim.health API); runtime code uses `vim.notify("markdown-plus: ...")`
+- CI is a reused workflow (`folke/github/.github/workflows/ci.yml`), so most checks are not defined in this repo
 
 ## Don't
 
