@@ -1,4 +1,4 @@
-.PHONY: test test-coverage test-file test-watch lint format format-check check demo help
+.PHONY: test test-e2e test-coverage test-file test-watch lint format format-check check demo help
 
 # Default target
 help:
@@ -12,6 +12,7 @@ help:
 	@echo "  make format        - Format all Lua files with stylua"
 	@echo "  make format-check  - Check formatting without modifying files"
 	@echo "  make check         - Run lint + format-check + test (CI checks)"
+	@echo "  make test-e2e      - Run end-to-end keymap tests in an isolated Neovim"
 	@echo "  make demo          - Generate all demo GIFs (requires vhs)"
 	@echo "  make help          - Show this help message"
 	@echo ""
@@ -68,7 +69,7 @@ lint:
 		(echo "Error: 'luacheck' not found"; \
 		 echo "Install with: luarocks install luacheck"; exit 1)
 	@echo "Running luacheck..."
-	@luacheck lua/ spec/ --globals vim
+	@luacheck lua/ spec/ test/ --globals vim
 
 # Format Lua code with stylua
 format:
@@ -77,7 +78,7 @@ format:
 		 echo "Install with: cargo install stylua"; \
 		 echo "Or on macOS: brew install stylua"; exit 1)
 	@echo "Formatting Lua files with stylua..."
-	@stylua lua/ spec/ plugin/
+	@stylua lua/ spec/ plugin/ test/
 
 # Check formatting without modifying files
 format-check:
@@ -86,9 +87,14 @@ format-check:
 		 echo "Install with: cargo install stylua"; \
 		 echo "Or on macOS: brew install stylua"; exit 1)
 	@echo "Checking Lua formatting..."
-	@stylua --check lua/ spec/ plugin/
+	@stylua --check lua/ spec/ plugin/ test/
 
 # Run all CI checks (lint + format-check + test)
+# End-to-end keymap tests: real keypresses through the real mappings, in a Neovim that
+# loads only this plugin (no personal config, temp XDG dirs). See scripts/run-e2e.sh.
+test-e2e:
+	@bash scripts/run-e2e.sh
+
 check: lint format-check test
 	@echo "✓ All checks passed!"
 

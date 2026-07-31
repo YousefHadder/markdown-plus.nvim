@@ -31,3 +31,6 @@ demo
 .github/agents
 .claude
 .tests/
+
+# e2e test run logs (generated)
+test/e2e/logs/
