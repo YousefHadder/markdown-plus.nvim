@@ -5,6 +5,22 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.1.0...v2.2.0) (2026-08-05)
+
+
+### Features
+
+* **list:** add in_list_context API and defer &lt;A-CR&gt;; document keymap interop ([#376](https://github.com/YousefHadder/markdown-plus.nvim/issues/376)) ([#384](https://github.com/YousefHadder/markdown-plus.nvim/issues/384)) ([0006e35](https://github.com/YousefHadder/markdown-plus.nvim/commit/0006e355e12a51067fd6834dfcd4e766c84ecd6e))
+
+
+### Bug Fixes
+
+* **list:** defer &lt;BS&gt; to existing mappings via keymap fallback ([#376](https://github.com/YousefHadder/markdown-plus.nvim/issues/376)) ([#381](https://github.com/YousefHadder/markdown-plus.nvim/issues/381)) ([fab1a0f](https://github.com/YousefHadder/markdown-plus.nvim/commit/fab1a0fc8ec5f4020b8a4f8b95a197b8c0840a9f))
+* **list:** defer &lt;CR&gt;/&lt;Tab&gt;/&lt;S-Tab&gt; and code-block keys to existing mappings ([#376](https://github.com/YousefHadder/markdown-plus.nvim/issues/376)) ([#382](https://github.com/YousefHadder/markdown-plus.nvim/issues/382)) ([cd44954](https://github.com/YousefHadder/markdown-plus.nvim/commit/cd449544602e790ca237d96e51b0c7783cf68ec5))
+* **list:** defer normal-mode o/O to existing mappings with count support ([#376](https://github.com/YousefHadder/markdown-plus.nvim/issues/376)) ([#383](https://github.com/YousefHadder/markdown-plus.nvim/issues/383)) ([2ad745b](https://github.com/YousefHadder/markdown-plus.nvim/commit/2ad745b256fc05009726672db4f35843462d2615))
+* **list:** parse empty checkbox items at end of line ([#387](https://github.com/YousefHadder/markdown-plus.nvim/issues/387)) ([#390](https://github.com/YousefHadder/markdown-plus.nvim/issues/390)) ([a8cf8c3](https://github.com/YousefHadder/markdown-plus.nvim/commit/a8cf8c388ed0163ef8c73c621109d2f20332aa46))
+* **table:** defer insert-mode navigation to existing mappings via keymap fallback ([#376](https://github.com/YousefHadder/markdown-plus.nvim/issues/376)) ([#388](https://github.com/YousefHadder/markdown-plus.nvim/issues/388)) ([baf5007](https://github.com/YousefHadder/markdown-plus.nvim/commit/baf50075b8d4c08a1e2f484cc3a9090bc6e837ef))
+
 ## [2.1.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.0.1...v2.1.0) (2026-06-18)
 
 
