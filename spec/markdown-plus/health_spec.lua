@@ -108,6 +108,58 @@ describe("health check", function()
       assert.is_true(found_deprecation_warning, "Expected warning for deprecated vim.g.markdown_plus configuration")
     end)
 
+    it("warns when table.auto_format is explicitly disabled", function()
+      local saved_warn = vim.health.warn
+      local warning_messages = {}
+
+      vim.health.warn = function(msg, _)
+        table.insert(warning_messages, msg)
+      end
+
+      markdown_plus.setup({ table = { auto_format = false } })
+
+      local success = pcall(function()
+        health_module.check()
+      end)
+
+      vim.health.warn = saved_warn
+
+      assert.is_true(success, "Health check should run with auto_format disabled")
+
+      local found = false
+      for _, msg in ipairs(warning_messages) do
+        if msg:match("auto_format") then
+          found = true
+          break
+        end
+      end
+
+      assert.is_true(found, "Expected warning that table.auto_format has no effect")
+    end)
+
+    it("does not warn about table.auto_format when left at its default", function()
+      local saved_warn = vim.health.warn
+      local warning_messages = {}
+
+      vim.health.warn = function(msg, _)
+        table.insert(warning_messages, msg)
+      end
+
+      markdown_plus.setup({})
+
+      local success = pcall(function()
+        health_module.check()
+      end)
+
+      vim.health.warn = saved_warn
+
+      assert.is_true(success, "Health check should run with default config")
+
+      for _, msg in ipairs(warning_messages) do
+        assert.is_nil(msg:match("auto_format"), "Did not expect an auto_format warning by default")
+      end
+    end)
+
     it("warns when plugin is not loaded", function()
       local health_calls = {}
       local orig_ok, orig_warn, orig_error, orig_info, orig_start =

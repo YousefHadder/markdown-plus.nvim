@@ -108,6 +108,19 @@ function M.check()
       end
     end
 
+    -- `table.auto_format` is accepted and validated but never read: tables are reformatted by the
+    -- table commands themselves, not as you type. Only warn when it is explicitly disabled, since
+    -- that is the case where the user asked for behavior they will not get.
+    if mp_ok and markdown_plus.config and markdown_plus.config.table then
+      if markdown_plus.config.table.auto_format == false then
+        health.warn("table.auto_format = false currently has no effect", {
+          "Tables are reformatted by the table commands themselves (insert/delete row or column,",
+          "cell edit, alignment toggle) rather than automatically as you type.",
+          "Setting this to false does not suppress that reformatting.",
+        })
+      end
+    end
+
     -- Check for plenary.nvim (optional, for tests)
     if can_require("plenary") then
       health.ok("plenary.nvim is installed (required for running tests)")
