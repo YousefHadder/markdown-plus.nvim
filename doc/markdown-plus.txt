@@ -1645,7 +1645,8 @@ The plugin can be configured through the setup function:
       },
       table = {                  -- Table sub-configuration
         enabled = true,          -- Enable table features
-        auto_format = true,
+        auto_format = true,      -- Reserved; no effect today. Tables reformat
+                                 -- via the table commands, not as you type.
         default_alignment = 'left', -- 'left' | 'center' | 'right'
         confirm_destructive = true,  -- Confirm before transpose/sort operations
         width_mode = 'literal',  -- 'literal' (default; preserves today's behaviour)
@@ -1657,7 +1658,7 @@ The plugin can be configured through the setup function:
                                  -- command. nil = prompt every time.
         auto_wrap = false,       -- Opt-in: when true together with max_column_width,
                                  -- format_table auto-wraps cells whose widest segment
-                                 -- exceeds the cap. Independent of auto_format. Place
+                                 -- exceeds the cap. Place
                                  -- `<!-- markdown-plus: no-wrap -->` immediately above
                                  -- a table to opt it out individually.
         cell_editor = {          -- Floating cell-editor popup configuration
