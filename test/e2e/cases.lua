@@ -217,6 +217,44 @@ return {
     expected = { "1. first", "2. [ ] ", "3. third" },
   },
 
+  -- ---------------------------------------------------------------- P1: table cell navigation
+  -- Insert-mode table navigation is <A-h/j/k/l>. Landing position matters because the next
+  -- thing the user does is type: an empty cell must put the cursor where content goes, not
+  -- against the closing pipe. Asserting buffer contents after typing proves the landing spot
+  -- without the harness needing to inspect the cursor.
+  {
+    name = "<A-j> lands at the start of an empty table cell",
+    priority = "P1",
+    lines = {
+      "| H1 | H2 |",
+      "| -- | -- |",
+      "|    |    |",
+    },
+    cursor = { 1, 2 },
+    keys = "i<A-j>x<Esc>",
+    expected = {
+      "| H1 | H2 |",
+      "| -- | -- |",
+      "| x   |    |",
+    },
+  },
+  {
+    name = "<A-l> lands at the start of the next empty table cell",
+    priority = "P1",
+    lines = {
+      "| H1 | H2 |",
+      "| -- | -- |",
+      "|    |    |",
+    },
+    cursor = { 3, 2 },
+    keys = "i<A-l>x<Esc>",
+    expected = {
+      "| H1 | H2 |",
+      "| -- | -- |",
+      "|    | x   |",
+    },
+  },
+
   -- ---------------------------------------------------------------- P2: documented reach
   {
     name = "'- [a]' reads as checkbox state 'a' (pre-existing, deliberate)",

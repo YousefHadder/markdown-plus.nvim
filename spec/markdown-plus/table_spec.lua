@@ -882,6 +882,133 @@ describe("table.insert_mode_navigation", function()
       assert.is_true(navigation.move_up())
     end)
   end)
+
+  ---Navigation must land on the first *typing* position of the target cell.
+  ---
+  ---The rest of this file asserts only relative movement (`after_col > before_col`), which is why
+  ---an empty cell landing on the closing pipe went unnoticed. These assert exact columns.
+  describe("cursor landing position", function()
+    ---Set up a buffer and return the column the cursor lands on after `move`
+    ---@param lines string[] Buffer contents
+    ---@param start_pos integer[] {row, col} to start from
+    ---@param move string Navigation function name
+    ---@return integer col 1-indexed column after the move
+    local function land(lines, start_pos, move)
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(start_pos[1], start_pos[2])
+      assert.is_true(navigation[move]())
+      return vim.fn.col(".")
+    end
+
+    -- Cell interiors are cols 2-11, 13-22, 24-33; content starts at 3, 14, 25.
+    local EMPTY_TABLE = {
+      "| Header 1 | Header 2 | Header 3 |",
+      "| -------- | -------- | -------- |",
+      "|          |          |          |",
+      "|          |          |          |",
+    }
+
+    it("lands at the start of an empty cell when moving down", function()
+      assert.equals(3, land(EMPTY_TABLE, { 1, 3 }, "move_down"))
+    end)
+
+    it("lands at the start of an empty cell when moving up", function()
+      assert.equals(3, land(EMPTY_TABLE, { 4, 3 }, "move_up"))
+    end)
+
+    it("lands at the start of an empty cell when moving right", function()
+      assert.equals(14, land(EMPTY_TABLE, { 3, 3 }, "move_right"))
+    end)
+
+    it("lands at the start of an empty cell when moving left", function()
+      assert.equals(14, land(EMPTY_TABLE, { 3, 25 }, "move_left"))
+    end)
+
+    it("lands at the start of an empty cell between two filled cells", function()
+      local lines = {
+        "| H1 | H2   | H3 |",
+        "| -- | ---- | -- |",
+        "| a  |      | c  |",
+      }
+      -- Middle cell opens at pipe col 6, so the first typing position is col 8.
+      assert.equals(8, land(lines, { 3, 3 }, "move_right"))
+    end)
+
+    it("still lands on the first content character of a non-empty cell", function()
+      local lines = {
+        "| Header 1 | Header 2 |",
+        "| -------- | -------- |",
+        "| aaa      | bbb      |",
+      }
+      assert.equals(3, land(lines, { 1, 3 }, "move_down"))
+      assert.equals(14, land(lines, { 3, 3 }, "move_right"))
+    end)
+
+    it("lands inside the first cell of an indented table", function()
+      local lines = {
+        "  | H1 | H2 |",
+        "  | -- | -- |",
+        "  |    | b  |",
+      }
+      -- The leading pipe is at col 3, so the first typing position is col 5.
+      assert.equals(5, land(lines, { 1, 5 }, "move_down"))
+    end)
+
+    it("lands inside a zero-width cell without skipping past it", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| -- | -- |",
+        "||b|",
+      }
+      assert.equals(2, land(lines, { 1, 3 }, "move_down"))
+    end)
+
+    it("lands inside a single-space cell", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| -- | -- |",
+        "| | b |",
+      }
+      assert.equals(3, land(lines, { 1, 3 }, "move_down"))
+    end)
+
+    it("handles a row with no trailing pipe", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| -- | -- |",
+        "| a | b",
+      }
+      assert.equals(7, land(lines, { 3, 3 }, "move_right"))
+    end)
+
+    it("does not treat an escaped pipe as a cell boundary", function()
+      local lines = {
+        "| Header 1 | H2 |",
+        "| -------- | -- |",
+        "| a \\| b   | c  |",
+      }
+      assert.equals(3, land(lines, { 1, 3 }, "move_down"))
+    end)
+
+    it("lands at the start of an empty cell after a column operation", function()
+      local helpers = require("markdown-plus.table.helpers")
+      local lines = {
+        "| H1 | H2 |",
+        "| -- | -- |",
+        "|    |    |",
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(3, 3)
+
+      local table_info = parser.get_table_at_cursor()
+      assert.is_not_nil(table_info)
+
+      assert.is_true(helpers.format_reparse_and_move(table_info, 2, 1))
+      -- Formatting normalizes every column to width 3 (the separator minimum), producing
+      -- "|     |     |", so the second cell opens at col 7 and typing starts at col 9.
+      assert.equals(9, vim.fn.col("."))
+    end)
+  end)
 end)
 
 -- Phase 2 Tests
