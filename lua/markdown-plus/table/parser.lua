@@ -22,6 +22,38 @@ local M = {}
 ---@field alignments string[] Column alignments ('left', 'center', 'right')
 ---@field cells string[][] Parsed cell contents [row][col]
 
+---Report whether the pipe at `col` is a real cell boundary rather than an escaped literal.
+---
+---A backslash escapes the character after it, so a backslash run of odd length leaves the pipe
+---escaped, while an even-length run escapes itself and leaves the pipe as a boundary. This is the
+---rule `split_row_into_cells` applies while scanning; it lives here so every caller that needs to
+---locate boundaries agrees with the cells the parser actually produced.
+---@param line string Table row
+---@param col integer 1-indexed column of the pipe
+---@return boolean is_boundary
+function M.is_cell_boundary(line, col)
+  local backslashes = 0
+  local i = col - 1
+  while i >= 1 and line:sub(i, i) == "\\" do
+    backslashes = backslashes + 1
+    i = i - 1
+  end
+  return backslashes % 2 == 0
+end
+
+---Find the next unescaped pipe at or after `from`
+---@param line string Table row
+---@param from integer 1-indexed position to start searching from
+---@return integer? col Column of the pipe (1-indexed), or nil when the row has none left
+function M.next_unescaped_pipe(line, from)
+  for col = from, #line do
+    if line:sub(col, col) == "|" and M.is_cell_boundary(line, col) then
+      return col
+    end
+  end
+  return nil
+end
+
 ---Parse alignment from separator cell
 ---@param sep_cell string Separator cell (e.g., "---", ":---:", "---:")
 ---@return string alignment 'left', 'center', or 'right'
@@ -211,11 +243,8 @@ function M.get_cursor_position_in_table()
   local line = vim.api.nvim_get_current_line()
   local pipe_count = 0
   for i = 1, cursor_col - 1 do
-    if line:sub(i, i) == "|" then
-      local prev = i > 1 and line:sub(i - 1, i - 1) or ""
-      if prev ~= "\\" then
-        pipe_count = pipe_count + 1
-      end
+    if line:sub(i, i) == "|" and M.is_cell_boundary(line, i) then
+      pipe_count = pipe_count + 1
     end
   end
 

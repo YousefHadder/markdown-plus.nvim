@@ -84,6 +84,37 @@ describe("table.parser", function()
       assert.is_not_nil(pos)
       assert.equals(2, pos.row) -- 0=header, 1=separator, 2=first data row
     end)
+
+    -- `split_row_into_cells` clears the escape flag on the second backslash, so the pipe that
+    -- follows an even-length run is a real boundary. The pipe counter here has to agree, or
+    -- navigation derives a different cell index than the parser did.
+    it("counts a pipe after an even backslash run as a cell boundary", function()
+      local lines = {
+        "| H1 | H2 | H3 |",
+        "| -- | -- | -- |",
+        "| a\\\\| b | c |", -- buffer text: | a\\| b | c |
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(3, 8) -- on "b", which is the second cell
+
+      local pos = parser.get_cursor_position_in_table()
+      assert.is_not_nil(pos)
+      assert.equals(1, pos.col)
+    end)
+
+    it("counts a pipe after an odd backslash run as escaped", function()
+      local lines = {
+        "| H1 | H2 |",
+        "| -- | -- |",
+        "| a\\| b | c |", -- buffer text: | a\| b | c |
+      }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+      vim.fn.cursor(3, 7) -- on "b", still inside the first cell
+
+      local pos = parser.get_cursor_position_in_table()
+      assert.is_not_nil(pos)
+      assert.equals(0, pos.col)
+    end)
   end)
 end)
 
@@ -988,6 +1019,18 @@ describe("table.insert_mode_navigation", function()
         "| a \\| b   | c  |",
       }
       assert.equals(3, land(lines, { 1, 3 }, "move_down"))
+    end)
+
+    -- An even-length backslash run escapes itself, leaving the pipe as a real boundary. Landing
+    -- must agree with `parser.split_row_into_cells`, which reads this row as three cells.
+    it("treats a pipe after an even backslash run as a cell boundary", function()
+      local lines = {
+        "| Header 1 | H2 | H3 |",
+        "| -------- | -- | -- |",
+        "| a\\\\| b | c |", -- buffer text: | a\\| b | c |
+      }
+      -- Cells open at cols 1, 6, 10; the second cell's content ("b") starts at col 8.
+      assert.equals(8, land(lines, { 1, 14 }, "move_down"))
     end)
 
     it("lands at the start of an empty cell after a column operation", function()

@@ -11,19 +11,14 @@ local M = {}
 local SEPARATOR_ROW = 1
 
 ---Find the next unescaped pipe at or after `from`
+---
+---Delegates to the parser so cell boundaries are resolved by exactly the rule that produced
+---`table_info.cells`; a local copy would drift and land the cursor in a different cell.
 ---@param line string Table row
 ---@param from integer 1-indexed position to start searching from
 ---@return integer? col Column of the pipe (1-indexed), or nil when the row has none left
 local function next_unescaped_pipe(line, from)
-  for col = from, #line do
-    if line:sub(col, col) == "|" then
-      local prev = col > 1 and line:sub(col - 1, col - 1) or ""
-      if prev ~= "\\" then
-        return col
-      end
-    end
-  end
-  return nil
+  return require("markdown-plus.table.parser").next_unescaped_pipe(line, from)
 end
 
 ---Resolve the first typing position inside the cell opened by the pipe at `open_col`.
