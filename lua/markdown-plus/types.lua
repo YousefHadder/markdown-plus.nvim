@@ -34,7 +34,7 @@
 ---Table configuration
 ---@class markdown-plus.TableConfig
 ---@field enabled? boolean Enable table features (default: true)
----@field auto_format? boolean Automatically format tables on edit (default: true)
+---@field auto_format? boolean Reserved; currently has no effect (default: true)
 ---@field default_alignment? "left"|"center"|"right" Default column alignment (default: 'left')
 ---@field confirm_destructive? boolean Confirm before destructive operations like transpose/sort (default: true)
 ---@field width_mode? "literal"|"segment" Column-width calculation mode (default: 'literal'). 'segment' measures the widest <br>-split segment so cells containing breaks don't inflate column width.

@@ -10,47 +10,69 @@ local M = {}
 -- Separator row is always at index 1 (between header at 0 and data rows at 2+)
 local SEPARATOR_ROW = 1
 
+---Find the next unescaped pipe at or after `from`
+---
+---Delegates to the parser so cell boundaries are resolved by exactly the rule that produced
+---`table_info.cells`; a local copy would drift and land the cursor in a different cell.
+---@param line string Table row
+---@param from integer 1-indexed position to start searching from
+---@return integer? col Column of the pipe (1-indexed), or nil when the row has none left
+local function next_unescaped_pipe(line, from)
+  return require("markdown-plus.table.parser").next_unescaped_pipe(line, from)
+end
+
+---Resolve the first typing position inside the cell opened by the pipe at `open_col`.
+---
+---A non-empty cell lands on its first content character. An all-whitespace cell has no content to
+---land on, so it lands one padding space in — where content sits in a formatted table — instead of
+---running past the cell and stopping on the closing pipe. The search is bounded by the closing
+---pipe for exactly that reason.
+---
+---Column alignment is deliberately ignored: a centre- or right-aligned empty cell still lands at
+---the left-most typing position, because that is where the user expects to start typing.
+---@param line string Table row
+---@param open_col integer Column of the pipe opening the cell, or 0 for a row with no leading pipe
+---@return integer col Column position (1-indexed)
+local function cell_start_after(line, open_col)
+  -- An unterminated row (no closing pipe) runs to the end of the line.
+  local close_col = next_unescaped_pipe(line, open_col + 1) or (#line + 1)
+
+  for col = open_col + 1, close_col - 1 do
+    if not line:sub(col, col):match("%s") then
+      return col
+    end
+  end
+
+  -- Empty cell: one padding space in, clamped so a zero-width cell (`||`) stays inside itself.
+  return math.min(open_col + 2, close_col)
+end
+
 ---Find the start column of a cell in a row
 ---@param line string Table row
 ---@param cell_index integer Cell index (0-based)
 ---@return integer? col Column position (1-indexed) or nil
 local function find_cell_start_col(line, cell_index)
-  local col = 1
+  local leading_pipe = next_unescaped_pipe(line, 1)
+  local open_col
 
-  -- Skip leading pipe
-  if vim.trim(line):match("^|") then
-    col = col + 1
-    while col <= #line and line:sub(col, col):match("%s") do
-      col = col + 1
+  -- Locate the leading pipe's real column rather than assuming column 1, so indented tables
+  -- (inside a list item, say) resolve their first cell instead of landing on the pipe itself.
+  -- A row may also omit the leading pipe (`a | b`), in which case the first cell opens at the
+  -- start of the line.
+  if leading_pipe and vim.trim(line):match("^|") then
+    open_col = leading_pipe
+  else
+    open_col = 0
+  end
+
+  for _ = 1, cell_index do
+    open_col = next_unescaped_pipe(line, open_col + 1)
+    if not open_col then
+      return nil
     end
   end
 
-  if cell_index == 0 then
-    return col
-  end
-
-  -- Find the target cell
-  local current_cell = 0
-  while col <= #line do
-    local char = line:sub(col, col)
-    if char == "|" then
-      local prev = col > 1 and line:sub(col - 1, col - 1) or ""
-      if prev ~= "\\" then
-        current_cell = current_cell + 1
-        if current_cell == cell_index then
-          -- Skip pipe and whitespace
-          col = col + 1
-          while col <= #line and line:sub(col, col):match("%s") do
-            col = col + 1
-          end
-          return col
-        end
-      end
-    end
-    col = col + 1
-  end
-
-  return nil
+  return cell_start_after(line, open_col)
 end
 
 ---Move cursor to a specific cell in the table
