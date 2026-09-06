@@ -4,7 +4,13 @@ updates:
     prefix: chore
   directory: /
   ignore:
-  - dependency-name: "github/gh-aw-actions/**" # Managed by gh aw compile. Version-locked to the gh-aw compiler; do not bump.
+  # Dependabot resolves the dependency-name for composite actions to the full
+  # owner/repo/path, and does not support glob/wildcard matching in ignore
+  # rules, so each subpath used across the workflows must be listed exactly.
+  # Managed by `gh aw compile`/`gh aw upgrade`. Version-locked to the gh-aw
+  # compiler; do not bump independently (see github/gh-aw#54025).
+  - dependency-name: "github/gh-aw-actions/setup"
+  - dependency-name: "github/gh-aw-actions/setup-cli"
   labels:
   - dependencies
   - github-actions
