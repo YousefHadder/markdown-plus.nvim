@@ -192,6 +192,8 @@ There is no dedicated `<A-CR>` kind. `continue_list_content` acts on any list it
 
 A pre-existing **buffer-local** mapping stops markdown-plus from installing its default for that key at all, so map buffer-locally (as above) or disable default keymaps first. To leave the table navigation keys entirely unmapped, set `table = { keymaps = { insert_mode_navigation = false } }`.
 
+For contributors, `lua/markdown-plus/keymap_fallback.lua` keeps the existing `run`, `resolve`, and `reset` entry points. Its internal `keymap/` submodules separate recursion guards, mapping resolution, key feeding, and shared types; callers should continue using `markdown-plus.keymap_fallback`.
+
 See `:help markdown-plus-interop` for the full reference.
 
 ## License
