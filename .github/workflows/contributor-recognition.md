@@ -2,7 +2,7 @@
 on:
   schedule:
   - cron: weekly
-  skip-if-match: is:pr is:open in:title "docs(contributors):"
+  skip-if-match: is:pr is:open in:title "docs(contributors):" -label:agentic-workflows
   workflow_dispatch: null
 permissions:
   contents: read

@@ -1,7 +1,7 @@
 ---
 on:
   schedule: weekly
-  skip-if-match: is:pr is:open in:title "[code-simplifier]"
+  skip-if-match: is:pr is:open in:title "[code-simplifier]" -label:agentic-workflows
 permissions:
   contents: read
   issues: read

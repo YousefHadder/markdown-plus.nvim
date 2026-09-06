@@ -5,7 +5,7 @@ on:
     paths-ignore:
       - "docs/wiki/**"
   workflow_dispatch: null
-  skip-if-match: 'is:pr is:open in:title "[wiki]"'
+  skip-if-match: 'is:pr is:open in:title "[wiki]" -label:agentic-workflows'
 permissions:
   contents: read
   issues: read

@@ -2,7 +2,7 @@
 on:
   schedule:
   - cron: weekly
-  skip-if-match: is:issue is:open in:title "[file-diet]"
+  skip-if-match: is:issue is:open in:title "[file-diet]" -label:agentic-workflows
   workflow_dispatch: null
 permissions:
   contents: read
