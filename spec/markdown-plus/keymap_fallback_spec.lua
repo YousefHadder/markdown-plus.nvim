@@ -2,6 +2,7 @@
 ---Tests lazy resolution of foreign (non-markdown-plus) mappings and their execution.
 ---@diagnostic disable: undefined-field
 local fallback = require("markdown-plus.keymap_fallback")
+local mocks = require("spec.helpers.mocks")
 
 ---Feed pending typeahead so queued nvim_feedkeys calls are actually executed
 ---@return nil
@@ -39,77 +40,12 @@ describe("markdown-plus keymap_fallback", function()
     vim.cmd("bdelete!")
   end)
 
-  describe("resolve", function()
-    it("returns nil when no mapping exists", function()
-      assert.is_nil(fallback.resolve("n", "<F5>"))
-    end)
-
-    it("resolves a global string rhs mapping", function()
-      vim.keymap.set("n", "<F5>", "ix<Esc>")
-      local target = fallback.resolve("n", "<F5>")
-      assert.is_not_nil(target)
-      assert.are.equal("ix<Esc>", target.rhs)
-      assert.is_nil(target.callback)
-      assert.is_false(target.expr)
-      assert.is_true(target.noremap)
-    end)
-
-    it("resolves a global Lua callback mapping", function()
-      vim.keymap.set("n", "<F5>", function() end)
-      local target = fallback.resolve("n", "<F5>")
-      assert.is_not_nil(target)
-      assert.are.equal("function", type(target.callback))
-      assert.is_false(target.expr)
-    end)
-
-    it("resolves a global expr callback with replace_keycodes enabled", function()
-      vim.keymap.set("i", "<F5>", function()
-        return "<BS>"
-      end, { expr = true, replace_keycodes = true })
-      local target = fallback.resolve("i", "<F5>")
-      assert.is_not_nil(target)
-      assert.is_true(target.expr)
-      assert.is_true(target.replace_keycodes)
-    end)
-
-    it("resolves a global expr callback with replace_keycodes disabled", function()
-      vim.keymap.set("i", "<F5>", function()
-        return "x"
-      end, { expr = true, replace_keycodes = false })
-      local target = fallback.resolve("i", "<F5>")
-      assert.is_not_nil(target)
-      assert.is_true(target.expr)
-      assert.is_false(target.replace_keycodes)
-    end)
-
-    it("prefers a buffer-local foreign mapping over a global one", function()
-      vim.keymap.set("n", "<F5>", "iglobal<Esc>")
-      vim.keymap.set("n", "<F5>", "ibuffer<Esc>", { buffer = true })
-      local target = fallback.resolve("n", "<F5>")
-      assert.is_not_nil(target)
-      assert.are.equal("ibuffer<Esc>", target.rhs)
-    end)
-
-    it("excludes our own buffer-local <Plug>(MarkdownPlus...) default", function()
-      vim.keymap.set("n", "<F5>", "iglobal<Esc>")
-      vim.keymap.set("n", "<F5>", "<Plug>(MarkdownPlusListBackspace)", { buffer = true })
-      local target = fallback.resolve("n", "<F5>")
-      assert.is_not_nil(target)
-      assert.are.equal("iglobal<Esc>", target.rhs)
-    end)
-
-    it("returns nil when the only mapping is our own default", function()
-      vim.keymap.set("n", "<F5>", "<Plug>(MarkdownPlusListBackspace)", { buffer = true })
-      assert.is_nil(fallback.resolve("n", "<F5>"))
-    end)
-
-    it("resolves lazily so mappings created after the first lookup are found", function()
-      assert.is_nil(fallback.resolve("n", "<F5>"))
-      vim.keymap.set("n", "<F5>", "ilate<Esc>")
-      local target = fallback.resolve("n", "<F5>")
-      assert.is_not_nil(target)
-      assert.are.equal("ilate<Esc>", target.rhs)
-    end)
+  it("preserves the public entry points through re-exports", function()
+    local keys = vim.tbl_keys(fallback)
+    table.sort(keys)
+    assert.are.same({ "reset", "resolve", "run" }, keys)
+    assert.are.equal(require("markdown-plus.keymap.resolve").resolve, fallback.resolve)
+    assert.are.equal(require("markdown-plus.keymap.guard").reset, fallback.reset)
   end)
 
   describe("run", function()
@@ -380,6 +316,77 @@ describe("markdown-plus keymap_fallback", function()
         assert.are.equal(1, calls)
         assert.are.equal("abcdef", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
       end)
+    end)
+  end)
+
+  describe("target execution edge cases", function()
+    local notifications
+    local target_stub
+    local feed_stub
+
+    before_each(function()
+      notifications = mocks.mock_notify()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "abcdef" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    end)
+
+    after_each(function()
+      notifications.restore()
+      if target_stub then
+        target_stub.restore()
+        target_stub = nil
+      end
+      if feed_stub then
+        feed_stub.restore()
+        feed_stub = nil
+      end
+    end)
+
+    it("evaluates a string expression rhs and feeds its result", function()
+      vim.keymap.set("n", "<F5>", [["x"]], { expr = true })
+      fallback.run("n", "<F5>", { count = 3 })
+      flush()
+      assert.are.equal("def", vim.api.nvim_get_current_line())
+    end)
+
+    it("notifies and drops the count when a string expression errors", function()
+      vim.keymap.set("n", "<F5>", "MarkdownPlusFallbackMissing()", { expr = true })
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      flush()
+      assert.are.equal("bcdef", vim.api.nvim_get_current_line())
+      assert.are.equal(1, #notifications.calls)
+      assert.are.equal(vim.log.levels.ERROR, notifications.calls[1].level)
+    end)
+
+    it("does not reapply a potentially spent count after a callback errors", function()
+      vim.keymap.set("n", "<F5>", function()
+        error("target failed")
+      end)
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      flush()
+      assert.are.equal("bcdef", vim.api.nvim_get_current_line())
+      assert.are.equal(1, #notifications.calls)
+    end)
+
+    it("degrades an empty resolved target with its count and substitute", function()
+      target_stub = mocks.stub_fn(fallback, "resolve", function()
+        return { rhs = "", expr = false, noremap = true, replace_keycodes = false }
+      end)
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      flush()
+      assert.are.equal("def", vim.api.nvim_get_current_line())
+    end)
+
+    it("reports unexpected feeding failures without throwing", function()
+      vim.keymap.set("n", "<F5>", "x")
+      feed_stub = mocks.stub_fn(vim.api, "nvim_feedkeys", function()
+        error("feed failed")
+      end)
+      assert.has_no.errors(function()
+        fallback.run("n", "<F5>")
+      end)
+      assert.are.equal(1, #notifications.calls)
+      assert.is_truthy(notifications.calls[1].msg:find("feed failed", 1, true))
     end)
   end)
 

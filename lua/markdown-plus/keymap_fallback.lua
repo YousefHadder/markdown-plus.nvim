@@ -9,253 +9,15 @@
 -- lazy-loaded on `InsertEnter`, for example — are still found after our FileType
 -- `enable()` has already run.
 
+require("markdown-plus.keymap.types")
+local guard = require("markdown-plus.keymap.guard")
+local resolve = require("markdown-plus.keymap.resolve")
+local feed = require("markdown-plus.keymap.feed")
 local M = {}
 
--- rhs of a mapping installed by this plugin; excluded from fallback resolution.
--- Kept in sync with the teardown predicate in init.lua's clear_plugin_default_keymaps().
-local OUR_RHS_PATTERN = "^<Plug>%(MarkdownPlus[^)]+%)$"
-
--- Our `<Plug>` prefix in both notations a target can hand back: the literal text, and the
--- internal byte form produced by nvim_replace_termcodes(). Resolved lazily because the byte
--- encoding of `<Plug>` (K_SPECIAL KS_EXTRA KE_PLUG) is not stable across Neovim versions.
-local OUR_PLUG_LITERAL = "<Plug>(MarkdownPlus"
-local our_plug_keys
-
--- Keys whose fallback is currently executing, keyed by "<mode>:<buffer>:<lhs>" and holding the
--- buffer's changedtick at the moment the fallback was armed. The buffer number is part of the
--- key because the tick is read from the *current* buffer: a target that switches buffers would
--- otherwise be able to match another buffer's unrelated tick and look like a bounce.
---
--- Excluding our `<Plug>` rhs is not sufficient on its own: a user (or a spec) may map a key
--- straight to a markdown-plus handler function, in which case the resolved target is our own
--- handler and invoking it would recurse. Re-entry therefore degrades to the raw key.
---
--- Scope: the guard must outlive the *synchronous* execution of a target. A foreign target can
--- re-enter us in a later event-loop turn — either because it is remappable and reproduces the
--- lhs (LuaSnip-style `<Tab>`), or because it feeds our own `<Plug>` into the typeahead behind
--- our back. copilot.lua's passthrough does exactly that: it captures the mapping we installed,
--- replaces it, and on passthrough feeds `<Plug>(MarkdownPlusListOutdent)` while returning
--- `<Ignore>`, so our handler runs again and resolves copilot again — forever.
---
--- The guard is therefore released from a scheduled callback rather than at the end of run().
--- Scheduled callbacks only run once the typeahead is empty, so the guard spans the whole
--- key-processing burst — including keys a target queued — and is gone before the next
--- keypress.
---
--- Within a burst, a bounce is told apart from a genuine repeat press (macro replay, key
--- repeat) by the changedtick: a re-entry that follows a fallback which changed nothing is a
--- bounce and degrades to the raw key, while a re-entry after the buffer moved on is a new
--- press and gets a real fallback.
-local in_flight = {}
-local release_scheduled = false
-
--- Memoized `normalize()` results. Keyed by the raw lhs string; the set of distinct keys in
--- play is tiny (our own defaults plus whatever the user has mapped), so this stays bounded.
-local normalized_cache = {}
-
----A mapping that markdown-plus should defer to.
----@class markdown-plus.FallbackTarget
----@field callback? fun():any Lua mapping callback (preferred over `rhs` when present)
----@field rhs? string String right-hand side, termcodes unexpanded
----@field expr boolean Whether the mapping is an expression mapping
----@field noremap boolean Whether fed keys must bypass further mapping resolution
----@field replace_keycodes boolean Whether expr results need `nvim_replace_termcodes`
-
----Optional behavior overrides for `M.run`.
----@class markdown-plus.FallbackOpts
----@field count? integer Normal-mode count (`v:count1`) to re-apply to the keys the fallback
----feeds — the resolved target's own keys, or the raw key when it degrades. Pass only from
----normal-mode handlers that have not acted on the count themselves.
----@field fallback_key? string Key to feed instead of `lhs` on every degradation path (no
----target, bounce, target error). For defaults that sit on a key with no native meaning of its
----own — table navigation's `<A-l>` is inert in insert mode — degrading to the literal lhs
----would swallow the press; naming the key the handler documents as its no-context behavior
----(`<Right>`) keeps it. Resolution and the recursion rule still use `lhs`.
-
----Normalize a keymap left-hand side to its internal byte representation for comparison
----@param lhs string Left-hand side in any notation (e.g. "<BS>", "<F5>", "x")
----@return string Normalized key sequence
-local function normalize(lhs)
-  local cached = normalized_cache[lhs]
-  if cached == nil then
-    cached = vim.api.nvim_replace_termcodes(lhs, true, true, true)
-    normalized_cache[lhs] = cached
-  end
-  return cached
-end
-
----Check whether a mapping was installed by markdown-plus
----@param mapping table Keymap entry from `nvim_get_keymap`/`nvim_buf_get_keymap`
----@return boolean
-local function is_ours(mapping)
-  return type(mapping.rhs) == "string" and mapping.rhs:match(OUR_RHS_PATTERN) ~= nil
-end
-
----Check whether a key sequence would route back into a markdown-plus mapping.
----
----Completion plugins commonly *replace* our buffer-local default and keep the mapping they
----displaced as their own fallback (blink.cmp's `fallback` command, copilot.lua's passthrough).
----When such a target hands back the `<Plug>` it captured from us, feeding it re-enters the very
----handler that is already deferring to that target, and the two bounce off each other forever.
----markdown-plus has already decided it has nothing to do for this key in this context, so the
----correct terminal action is the raw key rather than another trip through our own mapping.
----@param keys string Key sequence, either literal notation or termcode-expanded
----@return boolean
-local function routes_back_to_us(keys)
-  if our_plug_keys == nil then
-    our_plug_keys = vim.api.nvim_replace_termcodes(OUR_PLUG_LITERAL, true, true, true)
-  end
-  return keys:find(our_plug_keys, 1, true) ~= nil or keys:find(OUR_PLUG_LITERAL, 1, true) ~= nil
-end
-
----Current buffer changedtick, or -1 when it cannot be read
----@return integer
-local function buffer_tick()
-  local ok, tick = pcall(vim.api.nvim_buf_get_changedtick, 0)
-  return ok and tick or -1
-end
-
----Mark a key's fallback as in flight and schedule the release sweep.
----@param guard_key string "<mode>:<buf>:<lhs>" guard key
----@return nil
-local function arm_guard(guard_key)
-  in_flight[guard_key] = buffer_tick()
-  if release_scheduled then
-    return
-  end
-  release_scheduled = true
-  vim.schedule(function()
-    release_scheduled = false
-    in_flight = {}
-  end)
-end
-
----Convert a raw keymap entry into a fallback target
----@param mapping table Keymap entry from `nvim_get_keymap`/`nvim_buf_get_keymap`
----@return markdown-plus.FallbackTarget
-local function to_target(mapping)
-  return {
-    callback = mapping.callback,
-    rhs = mapping.rhs,
-    expr = mapping.expr == 1,
-    noremap = mapping.noremap == 1,
-    replace_keycodes = mapping.replace_keycodes == 1,
-  }
-end
-
----Find the first foreign mapping for `lhs` in a list of keymap entries
----@param mappings table[] Keymap entries
----@param lhs string Left-hand side to match
----@return markdown-plus.FallbackTarget|nil
-local function find_foreign(mappings, lhs)
-  local wanted = normalize(lhs)
-  for _, mapping in ipairs(mappings) do
-    -- Exact compare first: keymap entries usually report the lhs in the same notation we
-    -- were called with, so most iterations avoid normalizing at all.
-    local candidate = mapping.lhs
-    if type(candidate) == "string" and (candidate == lhs or normalize(candidate) == wanted) then
-      if not is_ours(mapping) then
-        return to_target(mapping)
-      end
-    end
-  end
-  return nil
-end
-
----Feed keys to Neovim without re-entering markdown-plus mappings unexpectedly.
----Keys are inserted at the *front* of the typeahead ("i"), so the fallback completes before
----any keys the user has already typed behind the one being handled.
----
----Trade-off: front-insertion splices our keys ahead of anything the target itself queued —
----an expr callback that both returns keys *and* calls `nvim_feedkeys` would see the two
----interleaved in the wrong order. Accepted: a well-behaved expr mapping returns its keys
----rather than feeding them, and appending instead would reorder against real user input,
----which is the more common and more visible failure.
----@param keys string Key sequence with termcodes already expanded
----@param noremap boolean Whether to bypass mapping resolution for the fed keys
----@return nil
-local function feed(keys, noremap)
-  vim.api.nvim_feedkeys(keys, noremap and "ni" or "mi", false)
-end
-
----Feed a literal key as a last resort when no target could be run.
----
----`key` is normally the lhs itself, but callers pass `opts.fallback_key` instead when the lhs
----has no native meaning worth degrading to (see `markdown-plus.FallbackOpts`).
----
----A normal-mode count is consumed by *our* mapping, so feeding the bare key would drop it and
----turn `3o` into a single open-line. Re-prefixing the digits restores the native behavior.
----Only callers that know the count is still unspent pass one: on the error path a foreign target
----may already have acted on it, and re-applying would double it.
----@param key string Key to feed
----@param count? integer Normal-mode count to re-apply; ignored when nil or 1
----@return nil
-local function feed_raw(key, count)
-  local prefix = (count and count > 1) and tostring(count) or ""
-  feed(prefix .. normalize(key), true)
-end
-
----Feed keys produced by a *remappable* target, applying Vim's own recursion rule.
----`:help recursive_mapping` protects the first *character* of a rhs that starts with its own
----lhs; we protect the whole normalized lhs instead. That is stricter than Vim, and safe here
----because every lhs we install a fallback for is a single key. Without this, keys that
----reproduce the lhs would be resolved back through our buffer-local default and loop forever.
----@param keys string Key sequence with termcodes already expanded
----@param lhs string Left-hand side the target was resolved for
----@return nil
-local function feed_mapped(keys, lhs)
-  -- Only the *leading* occurrence is protected: a remappable target producing the lhs at a
-  -- later position (rhs `<F5><F5>`) still loops, exactly as it does in vanilla Neovim with
-  -- no markdown-plus involved. This matches Vim's semantics; it is not total loop immunity.
-  local prefix = normalize(lhs)
-  if prefix == "" or keys:sub(1, #prefix) ~= prefix then
-    feed(keys, false)
-    return
-  end
-
-  -- Both feeds insert at the *front* of the typeahead, so the last call ends up first.
-  -- Feeding the remainder before the prefix therefore yields prefix-then-remainder order.
-  local rest = keys:sub(#prefix + 1)
-  if rest ~= "" then
-    feed(rest, false)
-  end
-  feed(prefix, true)
-end
-
----Feed the keys a resolved target produced, honouring its `noremap` flag.
----
----A pending count survives an expr mapping in vanilla Neovim and applies to the keys the
----mapping hands back (`3o` through a foreign expr `o` map opens three lines). Our own mapping
----consumes the count, so it is re-prefixed onto the produced keys. Digits are never remappable,
----so prefixing them cannot change how the rest of the sequence resolves.
----
----Known gap: the count is *not* applied on the remappable (`feed_mapped`) path. Digits break
----the leading-lhs comparison that keeps a target reproducing its own lhs from looping, and a
----remapped key after the digits could re-enter us. Remappable string-rhs `o`-style maps
----therefore lose the multiplier; no real plugin uses that shape.
----
----`degrade` shares that carve-out: `feed_mapped` protects a target whose rhs starts with its own
----lhs by feeding the literal `lhs`, never the substitute, because the substitute would not match
----the leading-lhs comparison the loop guard depends on. Vanilla Neovim feeds the lhs there too.
----@param keys string Key sequence with termcodes already expanded
----@param target markdown-plus.FallbackTarget Resolved target
----@param lhs string Left-hand side the target was resolved for
----@param count? integer Normal-mode count to re-apply; ignored when nil or 1
----@param degrade? string Key to feed instead of `lhs` when degrading (`opts.fallback_key`)
----@return nil
-local function feed_target(keys, target, lhs, count, degrade)
-  if routes_back_to_us(keys) then
-    -- The bounce replaces the target's execution entirely, so the raw key carries the count.
-    feed_raw(degrade or lhs, count)
-    return
-  end
-  if target.noremap then
-    local prefix = (count and count > 1) and tostring(count) or ""
-    feed(prefix .. keys, true)
-  else
-    feed_mapped(keys, lhs)
-  end
-end
+-- Preserve the existing entry points for callers and teardown.
+M.resolve = resolve.resolve
+M.reset = guard.reset
 
 ---Report a fallback failure to the user
 ---@param lhs string Left-hand side whose fallback failed
@@ -266,43 +28,6 @@ local function notify_failure(lhs, err)
     string.format("markdown-plus: fallback mapping for %s failed: %s", lhs, tostring(err)),
     vim.log.levels.ERROR
   )
-end
-
----Resolve the current non-markdown-plus mapping for `(mode, lhs)` in the current buffer.
----Resolution order: buffer-local mapping that is not ours → global mapping → nil.
----@param mode string Mapping mode ("i", "n", ...)
----@param lhs string Left-hand side (e.g. "<BS>")
----@return markdown-plus.FallbackTarget|nil target Resolved target, or nil when none exists
-function M.resolve(mode, lhs)
-  local ok, buf_maps = pcall(vim.api.nvim_buf_get_keymap, 0, mode)
-  if ok then
-    local target = find_foreign(buf_maps, lhs)
-    if target then
-      return target
-    end
-  end
-
-  local global_ok, global_maps = pcall(vim.api.nvim_get_keymap, mode)
-  if global_ok then
-    return find_foreign(global_maps, lhs)
-  end
-
-  return nil
-end
-
----Execute the keys produced by an expr mapping
----@param result any Value returned by the expr callback or expression
----@param target markdown-plus.FallbackTarget Resolved target
----@param lhs string Left-hand side the target was resolved for
----@param count? integer Normal-mode count to re-apply to the produced keys
----@param degrade? string Key to feed instead of `lhs` when degrading (`opts.fallback_key`)
----@return nil
-local function feed_expr_result(result, target, lhs, count, degrade)
-  if type(result) ~= "string" or result == "" then
-    return
-  end
-  local keys = target.replace_keycodes and vim.api.nvim_replace_termcodes(result, true, true, true) or result
-  feed_target(keys, target, lhs, count, degrade)
 end
 
 ---Run a Lua callback target
@@ -318,11 +43,11 @@ local function run_callback(target, lhs, count, degrade)
     -- Deliberately countless: a target that threw partway may already have acted on the count,
     -- so re-prefixing it here risks doubling. Unlike the `feed_mapped` punt, which drops the
     -- count because prefixing is *unsafe*, this one drops it because it may be *already spent*.
-    feed_raw(degrade or lhs)
+    feed.raw(degrade or lhs)
     return
   end
   if target.expr then
-    feed_expr_result(result, target, lhs, count, degrade)
+    feed.expr_result(result, target, lhs, count, degrade)
   end
 end
 
@@ -338,16 +63,16 @@ local function run_rhs(target, lhs, count, degrade)
     if not ok then
       notify_failure(lhs, result)
       -- Countless for the same reason as the callback error path above: possibly already spent.
-      feed_raw(degrade or lhs)
+      feed.raw(degrade or lhs)
       return
     end
-    feed_expr_result(result, target, lhs, count, degrade)
+    feed.expr_result(result, target, lhs, count, degrade)
     return
   end
 
   -- `from_part = false` here: an rhs is a full key sequence, unlike an lhs, where
   -- `normalize()` passes `from_part = true` to keep partial-key semantics for comparison.
-  feed_target(vim.api.nvim_replace_termcodes(target.rhs, true, false, true), target, lhs, count, degrade)
+  feed.target(vim.api.nvim_replace_termcodes(target.rhs, true, false, true), target, lhs, count, degrade)
 end
 
 ---Execute the mapping markdown-plus is deferring to, or feed the raw key when there is none.
@@ -361,7 +86,7 @@ end
 ---does not run `jj` twice), which is what `opts.count` reproduces on the noremap feed paths and
 ---on the raw-key degradation.
 ---
----Remappable targets are the known gap: see `feed_target`.
+---Remappable targets are the known gap: see `keymap.feed.target`.
 ---
 ---Every path that terminates in a raw key honours `opts.fallback_key` when one is given, so a
 ---default whose lhs is inert on its own still ends in the behavior its handler documents.
@@ -372,8 +97,7 @@ end
 function M.run(mode, lhs, opts)
   local degrade = opts and opts.fallback_key
   local count = opts and opts.count
-  local guard_key = mode .. ":" .. vim.api.nvim_get_current_buf() .. ":" .. lhs
-  if in_flight[guard_key] == buffer_tick() then
+  if guard.consume_bounce(mode, lhs) then
     -- Re-entered inside the same key-processing burst with nothing to show for the previous
     -- fallback: the target we deferred to routed the key straight back into us. Consume the
     -- guard so the chain ends here, and terminate with the raw key.
@@ -383,19 +107,18 @@ function M.run(mode, lhs, opts)
     -- target-error path, where a target may have acted partway before throwing. The tick says
     -- nothing about non-textual work (a cursor move, a popup), which is accepted: a count
     -- applied to the raw key is the same thing vanilla Neovim does with an untouched buffer.
-    in_flight[guard_key] = nil
-    feed_raw(degrade or lhs, count)
+    feed.raw(degrade or lhs, count)
     return
   end
 
   local target = M.resolve(mode, lhs)
 
   if not target then
-    feed_raw(degrade or lhs, count)
+    feed.raw(degrade or lhs, count)
     return
   end
 
-  arm_guard(guard_key)
+  guard.arm(mode, lhs)
   local ok, err = pcall(function()
     if target.callback then
       run_callback(target, lhs, count, degrade)
@@ -404,25 +127,13 @@ function M.run(mode, lhs, opts)
     else
       -- Target with an empty rhs: nothing to run, so this is the raw-key path and still owns
       -- the count.
-      feed_raw(degrade or lhs, count)
+      feed.raw(degrade or lhs, count)
     end
   end)
 
   if not ok then
     notify_failure(lhs, err)
   end
-end
-
----Clear all in-flight guards.
----Guards normally expire on their own once the typeahead drains; this exists for teardown
----(specs, `enable()`/`disable()` cycles) where no event-loop turn is guaranteed in between.
----@return nil
-function M.reset()
-  in_flight = {}
-  -- Also clear the sweep flag so the next `arm_guard()` schedules its own release instead of
-  -- relying on a callback armed before the reset. A sweep left in flight is a harmless no-op:
-  -- it only clears an already-empty (or freshly armed) table one event-loop turn later.
-  release_scheduled = false
 end
 
 return M

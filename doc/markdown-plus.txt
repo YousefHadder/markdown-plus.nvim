@@ -2457,6 +2457,11 @@ AUTOMATIC FALLBACK ~
 
 No configuration is required — this is always on.
 
+For contributors, `lua/markdown-plus/keymap_fallback.lua` keeps the existing
+`run`, `resolve`, and `reset` entry points. Its internal `keymap/` submodules
+separate recursion guards, mapping resolution, key feeding, and shared types.
+Callers should continue using `markdown-plus.keymap_fallback`.
+
 For each such keypress outside markdown-plus's own context it resolves the
 mapping that would have run instead, in this order:
 
