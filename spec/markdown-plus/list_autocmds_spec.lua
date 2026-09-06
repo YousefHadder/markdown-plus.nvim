@@ -6,6 +6,279 @@ local autocmds = require("markdown-plus.list.autocmds")
 
 local AUGROUP_PREFIX = "MarkdownPlusListRenumber_"
 
+describe("automatic renumber undo ownership", function()
+  local buf
+  local timers, scheduled
+  local timer_start, timer_stop, schedule
+  local extra_buffers
+
+  ---@return nil
+  local function sync()
+    vim.bo.undolevels = vim.bo.undolevels
+  end
+
+  ---@param event string
+  ---@return nil
+  local function emit(event)
+    vim.api.nvim_exec_autocmds(event, { buffer = buf })
+  end
+
+  ---@return string[]
+  local function lines()
+    return vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  end
+
+  ---@return nil
+  local function edit_list()
+    vim.api.nvim_buf_set_lines(buf, 1, 2, false, { "1. edited" })
+    sync()
+    vim.api.nvim_win_set_cursor(0, { 2, 0 })
+  end
+
+  ---@return nil
+  local function edit_paragraph()
+    vim.api.nvim_buf_set_lines(buf, 49, 50, false, { "unrelated edit" })
+    sync()
+    vim.api.nvim_win_set_cursor(0, { 50, 0 })
+  end
+
+  ---Run even stopped timers, modeling an already delivered callback.
+  ---@return nil
+  local function drain()
+    for _, timer in ipairs(timers) do
+      timer()
+    end
+    timers = {}
+    local callbacks = scheduled
+    scheduled = {}
+    for _, callback in ipairs(callbacks) do
+      callback()
+    end
+  end
+
+  before_each(function()
+    autocmds.teardown()
+    buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(buf)
+    vim.bo.filetype = "markdown"
+    local seed = { "1. one", "1. two", "1. three" }
+    for _ = 4, 50 do
+      seed[#seed + 1] = ""
+    end
+    seed[50] = "paragraph"
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, seed)
+    sync()
+    timers, scheduled, extra_buffers = {}, {}, {}
+    timer_start, timer_stop, schedule = vim.fn.timer_start, vim.fn.timer_stop, vim.schedule
+    vim.fn.timer_start = function(_, callback)
+      timers[#timers + 1] = callback
+      return #timers
+    end
+    vim.fn.timer_stop = function() end
+    vim.schedule = function(callback)
+      scheduled[#scheduled + 1] = callback
+    end
+    autocmds.setup_renumber_autocmds()
+  end)
+
+  after_each(function()
+    autocmds.teardown()
+    vim.fn.timer_start, vim.fn.timer_stop, vim.schedule = timer_start, timer_stop, schedule
+    for _, extra in ipairs(extra_buffers) do
+      vim.api.nvim_buf_delete(extra, { force = true })
+    end
+    if vim.api.nvim_buf_is_valid(buf) then
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end
+  end)
+
+  for _, event in ipairs({ "TextChanged", "TextChangedI" }) do
+    it("leaves no pending join after a no-op " .. event .. " callback", function()
+      vim.api.nvim_buf_set_lines(buf, 0, 3, false, { "1. one", "2. two", "3. three" })
+      sync()
+      vim.api.nvim_buf_set_lines(buf, 1, 2, false, { "2. edited" })
+      sync()
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+      emit(event)
+      drain()
+      vim.api.nvim_buf_set_lines(buf, 1, 2, false, { "2. next edit" })
+      vim.cmd("silent undo")
+      assert.are.equal("2. edited", lines()[2])
+    end)
+
+    it("joins the real " .. event .. " renumber to its triggering edit", function()
+      edit_list()
+      local sequence = vim.fn.undotree().seq_cur
+      emit(event)
+      drain()
+      assert.are.same({ "1. one", "2. edited", "3. three" }, { lines()[1], lines()[2], lines()[3] })
+      assert.are.equal(sequence, vim.fn.undotree().seq_cur)
+      vim.cmd("silent undo")
+      emit("TextChanged")
+      drain()
+      assert.are.same({ "1. one", "1. two", "1. three" }, { lines()[1], lines()[2], lines()[3] })
+      vim.cmd("silent redo")
+      assert.are.same({ "1. one", "2. edited", "3. three" }, { lines()[1], lines()[2], lines()[3] })
+    end)
+
+    it("invalidates pending work on a distant " .. event .. " edit", function()
+      edit_list()
+      emit("TextChangedI")
+      edit_paragraph()
+      emit(event)
+      drain()
+      assert.are.equal("1. edited", lines()[2])
+      vim.cmd("silent undo")
+      assert.are.equal("paragraph", lines()[50])
+      assert.are.equal("1. edited", lines()[2])
+      vim.cmd("silent undo")
+      assert.are.equal("1. two", lines()[2])
+    end)
+  end
+
+  it("rejects an intervening edit even before its TextChanged event is delivered", function()
+    edit_list()
+    emit("TextChangedI")
+    edit_paragraph()
+    drain()
+    assert.are.equal("1. edited", lines()[2])
+    vim.cmd("silent undo")
+    assert.are.equal("paragraph", lines()[50])
+    assert.are.equal("1. edited", lines()[2])
+  end)
+
+  it("rejects a timer owned by an undone edit after an unrelated new branch", function()
+    edit_list()
+    emit("TextChangedI")
+    vim.cmd("silent undo")
+    edit_paragraph()
+    assert.is_true(autocmds.is_at_undo_tip(buf))
+    drain()
+    assert.are.equal("1. two", lines()[2])
+    vim.cmd("silent undo")
+    assert.are.equal("paragraph", lines()[50])
+    assert.are.equal("1. two", lines()[2])
+  end)
+
+  it("rejects work after undo and redo even when the original sequence is restored", function()
+    edit_list()
+    local sequence = vim.fn.undotree().seq_cur
+    emit("TextChangedI")
+    vim.cmd("silent undo")
+    vim.cmd("silent redo")
+    assert.are.equal(sequence, vim.fn.undotree().seq_cur)
+    drain()
+    assert.are.equal("1. edited", lines()[2])
+  end)
+
+  it("rejects an intervening write joined into the same undo sequence", function()
+    edit_list()
+    local sequence = vim.fn.undotree().seq_cur
+    emit("TextChangedI")
+    vim.cmd("undojoin")
+    edit_paragraph()
+    assert.are.equal(sequence, vim.fn.undotree().seq_cur)
+    drain()
+    assert.are.equal("1. edited", lines()[2])
+  end)
+
+  it("consumes only the newest request when old timers and scheduled callbacks arrive late", function()
+    edit_list()
+    emit("TextChangedI")
+    local old_timer = timers[1]
+    old_timer()
+    vim.api.nvim_buf_set_lines(buf, 1, 2, false, { "1. newer edit" })
+    sync()
+    local sequence = vim.fn.undotree().seq_cur
+    emit("TextChangedI")
+    local new_timer_id = autocmds.renumber_timers[buf]
+    old_timer()
+    assert.are.equal(new_timer_id, autocmds.renumber_timers[buf])
+    drain()
+    assert.are.equal("2. newer edit", lines()[2])
+    assert.are.equal(sequence, vim.fn.undotree().seq_cur)
+    vim.cmd("silent undo")
+    assert.are.equal("1. edited", lines()[2])
+  end)
+
+  it("rejects already scheduled work after an unrelated edit", function()
+    edit_list()
+    emit("TextChangedI")
+    timers[1]()
+    timers = {}
+    edit_paragraph()
+    emit("TextChanged")
+    drain()
+    assert.are.equal("1. edited", lines()[2])
+  end)
+
+  it("invalidates already scheduled work on teardown", function()
+    edit_list()
+    emit("TextChangedI")
+    timers[1]()
+    timers = {}
+    autocmds.teardown()
+    drain()
+    assert.are.equal("1. edited", lines()[2])
+  end)
+
+  it("invalidates already scheduled work when autocmds are reinstalled", function()
+    edit_list()
+    emit("TextChangedI")
+    timers[1]()
+    timers = {}
+    autocmds.setup_renumber_autocmds()
+    drain()
+    assert.are.equal("1. edited", lines()[2])
+  end)
+
+  it("preserves undo ownership through a real timer and scheduled callback", function()
+    vim.fn.timer_start, vim.fn.timer_stop, vim.schedule = timer_start, timer_stop, schedule
+    edit_list()
+    local sequence = vim.fn.undotree().seq_cur
+    emit("TextChangedI")
+    assert.is_true(vim.wait(1000, function()
+      return lines()[2] == "2. edited"
+    end, 10))
+    assert.are.equal(sequence, vim.fn.undotree().seq_cur)
+    vim.cmd("silent undo")
+    assert.are.equal("1. two", lines()[2])
+  end)
+
+  it("renumbers the owning buffer without joining into the newly current buffer", function()
+    edit_list()
+    local owner_sequence = vim.fn.undotree().seq_cur
+    emit("TextChangedI")
+    local other = vim.api.nvim_create_buf(false, true)
+    extra_buffers[#extra_buffers + 1] = other
+    vim.api.nvim_set_current_buf(other)
+    vim.api.nvim_buf_set_lines(other, 0, -1, false, { "other" })
+    sync()
+    vim.api.nvim_buf_set_lines(other, 0, -1, false, { "other edited" })
+    sync()
+    local other_sequence = vim.fn.undotree().seq_cur
+    drain()
+    assert.are.equal(other, vim.api.nvim_get_current_buf())
+    assert.are.equal(other_sequence, vim.fn.undotree().seq_cur)
+    assert.are.equal("2. edited", lines()[2])
+    vim.cmd("silent undo")
+    assert.are.same({ "other" }, vim.api.nvim_buf_get_lines(other, 0, -1, false))
+    vim.api.nvim_set_current_buf(buf)
+    assert.are.equal(owner_sequence, vim.fn.undotree().seq_cur)
+    vim.cmd("silent undo")
+    assert.are.equal("1. two", lines()[2])
+  end)
+
+  it("does not revive work after its buffer is deleted", function()
+    edit_list()
+    emit("TextChangedI")
+    timers[1]()
+    timers = {}
+    vim.api.nvim_buf_delete(buf, { force = true })
+    assert.has_no.errors(drain)
+  end)
+end)
+
 describe("markdown-plus list autocmds", function()
   local buf
 

@@ -1591,6 +1591,74 @@ describe("markdown-plus list management", function()
         assert.are.equal(2, cursor[2]) -- At indentation start (after "  ")
       end)
 
+      -- Repeated `<A-CR>` leaves the cursor on a continuation line, which carries no marker.
+      -- Matching only marker lines made every press after the first fall through to whatever
+      -- else owns `<A-CR>`.
+      it("continues again from a continuation line of an unordered item", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- First line", "  text more" })
+        vim.api.nvim_win_set_cursor(0, { 2, 6 }) -- After "text"
+        list.continue_list_content()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("- First line", lines[1])
+        assert.are.equal("  text", lines[2])
+        assert.are.equal("  more", lines[3])
+      end)
+
+      it("continues again from a continuation line of an ordered item", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. First line", "   text more" })
+        vim.api.nvim_win_set_cursor(0, { 2, 7 }) -- After "text"
+        list.continue_list_content()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("1. First line", lines[1])
+        assert.are.equal("   text", lines[2])
+        assert.are.equal("   more", lines[3])
+      end)
+
+      it("keeps checkbox content alignment when continuing from a continuation line", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- [ ] Task", "      note here" })
+        vim.api.nvim_win_set_cursor(0, { 2, 10 }) -- After "note"
+        list.continue_list_content()
+        local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+        assert.are.equal("      note", lines[2])
+        assert.are.equal("      here", lines[3])
+      end)
+
+      -- The decisive assertion for the repeated-<A-CR> bug. In a bare Neovim the raw-key
+      -- fallback happens to produce the same text as the real handler, so comparing buffer
+      -- contents hides the defect; it only surfaces once another plugin owns `<A-CR>`.
+      -- Assert on the handoff itself instead.
+      it("does not hand <A-CR> back to other plugins from a continuation line", function()
+        local keymap_fallback = require("markdown-plus.keymap_fallback")
+        local original_run = keymap_fallback.run
+        local deferred = 0
+        keymap_fallback.run = function()
+          deferred = deferred + 1
+        end
+
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- First line", "  text more" })
+        vim.api.nvim_win_set_cursor(0, { 2, 6 })
+        list.continue_list_content()
+
+        keymap_fallback.run = original_run
+        assert.equals(0, deferred)
+      end)
+
+      it("still hands <A-CR> back on a plain non-list line", function()
+        local keymap_fallback = require("markdown-plus.keymap_fallback")
+        local original_run = keymap_fallback.run
+        local deferred = 0
+        keymap_fallback.run = function()
+          deferred = deferred + 1
+        end
+
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "just a paragraph" })
+        vim.api.nvim_win_set_cursor(0, { 1, 4 })
+        list.continue_list_content()
+
+        keymap_fallback.run = original_run
+        assert.equals(1, deferred)
+      end)
+
       -- Outside a list `<A-CR>` is not ours: it yields through `keymap_fallback` like every
       -- other default key, rather than hand-rolling a line split. Covered by the
       -- "keymap fallback" suite below, which drives a real keypress.
@@ -2498,6 +2566,80 @@ describe("markdown-plus list management", function()
       renumber_module.renumber_ordered_lists = original_renumber
       vim.api.nvim_create_autocmd = original_create_autocmd
     end)
+
+    it("skips renumbering while the buffer sits below its undo tip", function()
+      local renumber_module = require("markdown-plus.list.renumber")
+      local original_renumber = renumber_module.renumber_ordered_lists
+      local original_create_autocmd = vim.api.nvim_create_autocmd
+
+      local callbacks = {}
+      local renumber_calls = 0
+
+      renumber_module.renumber_ordered_lists = function()
+        renumber_calls = renumber_calls + 1
+      end
+      vim.api.nvim_create_autocmd = function(events, opts)
+        if type(events) == "string" then
+          callbacks[events] = opts.callback
+        else
+          for _, event in ipairs(events) do
+            callbacks[event] = opts.callback
+          end
+        end
+      end
+      list.setup_renumber_autocmds()
+
+      -- Numbering that renumber would want to rewrite, so an unguarded pass would
+      -- write a fresh undo state on top of whatever `u` just restored.
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "3. one", "4. two", "5. three" })
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+
+      -- Drop the undo history the seeding created, so `undo` steps back to the seeded
+      -- list rather than walking past it to an empty buffer.
+      local undolevels = vim.bo[buf].undolevels
+      vim.bo[buf].undolevels = -1
+      vim.cmd('silent! execute "normal! a \\<BS>\\<Esc>"')
+      vim.bo[buf].undolevels = undolevels
+
+      vim.cmd("silent! normal! ozzz")
+      callbacks.TextChanged({ buf = buf })
+      assert.equals(1, renumber_calls)
+
+      vim.cmd("silent! undo")
+      assert.equals(3, vim.api.nvim_buf_line_count(buf))
+      callbacks.TextChanged({ buf = buf })
+      assert.equals(1, renumber_calls)
+
+      renumber_module.renumber_ordered_lists = original_renumber
+      vim.api.nvim_create_autocmd = original_create_autocmd
+    end)
+  end)
+
+  describe("is_at_undo_tip", function()
+    local autocmds = require("markdown-plus.list.autocmds")
+
+    it("is true right after an edit and false after undoing it", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. one" })
+      vim.cmd("silent! normal! ozzz")
+      assert.is_true(autocmds.is_at_undo_tip(buf))
+
+      vim.cmd("silent! undo")
+      assert.is_false(autocmds.is_at_undo_tip(buf))
+    end)
+
+    it("is true again once redo returns to the newest state", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. one" })
+      vim.cmd("silent! normal! ozzz")
+      vim.cmd("silent! undo")
+      vim.cmd("silent! redo")
+      assert.is_true(autocmds.is_at_undo_tip(buf))
+    end)
+
+    it("is false for an invalid buffer", function()
+      local scratch = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_delete(scratch, { force = true })
+      assert.is_false(autocmds.is_at_undo_tip(scratch))
+    end)
   end)
 
   describe("handle_normal_o", function()
@@ -2545,6 +2687,40 @@ describe("markdown-plus list management", function()
       local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
       assert.are.equal("  - ", lines[3])
       assert.are.equal("  - Child two", lines[4])
+    end)
+
+    -- The parent hop only makes sense for an unordered child: an ordered child has a next
+    -- number of its own, and jumping to the parent silently abandons that sequence.
+    it("continues the nested ordered list on its last item rather than the parent", function()
+      vim.bo[buf].shiftwidth = 4
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "1. Parent",
+        "   1. Child one",
+        "   2. Child two",
+      })
+      vim.api.nvim_win_set_cursor(0, { 3, 6 })
+
+      list.handle_normal_o()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("   3. ", lines[4])
+    end)
+
+    it("continues a nested ordered list even when a later parent item follows", function()
+      vim.bo[buf].shiftwidth = 4
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+        "1. Parent one",
+        "   1. Child one",
+        "   2. Child two",
+        "2. Parent two",
+      })
+      vim.api.nvim_win_set_cursor(0, { 3, 6 })
+
+      list.handle_normal_o()
+
+      local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+      assert.are.equal("   3. ", lines[4])
+      assert.are.equal("2. Parent two", lines[5])
     end)
   end)
 
@@ -2802,6 +2978,77 @@ describe("markdown-plus list management", function()
       }
       local parent_info = shared.find_parent_list_at_indent(2, 0, lines)
       assert.is_nil(parent_info)
+    end)
+  end)
+
+  describe("renumber undo integration", function()
+    local renumber = require("markdown-plus.list.renumber")
+
+    -- Neovim starts a new undo block whenever it waits for input, so a renumber that fires
+    -- from the debounced insert-mode path lands in its own block and costs a second `u`.
+    -- A `-s` script replay never idles, so the split only shows up if the sync is forced.
+    ---@return nil
+    local function force_undo_sync()
+      vim.bo[buf].undolevels = vim.bo[buf].undolevels
+    end
+
+    ---@return nil
+    local function seed_lazy_list()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. one", "1. two", "1. three" })
+      force_undo_sync()
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+      vim.cmd("silent! normal! ozzz")
+      force_undo_sync()
+    end
+
+    it("folds an automatic renumber into the edit that triggered it", function()
+      seed_lazy_list()
+      renumber.renumber_ordered_lists({ undojoin = true })
+      assert.are.same({ "1. one", "2. two", "zzz", "1. three" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+
+      vim.cmd("silent! undo")
+      assert.are.same({ "1. one", "1. two", "1. three" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    end)
+
+    it("leaves a manual renumber as its own undo step", function()
+      seed_lazy_list()
+      renumber.renumber_ordered_lists()
+
+      vim.cmd("silent! undo")
+      -- Only the renumber is reverted; the edit survives.
+      assert.are.same({ "1. one", "1. two", "zzz", "1. three" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    end)
+
+    it("does not swallow the next edit when there is nothing to renumber", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. one", "2. two" })
+      force_undo_sync()
+      vim.cmd("silent! normal! GAx")
+      force_undo_sync()
+
+      -- Already canonical, so no write happens and no join flag may be left pending.
+      renumber.renumber_ordered_lists({ undojoin = true })
+
+      -- No sync or normal-mode command here: either would clear a dangling join flag.
+      vim.api.nvim_buf_set_lines(buf, 1, 2, false, { "2. twoxy" })
+      vim.cmd("silent! undo")
+      assert.are.equal("2. twox", vim.api.nvim_buf_get_lines(buf, 0, -1, false)[2])
+    end)
+
+    it("survives an undojoin attempted right after an undo", function()
+      seed_lazy_list()
+      vim.cmd("silent! undo")
+
+      -- `undojoin` raises E790 in this position; it must be swallowed, not propagated.
+      assert.has_no.errors(function()
+        renumber.renumber_ordered_lists({ undojoin = true })
+      end)
+    end)
+
+    it("still renumbers normally with the join enabled", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "1. one", "5. two", "9. three" })
+      force_undo_sync()
+      renumber.renumber_ordered_lists({ undojoin = true })
+      assert.are.same({ "1. one", "2. two", "3. three" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
     end)
   end)
 

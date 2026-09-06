@@ -12,6 +12,32 @@ local cases = dofile(root .. "/test/e2e/cases.lua")
 local GREEN, RED, DIM, RESET = "\27[32m", "\27[31m", "\27[2m", "\27[0m"
 local results = { passed = 0, failed = 0, failures = {} }
 
+local MAPPING_MODES = { "n", "x", "s", "o", "i", "l", "c", "t" }
+
+---Snapshot global mappings after the plugin has installed its mappings for this buffer.
+---@return table<string, table[]>
+local function snapshot_mappings()
+  local mappings = {}
+  for _, mode in ipairs(MAPPING_MODES) do
+    mappings[mode] = vim.api.nvim_get_keymap(mode)
+  end
+  return mappings
+end
+
+---Restore fixtures even if setup failed before returning.
+---@param mappings table<string, table[]>
+---@return nil
+local function restore_mappings(mappings)
+  for _, mode in ipairs(MAPPING_MODES) do
+    for _, mapping in ipairs(vim.api.nvim_get_keymap(mode)) do
+      vim.api.nvim_del_keymap(mode, mapping.lhs)
+    end
+    for _, mapping in ipairs(mappings[mode]) do
+      vim.fn.mapset(mode, false, mapping)
+    end
+  end
+end
+
 ---Render a list of lines so trailing whitespace is visible in the report.
 ---The bug under test turns on exact trailing characters, so "- [x] " and "- [x]" must not
 ---look identical in the output.
@@ -39,22 +65,40 @@ local function run_case(case, index)
   -- Pin indentation *after* the filetype is set: Neovim's bundled markdown ftplugin sets
   -- shiftwidth=4 on FileType, which would otherwise decide how far <Tab> indents and make
   -- these assertions depend on the shipped runtime rather than on the plugin.
-  vim.bo.shiftwidth = 2
-  vim.bo.tabstop = 2
+  -- A case may opt into another width when the width itself is what is under test.
+  local shiftwidth = case.shiftwidth or 2
+  vim.bo.shiftwidth = shiftwidth
+  vim.bo.tabstop = shiftwidth
   vim.bo.expandtab = true
 
   vim.api.nvim_buf_set_lines(0, 0, -1, false, case.lines)
   local cursor = case.cursor or { 1, 0 }
   pcall(vim.api.nvim_win_set_cursor, 0, cursor)
 
-  local keys = vim.api.nvim_replace_termcodes(case.keys, true, false, true)
-  local ok, err = pcall(vim.api.nvim_feedkeys, keys, "mx", false)
+  local mappings = snapshot_mappings()
+  local ok, err = true, nil
+  if case.setup then
+    ok, err = pcall(case.setup)
+    if not ok then
+      err = "setup: " .. tostring(err)
+    end
+  end
+
+  if ok then
+    local keys = vim.api.nvim_replace_termcodes(case.keys, true, false, true)
+    ok, err = pcall(vim.api.nvim_feedkeys, keys, "mx", false)
+  end
 
   -- Leave insert mode and drain anything a handler queued, so one case cannot bleed into
   -- the next through the typeahead.
   pcall(vim.api.nvim_feedkeys, vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
 
   local actual = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local restored, restore_err = pcall(restore_mappings, mappings)
+  if not restored then
+    err = (ok and "" or tostring(err) .. "; ") .. "mapping cleanup: " .. tostring(restore_err)
+    ok = false
+  end
   local matched = ok and vim.deep_equal(actual, case.expected)
 
   if matched then

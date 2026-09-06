@@ -103,7 +103,17 @@ local function apply_changes(changes)
 end
 
 ---Renumber all ordered lists in the buffer
-function M.renumber_ordered_lists()
+---
+---With `opts.undojoin`, the rewrite is merged into the preceding undo block instead of
+---starting its own. Auto-renumbering is a *consequence* of the user's edit, so it should
+---not cost a second `u` to unwind: without the join, the first `u` reverts only the
+---renumber and the edit itself needs another press.
+---
+---The join is applied inside the `modified` branch, immediately before the write. A
+---pending `undojoin` with no change after it silently attaches to whatever the user types
+---next, which would swallow their following edit into the previous one.
+---@param opts? { undojoin?: boolean }
+function M.renumber_ordered_lists(opts)
   if not vim.bo.modifiable then
     return
   end
@@ -143,6 +153,12 @@ function M.renumber_ordered_lists()
           break
         end
       end
+    end
+
+    -- Set the join flag here, not earlier: it must be immediately followed by a write.
+    if opts and opts.undojoin then
+      -- Fails with E790 if an undo happened since the last change; harmless to skip then.
+      pcall(vim.cmd, "undojoin")
     end
 
     apply_changes(changes)
