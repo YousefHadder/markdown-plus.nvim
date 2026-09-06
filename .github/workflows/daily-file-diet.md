@@ -8,6 +8,7 @@ permissions:
   contents: read
   issues: read
   pull-requests: read
+  copilot-requests: write
 imports:
 - shared/mood.md
 - shared/reporting.md
@@ -25,21 +26,19 @@ safe-outputs:
   noop: null
 description: Analyzes the largest Lua source file daily and creates an issue to refactor it into smaller files if it exceeds the healthy size threshold
 engine: copilot
-features:
-  copilot-requests: true
 name: Daily File Diet
 source: github/gh-aw/.github/workflows/daily-file-diet.md@8eb7e099dfdad889a392fab0eb57029a0905e966
 strict: true
 timeout-minutes: 20
 tools:
   bash:
-  - "find lua -name '*.lua' -type f -exec wc -l {} \\; | sort -rn"
-  - find lua -name '*.lua' -type f | sort
+  - "find lua -name \"*.lua\" -type f -exec wc -l {} \\; | sort -rn"
+  - find lua -name "*.lua" -type f | sort
   - wc -l lua/**/*.lua
   - cat lua/**/*.lua
   - head -n * lua/**/*.lua
-  - grep -rn 'function ' lua --include='*.lua'
-  - grep -rn 'local function' lua --include='*.lua'
+  - grep -rn "function " lua --include="*.lua"
+  - grep -rn "local function" lua --include="*.lua"
   - find lua/ -maxdepth 1 -ls
   - find lua/markdown-plus/ -maxdepth 1 -ls
   - find lua/markdown-plus/ -maxdepth 2 -ls
@@ -51,6 +50,7 @@ tools:
     - default
 tracker-id: daily-file-diet
 ---
+
 {{#runtime-import? .github/shared-instructions.md}}
 
 # Daily File Diet Agent 🏋️

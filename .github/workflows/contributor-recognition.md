@@ -1,64 +1,68 @@
 ---
-name: Contributor Recognition
-description: Finds recently active external contributors and proposes All Contributors updates through a draft pull request
 on:
-  workflow_dispatch:
   schedule:
-    - cron: weekly
-  skip-if-match: 'is:open in:title "docs(contributors):"'
-
+  - cron: weekly
+  skip-if-match: is:pr is:open in:title "docs(contributors):"
+  workflow_dispatch: null
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-tracker-id: contributor-recognition
-engine: copilot
-strict: true
-
 network:
   allowed:
-    - defaults
-    - github
-    - node
-
+  - defaults
+  - github
+  - node
+imports:
+- shared/reporting.md
+- shared/safe-output-app.md
 safe-outputs:
-  create-pull-request:
-    expires: 7d
-    title-prefix: "docs(contributors): "
-    labels: [documentation, automation, contributors]
-    reviewers: [YousefHadder]
-    draft: true
-    auto-merge: false
   create-issue:
     expires: 7d
-    title-prefix: "docs(contributors): "
-    labels: [documentation, automation, contributors]
+    labels:
+    - documentation
+    - automation
+    - contributors
     max: 1
-  noop:
-
-tools:
-  github:
-    toolsets: [default]
-    min-integrity: none
-    allowed-repos: [yousefhadder/markdown-plus*]
-  edit:
-  bash:
-    - "cat .all-contributorsrc"
-    - "cat README.md"
-    - "grep -n 'ALL-CONTRIBUTORS' README.md"
-    - "jq"
-    - "git"
-    - "npx -y all-contributors-cli add"
-    - "npx -y all-contributors-cli generate"
-
+    title-prefix: "docs(contributors): "
+  create-pull-request:
+    auto-merge: false
+    draft: true
+    expires: 7d
+    labels:
+    - documentation
+    - automation
+    - contributors
+    protected-files:
+      exclude:
+      - README.md
+    reviewers:
+    - YousefHadder
+    title-prefix: "docs(contributors): "
+  noop: null
+description: Finds recently active external contributors and proposes All Contributors updates through a draft pull request
+engine: copilot
+name: Contributor Recognition
+strict: true
 timeout-minutes: 20
-
-imports:
-  - shared/reporting.md
-  - shared/safe-output-app.md
+tools:
+  bash:
+  - cat .all-contributorsrc
+  - cat README.md
+  - grep -n "ALL-CONTRIBUTORS" README.md
+  - jq
+  - git
+  - npx -y all-contributors-cli add
+  - npx -y all-contributors-cli generate
+  edit: null
+  github:
+    allowed-repos:
+    - yousefhadder/markdown-plus*
+    min-integrity: none
+    toolsets:
+    - default
+tracker-id: contributor-recognition
 ---
-
 {{#runtime-import? .github/shared-instructions.md}}
 
 # Contributor Recognition Agent

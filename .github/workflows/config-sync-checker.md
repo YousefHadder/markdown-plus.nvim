@@ -1,53 +1,49 @@
 ---
-name: Config Sync Checker
-description: Checks that config options stay in sync across types, validation, defaults, and documentation — reports inconsistencies as GitHub issues
 on:
   schedule:
-    - cron: weekly
-  workflow_dispatch:
-  skip-if-match: 'is:issue is:open in:title "[config-sync]"'
-
+  - cron: weekly
+  skip-if-match: is:issue is:open in:title "[config-sync]"
+  workflow_dispatch: null
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-tracker-id: config-sync-checker
-engine: copilot
-strict: true
-
 network:
   allowed:
-    - defaults
-    - github
-
+  - defaults
+  - github
+imports:
+- shared/reporting.md
 safe-outputs:
   create-issue:
-    title-prefix: "[config-sync] "
-    labels: [config, consistency, automation]
     expires: 7d
-  noop:
-
-tools:
-  github:
-    toolsets: [default]
-  bash:
-    - "cat lua/markdown-plus/types.lua"
-    - "cat lua/markdown-plus/config/validate.lua"
-    - "cat lua/markdown-plus/init.lua"
-    - "cat doc/markdown-plus.txt"
-    - "grep -n '' lua/markdown-plus/types.lua"
-    - "grep -n '' lua/markdown-plus/config/validate.lua"
-    - "grep -n '' lua/markdown-plus/init.lua"
-    - "grep -n '' doc/markdown-plus.txt"
-    - "git"
-
+    labels:
+    - config
+    - consistency
+    - automation
+    title-prefix: "[config-sync] "
+  noop: null
+description: Checks that config options stay in sync across types, validation, defaults, and documentation — reports inconsistencies as GitHub issues
+engine: copilot
+name: Config Sync Checker
+strict: true
 timeout-minutes: 15
-
-imports:
-  - shared/reporting.md
+tools:
+  bash:
+  - cat lua/markdown-plus/types.lua
+  - cat lua/markdown-plus/config/validate.lua
+  - cat lua/markdown-plus/init.lua
+  - cat doc/markdown-plus.txt
+  - grep -n "" lua/markdown-plus/types.lua
+  - grep -n "" lua/markdown-plus/config/validate.lua
+  - grep -n "" lua/markdown-plus/init.lua
+  - grep -n "" doc/markdown-plus.txt
+  - git
+  github:
+    toolsets:
+    - default
+tracker-id: config-sync-checker
 ---
-
 {{#runtime-import? .github/shared-instructions.md}}
 
 # Config Sync Checker Agent

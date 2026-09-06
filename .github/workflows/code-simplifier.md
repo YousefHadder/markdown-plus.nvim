@@ -1,64 +1,62 @@
 ---
-name: Code Simplifier
-description: Analyzes recently modified code for simplification opportunities and performs semantic function analysis to detect duplicates, outliers, and misplaced functions — creates pull requests with improvements
 on:
   schedule: weekly
-  skip-if-match: 'is:pr is:open in:title "[code-simplifier]"'
-
+  skip-if-match: is:pr is:open in:title "[code-simplifier]"
 permissions:
   contents: read
   issues: read
   pull-requests: read
-
-tracker-id: code-simplifier
-
-imports:
-  - shared/mood.md
-  - shared/reporting.md
-
-safe-outputs:
-  create-pull-request:
-    title-prefix: "[code-simplifier] "
-    labels: [refactoring, code-quality, automation]
-    reviewers: [copilot, YousefHadder]
-    expires: 1d
-  noop:
-
 network:
   allowed:
-    - defaults
-    - github
-    - lua
-
-tools:
-  cli-proxy: true
-  github:
-    toolsets: [default]
-  edit:
-  bash:
-    - "find lua -name '*.lua' -type f | sort"
-    - "find lua -name '*.lua' -type f -exec wc -l {} \\; | sort -rn"
-    - "find lua/markdown-plus -name '*.lua' -type f | sort"
-    - "find lua/markdown-plus -maxdepth 1 -name '*.lua' -type f | sort"
-    - "find lua/markdown-plus -maxdepth 2 -name '*.lua' -type f | sort"
-    - "find lua/ -maxdepth 1 -ls"
-    - "find lua/markdown-plus/ -maxdepth 1 -ls"
-    - "find lua/markdown-plus/ -maxdepth 2 -ls"
-    - "wc -l lua/**/*.lua"
-    - "head -n * lua/**/*.lua"
-    - "cat lua/**/*.lua"
-    - "grep -rn 'function M\\.' lua --include='*.lua'"
-    - "grep -rn 'local function' lua --include='*.lua'"
-    - "grep -rn 'function _' lua --include='*.lua'"
-    - "grep -rn '^M\\.' lua --include='*.lua'"
-    - "git"
-
-timeout-minutes: 30
-strict: true
-source: github/gh-aw/.github/workflows/code-simplifier.md@8eb7e099dfdad889a392fab0eb57029a0905e966
+  - defaults
+  - github
+  - lua
+imports:
+- shared/mood.md
+- shared/reporting.md
+safe-outputs:
+  create-pull-request:
+    expires: 1d
+    labels:
+    - refactoring
+    - code-quality
+    - automation
+    reviewers:
+    - copilot
+    - YousefHadder
+    title-prefix: "[code-simplifier] "
+  noop: null
+description: Analyzes recently modified code for simplification opportunities and performs semantic function analysis to detect duplicates, outliers, and misplaced functions — creates pull requests with improvements
 engine: copilot
+name: Code Simplifier
+source: github/gh-aw/.github/workflows/code-simplifier.md@8eb7e099dfdad889a392fab0eb57029a0905e966
+strict: true
+timeout-minutes: 30
+tools:
+  bash:
+  - find lua -name "*.lua" -type f | sort
+  - "find lua -name \"*.lua\" -type f -exec wc -l {} \\; | sort -rn"
+  - find lua/markdown-plus -name "*.lua" -type f | sort
+  - find lua/markdown-plus -maxdepth 1 -name "*.lua" -type f | sort
+  - find lua/markdown-plus -maxdepth 2 -name "*.lua" -type f | sort
+  - find lua/ -maxdepth 1 -ls
+  - find lua/markdown-plus/ -maxdepth 1 -ls
+  - find lua/markdown-plus/ -maxdepth 2 -ls
+  - wc -l lua/**/*.lua
+  - head -n * lua/**/*.lua
+  - cat lua/**/*.lua
+  - "grep -rn \"function M\\\\.\" lua --include=\"*.lua\""
+  - grep -rn "local function" lua --include="*.lua"
+  - grep -rn "function _" lua --include="*.lua"
+  - "grep -rn \"^M\\\\.\" lua --include=\"*.lua\""
+  - git
+  cli-proxy: true
+  edit: null
+  github:
+    toolsets:
+    - default
+tracker-id: code-simplifier
 ---
-
 <!-- This prompt will be imported in the agentic workflow .github/workflows/code-simplifier.md at runtime. -->
 <!-- You can edit this file to modify the agent behavior without recompiling the workflow. -->
 
