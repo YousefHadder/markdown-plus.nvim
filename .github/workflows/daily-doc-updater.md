@@ -37,9 +37,9 @@ tools:
   - cat doc/markdown-plus.txt
   - cat README.md
   - cat lua/markdown-plus/types.lua
-  - find doc -name '*.txt' -o -name '*.md'
+  - find doc -name "*.txt" -o -name "*.md"
   - find doc -maxdepth 1 -ls
-  - grep -rn '' doc README.md
+  - grep -rn "" doc README.md
   - git
   cache-memory: true
   cli-proxy: true
