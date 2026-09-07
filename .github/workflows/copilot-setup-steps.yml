@@ -1,6 +1,6 @@
 name: "Copilot Setup Steps"
 
-# This workflow configures the environment for GitHub Copilot Agent with gh-aw MCP server
+# Prepare the cloud agent to run make check and use gh-aw tooling.
 on:
   workflow_dispatch:
   push:
@@ -22,6 +22,57 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Install Neovim
+        uses: folke/github/neovim@d1cb00f0473c256299c7b35b6e199559366e56bc # main
+        with:
+          version: v0.12.5
+
+      - name: Install Luacheck
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends lua5.1 liblua5.1-0-dev luarocks unzip
+          sudo luarocks --lua-version=5.1 install luacheck 1.2.0-1
+
+      - name: Install StyLua
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 \
+            https://github.com/JohnnyMorganz/StyLua/releases/download/v2.5.2/stylua-linux-x86_64.zip \
+            --output "$RUNNER_TEMP/stylua.zip"
+          printf '%s  %s\n' \
+            bcb0d855e91f102f28a370e850f8566b3b44b79e6274d806ea5246837c0fd5ab \
+            "$RUNNER_TEMP/stylua.zip" | sha256sum --check
+          unzip -q "$RUNNER_TEMP/stylua.zip" -d "$RUNNER_TEMP/stylua"
+          mkdir -p "$HOME/.local/bin"
+          install -m 0755 "$RUNNER_TEMP/stylua/stylua" "$HOME/.local/bin/stylua"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Plenary
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLENARY_DIR="$RUNNER_TEMP/plenary.nvim"
+          git init "$PLENARY_DIR"
+          git -C "$PLENARY_DIR" remote add origin https://github.com/nvim-lua/plenary.nvim.git
+          git -C "$PLENARY_DIR" fetch --depth 1 origin 74b06c6c75e4eeb3108ec01852001636d85a932b
+          git -C "$PLENARY_DIR" checkout --detach FETCH_HEAD
+          echo "PLENARY_DIR=$PLENARY_DIR" >> "$GITHUB_ENV"
+
+      - name: Verify development tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          nvim --version
+          stylua --version
+          luacheck --version
+          nvim --headless --noplugin -u spec/minimal_init.lua -l - <<'LUA'
+          require("plenary.busted")
+          LUA
+
       - name: Install gh-aw extension
         uses: github/gh-aw-actions/setup-cli@v0.88.3
         with:
