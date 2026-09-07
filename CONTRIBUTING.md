@@ -47,6 +47,18 @@ git clone https://github.com/nvim-lua/plenary.nvim \
   ~/.local/share/nvim/site/pack/vendor/start/plenary.nvim
 ```
 
+### Copilot Cloud Agent
+
+`.github/workflows/copilot-setup-steps.yml` preinstalls pinned versions of Neovim,
+Plenary, StyLua, and Luacheck so the cloud coding agent can run `make check`.
+It exports `PLENARY_DIR` for the test harness and retains the existing `gh-aw`
+installation. The setup checks tool availability without requiring the tests to
+pass before the agent starts working.
+
+Copilot code review uses the separate, checkout-only
+`.github/workflows/copilot-code-review.yml`; it does not inherit these installations.
+When updating the tool pins, update the StyLua archive checksum as well.
+
 ### Project Structure
 
 ```
