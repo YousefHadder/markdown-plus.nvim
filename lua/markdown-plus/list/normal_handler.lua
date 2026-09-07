@@ -95,6 +95,12 @@ end
 ---would clobber those mappings plus `'autoindent'` and `'formatoptions'` semantics.
 ---The count is handed to the fallback so `3o` still opens three lines; a list item is always
 ---created singly, matching the pre-existing behavior for the in-list case.
+---
+---With `list.smart_outdent`, `o` on the last item of a nested *unordered* list continues the
+---parent ordered item instead: there is no next number to reach for at the child level, so
+---stepping back out to the parent is the useful move. A nested *ordered* list is left alone —
+---there `o` unambiguously means "the next number in this list", and continuing the parent
+---silently abandons the child sequence.
 ---@return nil
 function M.handle_normal_o()
   local current_line = utils.get_current_line()
@@ -109,7 +115,7 @@ function M.handle_normal_o()
     return
   end
 
-  if handler_utils.smart_outdent_enabled() then
+  if handler_utils.smart_outdent_enabled() and not shared.is_orderable_type(list_info.type) then
     local current_indent = #list_info.indent
     local indent_size = vim.fn.shiftwidth()
     local lines, line_count = handler_utils.get_context_lines(row)

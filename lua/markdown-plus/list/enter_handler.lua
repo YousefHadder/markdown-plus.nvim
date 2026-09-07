@@ -125,10 +125,15 @@ end
 ---Continue list content on next line with proper indentation
 ---Splits the line at cursor and creates a continuation line aligned with content start
 ---
----Outside of list context this yields to whatever `<A-CR>` mapping would otherwise have run
----(terminal and multicursor plugins commonly own the key). Hand-rolling a line split here made
----`<A-CR>` behave like `<CR>` on plain lines, which is neither what the user mapped nor what
----the key does natively.
+---Handles both a list item line and a continuation line already beneath one, so pressing
+---`<A-CR>` repeatedly keeps adding continuation lines to the same item. Matching only the
+---marker line meant the second press landed on the continuation line we had just created,
+---found no marker, and handed the key to whatever else owns `<A-CR>`.
+---
+---Outside a list entirely this still yields to whatever `<A-CR>` mapping would otherwise
+---have run (terminal and multicursor plugins commonly own the key). Hand-rolling a line
+---split there made `<A-CR>` behave like `<CR>` on plain lines, which is neither what the
+---user mapped nor what the key does natively.
 ---@return nil
 function M.continue_list_content()
   local current_line = utils.get_current_line()
@@ -139,9 +144,15 @@ function M.continue_list_content()
   local list_info = parser.parse_list_line(current_line, row)
 
   if not list_info then
-    -- Not in a list at all: defer to the mapping we are shadowing
-    keymap_fallback.run("i", "<A-CR>")
-    return
+    -- Not on a marker line: we may still be on a continuation line of the item above,
+    -- which is exactly where the previous <A-CR> left the cursor.
+    list_info = handler_utils.find_parent_list_item(row, current_line)
+
+    if not list_info then
+      -- Not in a list at all: defer to the mapping we are shadowing
+      keymap_fallback.run("i", "<A-CR>")
+      return
+    end
   end
 
   -- Calculate the indentation for continuation (align with list content start)

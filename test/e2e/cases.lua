@@ -10,11 +10,23 @@
 ---@field priority string "P0" | "P1" | "P2"
 ---@field lines string[] Buffer contents before the keys are pressed
 ---@field cursor? number[] {row, col} 1-indexed row, 0-indexed col. Defaults to {1, 0}
+---@field shiftwidth? number Indent width for this case. Defaults to 2.
+---@field setup? fun() Runs after the buffer is seeded, before the keys are fed. Use it to
+---       install a competing mapping so a wrongful handoff becomes observable. Errors fail
+---       the case; global mappings are restored afterwards, including on setup failure.
 ---@field keys string Key sequence, in Neovim notation, fed through real mappings
 ---@field expected string[] Exact buffer contents afterwards
 
 -- localleader is "," in test/e2e/init.lua, so the checkbox toggle default is ",mx".
 local TOGGLE = ",mx"
+
+---Stand in for a plugin that owns `<A-CR>` (Copilot maps it to accept a suggestion).
+---markdown-plus installs its own default only when the key is unmapped, so this has to be
+---a *global* mapping: a buffer-local one would suppress the plugin's mapping entirely and
+---the case would prove nothing.
+local function RIVAL_ALT_CR()
+  vim.keymap.set("i", "<A-CR>", "RIVAL", { remap = false })
+end
 
 return {
   -- ---------------------------------------------------------------- P0: corruption path
@@ -253,6 +265,65 @@ return {
       "| -- | -- |",
       "|    | x   |",
     },
+  },
+
+  -- ---------------------------------------------------------------- P1: nested list `o`
+  -- Real users get shiftwidth=4 from the bundled markdown ftplugin. At that width the
+  -- smart-outdent target indent collapsed to 0 and `o` on the last nested ordered child
+  -- produced a *parent-level* item, abandoning the child sequence.
+  {
+    name = "'o' on the last nested ordered child continues the child list (sw=4)",
+    priority = "P1",
+    shiftwidth = 4,
+    lines = { "1. Parent", "   1. Child one", "   2. Child two" },
+    cursor = { 3, 6 },
+    keys = "o",
+    expected = { "1. Parent", "   1. Child one", "   2. Child two", "   3. " },
+  },
+  {
+    name = "'o' on the last nested unordered child still continues the parent (sw=4)",
+    priority = "P1",
+    shiftwidth = 4,
+    lines = { "1. Parent", "   - Child one", "   - Child two" },
+    cursor = { 3, 5 },
+    keys = "o",
+    expected = { "1. Parent", "   - Child one", "   - Child two", "2. " },
+  },
+
+  -- ---------------------------------------------------------------- P1: repeated <A-CR>
+  -- The second press lands on the continuation line the first one created. That line has no
+  -- marker, so markdown-plus used to hand <A-CR> back to whatever else owned it.
+  --
+  -- In a bare Neovim that handoff is invisible: the raw key falls through to a newline and
+  -- 'autoindent' reproduces the same indent the real handler would have used. It only bites
+  -- once another plugin owns <A-CR> — so these cases install one, and a wrongful handoff
+  -- shows up as the sentinel text in the buffer.
+  {
+    name = "repeated <A-CR> keeps adding continuation lines to the same item",
+    priority = "P1",
+    lines = { "- First line" },
+    cursor = { 1, 11 },
+    setup = RIVAL_ALT_CR,
+    keys = "A<A-CR>second<A-CR>third<Esc>",
+    expected = { "- First line", "  second", "  third" },
+  },
+  {
+    name = "repeated <A-CR> holds ordered-item content alignment",
+    priority = "P1",
+    lines = { "1. First line" },
+    cursor = { 1, 12 },
+    setup = RIVAL_ALT_CR,
+    keys = "A<A-CR>second<A-CR>third<Esc>",
+    expected = { "1. First line", "   second", "   third" },
+  },
+  {
+    name = "<A-CR> off a list still yields to another plugin's mapping",
+    priority = "P1",
+    lines = { "just a paragraph" },
+    cursor = { 1, 4 },
+    setup = RIVAL_ALT_CR,
+    keys = "A<A-CR><Esc>",
+    expected = { "just a paragraphRIVAL" },
   },
 
   -- ---------------------------------------------------------------- P2: documented reach

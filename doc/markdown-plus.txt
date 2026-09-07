@@ -2072,8 +2072,14 @@ markdown-plus.list.handle_enter()
 markdown-plus.list.continue_list_content()
     Continue list content on next line. Creates a continuation line with
     proper indentation aligned with the list content start position. Typically
-    bound to Alt+Enter (<A-CR>) in insert mode. Outside list context the key is
-    handed back to your own `<A-CR>` mapping (|markdown-plus-interop|).
+    bound to Alt+Enter (<A-CR>) in insert mode. Works both on a list item line
+    and on a recognized continuation line beneath one. Parent lookup checks
+    at most 20 preceding lines. Starting on `- item` and typing content after
+    each press, presses 1-21 add continuation lines; press 22 falls back,
+    because the marker is now 21 lines above the cursor. This inherited bound
+    keeps per-key scanning bounded at the cost of not recognizing arbitrarily
+    long items. Outside recognized list context the key is handed back to
+    your own `<A-CR>` mapping, or native behavior (|markdown-plus-interop|).
 
                                                 *markdown-plus.list.handle_tab*
 markdown-plus.list.handle_tab()
@@ -2092,8 +2098,10 @@ markdown-plus.list.handle_backspace()
                                           *markdown-plus.list.handle_normal_o*
 markdown-plus.list.handle_normal_o()
     Handles 'o' key in normal mode for creating new list items below.
-    With `list.smart_outdent = true`, pressing `o` on the last nested child can
-    continue the parent ordered list item instead of creating another child.
+    With `list.smart_outdent = true`, pressing `o` on the last item of a nested
+    *unordered* list continues the parent ordered item instead of creating
+    another child, when that parent is at max(0, child_indent - shiftwidth).
+    A nested *ordered* list always continues itself.
 
                                          *markdown-plus.list.handle_normal_O*
 markdown-plus.list.handle_normal_O()
@@ -2568,9 +2576,11 @@ Every kind is false inside a fenced code block, whatever the line looks
 like — a `- item` inside a markdown fence included. markdown-plus never acts
 there, so neither does the predicate.
 
-There is no dedicated `<A-CR>` kind. |markdown-plus.list.continue_list_content|
-acts on any list item line, which is exactly `'indent'`'s scope — borrow that
-one when writing an `<A-CR>` recipe.
+There is no dedicated `<A-CR>` kind. Use `in_list_context('enter')` when
+composing an `<A-CR>` mapping: it recognizes marker lines and continuation
+lines, matching |markdown-plus.list.continue_list_content|. `'indent'` is
+for `<Tab>`/`<S-Tab>` and only recognizes marker lines. The `'enter'`
+predicate shares the handler's 20-line parent-lookback limit described above.
 
 
 ==============================================================================

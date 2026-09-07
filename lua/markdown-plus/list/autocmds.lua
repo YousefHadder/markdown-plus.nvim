@@ -14,6 +14,10 @@ local RENUMBER_AUGROUP_PREFIX = "MarkdownPlusListRenumber_"
 ---@type table<integer, integer>
 M.renumber_timers = {}
 
+---Keep requests alive after timer expiry until their scheduled callback is consumed.
+---@type table<integer, { changedtick: integer, sequence: integer }>
+local pending_requests = {}
+
 ---Get the cursor row for a buffer, even when it is not the current buffer.
 ---@param bufnr integer Buffer number
 ---@return integer row 1-indexed cursor row
@@ -50,10 +54,43 @@ function M.has_ordered_list_near_row(bufnr, row)
   return false
 end
 
+---Whether a buffer sits at the newest state of its undo tree.
+---
+---A fresh edit always lands on the newest sequence number, so `seq_cur == seq_last`.
+---Undo — and redo onto an interior state — move to a state that already exists, leaving
+---`seq_cur < seq_last`.
+---
+---Renumbering must not run in that position. The write would create a *new* undo state on
+---top of the one the user just undid to, so the next `u` would undo the renumber instead of
+---moving further back, and every subsequent `u` would mint another state: the buffer stops
+---moving and undo is stuck for good. That only bites when the restored text is not already
+---canonically numbered (lazy `1.` markers, a list starting at some other number, gaps, or
+---non-default marker spacing), which is why it looks intermittent.
+---@param bufnr integer Buffer number
+---@return boolean
+function M.is_at_undo_tip(bufnr)
+  if not vim.api.nvim_buf_is_valid(bufnr) then
+    return false
+  end
+
+  local tree
+  local ok = pcall(vim.api.nvim_buf_call, bufnr, function()
+    tree = vim.fn.undotree()
+  end)
+
+  -- Without a readable undo tree, assume the tip so renumbering keeps its normal behavior.
+  if not ok or type(tree) ~= "table" or not tree.seq_cur or not tree.seq_last then
+    return true
+  end
+
+  return tree.seq_cur >= tree.seq_last
+end
+
 ---Stop and clear the debounce timer for a buffer, if one is pending.
 ---@param bufnr integer Buffer number
 ---@return nil
 function M.stop_debounce_timer(bufnr)
+  pending_requests[bufnr] = nil
   local timer_id = M.renumber_timers[bufnr]
   if timer_id then
     pcall(vim.fn.timer_stop, timer_id)
@@ -65,6 +102,7 @@ end
 ---@return nil
 function M.setup_renumber_autocmds()
   local current_bufnr = vim.api.nvim_get_current_buf()
+  M.stop_debounce_timer(current_bufnr)
   local group = vim.api.nvim_create_augroup(RENUMBER_AUGROUP_PREFIX .. current_bufnr, { clear = true })
 
   -- Normal-mode edits: renumber immediately.
@@ -73,7 +111,11 @@ function M.setup_renumber_autocmds()
     buffer = current_bufnr,
     callback = function(args)
       local changed_bufnr = args.buf
+      M.stop_debounce_timer(changed_bufnr)
       if not vim.api.nvim_buf_is_valid(changed_bufnr) or not vim.bo[changed_bufnr].modifiable then
+        return
+      end
+      if not M.is_at_undo_tip(changed_bufnr) then
         return
       end
       local cursor_row = M.get_cursor_row_for_buffer(changed_bufnr)
@@ -82,7 +124,9 @@ function M.setup_renumber_autocmds()
       end
 
       vim.api.nvim_buf_call(changed_bufnr, function()
-        renumber.renumber_ordered_lists()
+        -- Automatic renumbering rides along with the edit that caused it, so one `u`
+        -- unwinds both. Manual renumbering stays its own undo step.
+        renumber.renumber_ordered_lists({ undojoin = true })
       end)
     end,
   })
@@ -93,21 +137,52 @@ function M.setup_renumber_autocmds()
     buffer = current_bufnr,
     callback = function(args)
       local changed_bufnr = args.buf
+      -- Invalidate before the proximity/undo guards: a distant edit or undo also retires
+      -- the previous request, including work already queued through vim.schedule.
+      M.stop_debounce_timer(changed_bufnr)
+      if not vim.api.nvim_buf_is_valid(changed_bufnr) or not vim.bo[changed_bufnr].modifiable then
+        return
+      end
+      if not M.is_at_undo_tip(changed_bufnr) then
+        return
+      end
       local cursor_row = M.get_cursor_row_for_buffer(changed_bufnr)
       if not M.has_ordered_list_near_row(changed_bufnr, cursor_row) then
         return
       end
 
-      M.stop_debounce_timer(changed_bufnr)
+      local request = {
+        changedtick = vim.api.nvim_buf_get_changedtick(changed_bufnr),
+        sequence = vim.api.nvim_buf_call(changed_bufnr, function()
+          return vim.fn.undotree().seq_cur
+        end),
+      }
+      pending_requests[changed_bufnr] = request
 
       M.renumber_timers[changed_bufnr] = vim.fn.timer_start(RENUMBER_DEBOUNCE_MS, function()
+        if pending_requests[changed_bufnr] ~= request then
+          return
+        end
         M.renumber_timers[changed_bufnr] = nil
         vim.schedule(function()
+          if pending_requests[changed_bufnr] ~= request then
+            return
+          end
+          pending_requests[changed_bufnr] = nil
           if not vim.api.nvim_buf_is_valid(changed_bufnr) or not vim.bo[changed_bufnr].modifiable then
             return
           end
+          -- A new undo branch can be at the tip too. Match the originating edit, even
+          -- when its successor's TextChanged event has not been delivered yet.
+          if vim.api.nvim_buf_get_changedtick(changed_bufnr) ~= request.changedtick then
+            return
+          end
           vim.api.nvim_buf_call(changed_bufnr, function()
-            renumber.renumber_ordered_lists()
+            local tree = vim.fn.undotree()
+            if tree.seq_cur ~= request.sequence or tree.seq_cur < tree.seq_last then
+              return
+            end
+            renumber.renumber_ordered_lists({ undojoin = true })
           end)
         end)
       end)
@@ -128,6 +203,7 @@ end
 ---per-buffer renumber augroups.
 ---@return nil
 function M.teardown()
+  pending_requests = {}
   local bufnrs = {}
   for bufnr in pairs(M.renumber_timers) do
     table.insert(bufnrs, bufnr)
