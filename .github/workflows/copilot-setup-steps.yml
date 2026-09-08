@@ -74,6 +74,6 @@ jobs:
           LUA
 
       - name: Install gh-aw extension
-        uses: github/gh-aw-actions/setup-cli@v0.88.3
+        uses: github/gh-aw-actions/setup-cli@v0.88.4
         with:
           version: v0.88.2
