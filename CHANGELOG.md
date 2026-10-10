@@ -5,6 +5,16 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.2.0...v2.2.1) (2026-09-07)
+
+
+### Bug Fixes
+
+* **list:** preserve undo ownership and list continuation ([#415](https://github.com/YousefHadder/markdown-plus.nvim/issues/415)) ([56e729a](https://github.com/YousefHadder/markdown-plus.nvim/commit/56e729a84dba041cb2c72e7fd54a8dd55def32ac))
+* **workflows:** clarify noop must be an actual tool invocation ([#413](https://github.com/YousefHadder/markdown-plus.nvim/issues/413)) ([bec4a74](https://github.com/YousefHadder/markdown-plus.nvim/commit/bec4a74aba36b2b325fe66a4236cd5278ebf30c6))
+* **workflows:** exclude agentic-workflows failure issues from skip-if-match ([#408](https://github.com/YousefHadder/markdown-plus.nvim/issues/408)) ([03008ad](https://github.com/YousefHadder/markdown-plus.nvim/commit/03008ad1cb6f1f5a675f3822a84b54b6833d0898))
+* **workflows:** repair gh-aw agentic workflow failures ([#404](https://github.com/YousefHadder/markdown-plus.nvim/issues/404)) ([949b93c](https://github.com/YousefHadder/markdown-plus.nvim/commit/949b93ca018f01f81fdb17741c0a6d599489af71))
+
 ## [2.2.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.1.0...v2.2.0) (2026-08-23)
 
 
