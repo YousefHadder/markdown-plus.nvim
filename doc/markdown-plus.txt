@@ -1313,6 +1313,7 @@ Example:
 <
 
 Formatting operations preserve alignment markers.
+Literal pipes in cell content are escaped so formatting, edits, rewrites, and CSV conversion preserve cell boundaries.
 
 
 INSERT MODE NAVIGATION ~
