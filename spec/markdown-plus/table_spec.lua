@@ -68,6 +68,56 @@ describe("table.parser", function()
       assert.equals("", table_info.cells[2][2])
       assert.equals("", table_info.cells[3][1])
     end)
+
+    it("preserves terminal backslash runs in header and data cells", function()
+      for count = 1, 4 do
+        local content = "path" .. string.rep("\\", count)
+        for _, prefix in ipairs({ "", "| " }) do
+          for _, suffix in ipairs({ "", "  ", " |" }) do
+            vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+              prefix .. "A | " .. content .. suffix,
+              prefix .. "--- | ---" .. suffix,
+              prefix .. "keep | " .. content .. suffix,
+            })
+            vim.fn.cursor(3, 1)
+
+            local table_info = parser.get_table_at_cursor()
+            assert.is_not_nil(table_info)
+            assert.are.same({ { "A", content }, { "keep", content } }, table_info.cells)
+          end
+        end
+      end
+    end)
+
+    it("preserves a cell containing only a terminal backslash", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "|\\", "|---", "|\\" })
+      vim.fn.cursor(3, 1)
+
+      local table_info = parser.get_table_at_cursor()
+      assert.is_not_nil(table_info)
+      assert.equals(1, table_info.cols)
+      assert.are.same({ { "\\" }, { "\\" } }, table_info.cells)
+    end)
+
+    it("preserves ordinary backslashes and odd/even escaping before pipes", function()
+      for count = 1, 4 do
+        local backslashes = string.rep("\\", count)
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "| A | B | C |",
+          "| --- | --- | --- |",
+          "| path" .. backslashes .. "name | x" .. backslashes .. "|y | keep |",
+        })
+        vim.fn.cursor(3, 1)
+
+        local expected
+        if count % 2 == 0 then
+          expected = { "path" .. backslashes .. "name", "x" .. backslashes, "y", "keep" }
+        else
+          expected = { "path" .. backslashes .. "name", "x" .. string.rep("\\", count - 1) .. "|y", "keep" }
+        end
+        assert.are.same(expected, parser.get_table_at_cursor().cells[2])
+      end
+    end)
   end)
 
   describe("get_cursor_position_in_table", function()
@@ -125,6 +175,24 @@ describe("table.formatter", function()
   end)
 
   describe("format_table", function()
+    it("preserves terminal backslashes through parsing and repeated formatting", function()
+      for count = 1, 4 do
+        for _, content in ipairs({ string.rep("\\", count), "path" .. string.rep("\\", count) }) do
+          vim.api.nvim_buf_set_lines(0, 0, -1, false, { "A | B", "--- | ---", "keep | " .. content })
+          vim.fn.cursor(3, 1)
+          local expected = { { "A", "B" }, { "keep", content } }
+
+          assert.are.same(expected, parser.get_table_at_cursor().cells)
+          assert.is_true(require("markdown-plus.table").format_table())
+          assert.are.same(expected, parser.get_table_at_cursor().cells)
+          local formatted = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+          assert.is_true(require("markdown-plus.table").format_table())
+          assert.are.same(formatted, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          assert.are.same(expected, parser.get_table_at_cursor().cells)
+        end
+      end
+    end)
+
     it("should align columns properly", function()
       local lines = {
         "| Short | Long Header |",

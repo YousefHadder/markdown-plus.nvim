@@ -113,6 +113,10 @@ local function split_row_into_cells(row)
     i = i + 1
   end
 
+  if escaped then
+    current = current .. "\\"
+  end
+
   -- Add last cell
   if current ~= "" or #cells > 0 then
     table.insert(cells, vim.trim(current))
