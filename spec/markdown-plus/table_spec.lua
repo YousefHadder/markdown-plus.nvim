@@ -143,6 +143,47 @@ describe("table.formatter", function()
       assert.truthy(result[2]:match("%-%-%-"))
     end)
 
+    it("preserves escaped pipes and is idempotent", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| A | B |",
+        "| --- | --- |",
+        "| x\\|y | keep |",
+      })
+      vim.fn.cursor(3, 3)
+      local expected = { { "A", "B" }, { "x|y", "keep" } }
+
+      require("markdown-plus.table").format_table()
+      assert.are.same(expected, parser.get_table_at_cursor().cells)
+
+      local formatted = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      require("markdown-plus.table").format_table()
+      assert.are.same(formatted, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+      assert.are.same(expected, parser.get_table_at_cursor().cells)
+    end)
+
+    it("aligns literal pipe cells using their serialized width", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| A | B |",
+        "| --- | --- |",
+        "| x\\|y | keep |",
+      })
+      vim.fn.cursor(3, 3)
+
+      require("markdown-plus.table").format_table()
+      local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+      local expected = { 1, 8, 15 }
+
+      for _, line in ipairs(lines) do
+        local columns = {}
+        for col = 1, #line do
+          if line:sub(col, col) == "|" and parser.is_cell_boundary(line, col) then
+            table.insert(columns, vim.fn.strwidth(line:sub(1, col - 1)) + 1)
+          end
+        end
+        assert.are.same(expected, columns)
+      end
+    end)
+
     it("should handle different alignments", function()
       local lines = {
         "| L | C | R |",
@@ -1347,6 +1388,34 @@ describe("table.conversion", function()
       conversion.csv_to_table()
       local table_info = parser.get_table_at_cursor()
       assert.equals("Red, blue", table_info.cells[2][2])
+    end)
+
+    it("round-trips literal pipes through a Markdown table", function()
+      local original = { "A,B", "x|y,keep" }
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, original)
+      vim.fn.cursor(1, 1)
+
+      assert.is_true(conversion.csv_to_table())
+      assert.are.same({ "x|y", "keep" }, parser.get_table_at_cursor().cells[2])
+      assert.is_true(conversion.table_to_csv())
+      assert.are.same(original, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+    end)
+
+    it("round-trips literal pipes preceded by odd and even backslash runs", function()
+      for count = 1, 3 do
+        local original_content = "x" .. string.rep("\\", count) .. "|y"
+        local content = "x" .. string.rep("\\", count - count % 2) .. "|y"
+        local original = { "A,B", original_content .. ",keep" }
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, original)
+        vim.fn.cursor(1, 1)
+
+        assert.is_true(conversion.csv_to_table())
+        assert.are.same({ content, "keep" }, parser.get_table_at_cursor().cells[2])
+        require("markdown-plus.table").format_table()
+        assert.are.same({ content, "keep" }, parser.get_table_at_cursor().cells[2])
+        assert.is_true(conversion.table_to_csv())
+        assert.are.same({ "A,B", content .. ",keep" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+      end
     end)
   end)
 end)

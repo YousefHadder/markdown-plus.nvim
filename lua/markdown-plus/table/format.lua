@@ -11,6 +11,47 @@
 
 local M = {}
 
+---Escape cell content so literal pipes remain inside the cell when parsed again.
+---@param content string Cell content
+---@return string escaped Escaped cell content
+local function escape_cell(content)
+  local escaped = {}
+  local i = 1
+  while i <= #content do
+    if content:sub(i, i) == "\\" then
+      local start = i
+      while i <= #content and content:sub(i, i) == "\\" do
+        i = i + 1
+      end
+      local count = i - start
+      if content:sub(i, i) == "|" then
+        local backslashes = string.rep("\\", count)
+        if count % 2 == 0 then
+          backslashes = backslashes .. "\\"
+        end
+        table.insert(escaped, backslashes .. "|")
+        i = i + 1
+      else
+        table.insert(escaped, string.rep("\\", count))
+      end
+    elseif content:sub(i, i) == "|" then
+      table.insert(escaped, "\\|")
+      i = i + 1
+    else
+      table.insert(escaped, content:sub(i, i))
+      i = i + 1
+    end
+  end
+  return table.concat(escaped)
+end
+
+---Measure cell content after escaping it for Markdown table serialization.
+---@param content string Cell content
+---@return integer width Serialized display width
+local function serialized_width(content)
+  return vim.fn.strwidth(escape_cell(content))
+end
+
 ---Calculate maximum width for each column
 ---@param cells string[][] Cell contents [row][col]
 ---@param cols integer Number of columns
@@ -30,10 +71,10 @@ local function calculate_column_widths(cells, cols, width_mode)
       if content then
         if width_mode == "segment" then
           for _, segment in ipairs(cell_breaks.split_segments(content)) do
-            max_width = math.max(max_width, vim.fn.strwidth(segment))
+            max_width = math.max(max_width, serialized_width(segment))
           end
         else
-          max_width = math.max(max_width, vim.fn.strwidth(content))
+          max_width = math.max(max_width, serialized_width(content))
         end
       end
     end
@@ -48,7 +89,7 @@ end
 ---@param alignment string 'left', 'center', or 'right'
 ---@return string padded Padded cell content
 local function pad_cell(content, width, alignment)
-  local content_width = vim.fn.strwidth(content)
+  local content_width = serialized_width(content)
   local padding = width - content_width
 
   if padding <= 0 then
@@ -100,7 +141,7 @@ local function format_row(cells, widths, alignments)
   for col = 1, #widths do
     local content = cells[col] or ""
     local padded = pad_cell(content, widths[col], alignments[col] or "left")
-    table.insert(formatted, padded)
+    table.insert(formatted, escape_cell(padded))
   end
   return "| " .. table.concat(formatted, " | ") .. " |"
 end

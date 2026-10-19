@@ -125,6 +125,42 @@ describe("table.cell_editor", function()
       assert.equals("first<br/>second", table_info.cells[2][1])
     end)
 
+    it("preserves literal pipes when saving an edited cell", function()
+      reset_to({
+        "| A | B |",
+        "| --- | --- |",
+        "| old | keep |",
+      })
+      place_cursor_at(3, "old")
+
+      local state = cell_editor.open()
+      vim.api.nvim_buf_set_lines(state.scratch_buf, 0, -1, false, { "new|value" })
+      assert.is_true(state.save())
+
+      assert.are.same({ { "A", "B" }, { "new|value", "keep" } }, parser.get_table_at_cursor().cells)
+    end)
+
+    it("preserves odd and even backslash runs before edited literal pipes", function()
+      for count = 1, 2 do
+        reset_to({
+          "| A | B |",
+          "| --- | --- |",
+          "| old | keep |",
+        })
+        place_cursor_at(3, "old")
+
+        local content = "new" .. string.rep("\\", count) .. "|value"
+        local parsed_content = "new" .. string.rep("\\", count - count % 2) .. "|value"
+        local state = cell_editor.open()
+        vim.api.nvim_buf_set_lines(state.scratch_buf, 0, -1, false, { content })
+        assert.is_true(state.save())
+
+        assert.are.same({ { "A", "B" }, { parsed_content, "keep" } }, parser.get_table_at_cursor().cells)
+        require("markdown-plus.table").format_table()
+        assert.are.same({ { "A", "B" }, { parsed_content, "keep" } }, parser.get_table_at_cursor().cells)
+      end
+    end)
+
     it("collapses an empty scratch buffer to an empty cell", function()
       reset_to({
         "| H        | B |",

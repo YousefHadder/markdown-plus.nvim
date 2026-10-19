@@ -194,6 +194,22 @@ describe("table.row_ops", function()
       assert.equals("A", table_info.cells[3][1])
     end)
 
+    it("preserves escaped pipes when duplicating a data row", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "| H1 | H2 |",
+        "| --- | --- |",
+        "| x\\|y | keep |",
+      })
+      vim.fn.cursor(3, 3)
+
+      assert.is_true(row_ops.duplicate_row())
+      assert.are.same({
+        { "H1", "H2" },
+        { "x|y", "keep" },
+        { "x|y", "keep" },
+      }, parser.get_table_at_cursor().cells)
+    end)
+
     it("should duplicate the header row as first data row", function()
       local lines = {
         "| H1 | H2 |",
