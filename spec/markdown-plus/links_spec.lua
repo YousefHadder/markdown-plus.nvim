@@ -4,6 +4,23 @@ describe("markdown-plus links", function()
   local http_fetch = require("markdown-plus.links.http_fetch")
   local smart_paste = require("markdown-plus.links.smart_paste")
 
+  ---@return fun()
+  local function mock_public_dns()
+    local original_getaddrinfo = vim.uv.getaddrinfo
+    vim.uv.getaddrinfo = function(_, _, _, callback)
+      callback(nil, {
+        {
+          family = "inet",
+          addr = "93.184.216.34",
+        },
+      })
+    end
+
+    return function()
+      vim.uv.getaddrinfo = original_getaddrinfo
+    end
+  end
+
   before_each(function()
     -- Create a test buffer
     vim.cmd("enew")
@@ -333,6 +350,7 @@ describe("markdown-plus links", function()
 
       it("aborts fetch when redirect target is blocked", function()
         local original_system = vim.system
+        local restore_dns = mock_public_dns()
         local calls = 0
         local callback_html
         local callback_err
@@ -360,6 +378,7 @@ describe("markdown-plus links", function()
           callback_err = err
         end)
 
+        restore_dns()
         vim.system = original_system
 
         assert.is_nil(callback_html)
@@ -367,13 +386,68 @@ describe("markdown-plus links", function()
         assert.equals(1, calls)
       end)
 
+      it("blocks a redirect hostname that resolves to a private address", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local system_calls = 0
+        local dns_calls = 0
+        local callback_html
+        local callback_err
+
+        vim.uv.getaddrinfo = function(host, _, _, callback)
+          dns_calls = dns_calls + 1
+          local ip = host == "public.example.test" and "93.184.216.34" or "127.0.0.1"
+          callback(nil, {
+            {
+              family = "inet",
+              addr = ip,
+            },
+          })
+        end
+        vim.system = function(_, _, callback)
+          system_calls = system_calls + 1
+          callback({
+            code = 0,
+            stdout = "302\nhttp://private.example.test/admin",
+            stderr = "",
+          })
+        end
+
+        http_fetch.fetch_html_async("http://public.example.test/start", 5, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+
+        assert.is_nil(callback_html)
+        assert.matches("redirect target blocked", callback_err)
+        assert.equals(2, dns_calls)
+        assert.equals(1, system_calls)
+      end)
+
       it("follows safe redirects and fetches final HTML", function()
         local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local dns_calls = 0
         local callback_html
         local callback_err
         local fetch_url
+        local pinned_destinations = {}
 
+        vim.uv.getaddrinfo = function(_, _, _, callback)
+          dns_calls = dns_calls + 1
+          callback(nil, {
+            { family = "inet", addr = dns_calls == 1 and "93.184.216.34" or "1.1.1.1" },
+          })
+        end
         vim.system = function(cmd, _, callback)
+          for index, argument in ipairs(cmd) do
+            if argument == "--resolve" then
+              pinned_destinations[#pinned_destinations + 1] = cmd[index + 1]
+            end
+          end
           local is_probe = vim.tbl_contains(cmd, "-w")
           local url = cmd[#cmd]
 
@@ -408,11 +482,18 @@ describe("markdown-plus links", function()
           callback_err = err
         end)
 
+        vim.uv.getaddrinfo = original_getaddrinfo
         vim.system = original_system
 
         assert.is_nil(callback_err)
         assert.equals("https://example.com/final", fetch_url)
         assert.matches("<title>final</title>", callback_html)
+        assert.equals(2, dns_calls, "each redirect must be checked, and GET must reuse the final checked addresses")
+        assert.same({
+          "example.com:443:93.184.216.34",
+          "example.com:443:1.1.1.1",
+          "example.com:443:1.1.1.1",
+        }, pinned_destinations)
       end)
     end)
 
@@ -469,6 +550,21 @@ describe("markdown-plus links", function()
         assert.equals("localhost is not allowed", reason)
       end)
 
+      it("blocks alternate loopback address spellings", function()
+        for _, host in ipairs({
+          "2130706433",
+          "0x7f000001",
+          "127.1",
+          "0177.0.0.1",
+          "localhost.",
+        }) do
+          assert.is_true(
+            select(1, smart_paste._is_blocked_url("http://" .. host .. ":12345/")),
+            host .. " should be blocked"
+          )
+        end
+      end)
+
       it("blocks private IPv4 ranges", function()
         assert.is_true(select(1, smart_paste._is_blocked_url("https://10.1.2.3/path")))
         assert.is_true(select(1, smart_paste._is_blocked_url("https://172.20.0.1/path")))
@@ -486,12 +582,543 @@ describe("markdown-plus links", function()
       it("blocks IPv6-mapped private IPv4 ranges", function()
         assert.is_true(select(1, smart_paste._is_blocked_url("https://[::ffff:127.0.0.1]/")))
         assert.is_true(select(1, smart_paste._is_blocked_url("https://[::ffff:192.168.0.1]/")))
+        assert.is_true(select(1, smart_paste._is_blocked_url("https://[::127.0.0.1]/")))
+      end)
+
+      it("blocks root-dot localhost subdomains", function()
+        assert.is_true(select(1, smart_paste._is_blocked_url("https://admin.localhost./")))
       end)
 
       it("allows public host URLs", function()
         local is_blocked, reason = smart_paste._is_blocked_url("https://example.com/docs")
         assert.is_false(is_blocked)
         assert.is_nil(reason)
+      end)
+    end)
+
+    describe("fetch_html_async network protection", function()
+      describe("DNS timeout lifecycle", function()
+        local originals
+        local timers
+        local lookups
+        local commands
+        local outcomes
+        local cancel_calls
+        local cancel_result
+        local submission_error
+        local submission_throws
+
+        before_each(function()
+          originals = {
+            getaddrinfo = vim.uv.getaddrinfo,
+            new_timer = vim.uv.new_timer,
+            cancel = vim.uv.cancel,
+            system = vim.system,
+          }
+          timers, lookups, commands, outcomes = {}, {}, {}, {}
+          cancel_calls, cancel_result = 0, 0
+          submission_error, submission_throws = nil, false
+          vim.uv.new_timer = function()
+            local timer = { stops = 0, closes = 0 }
+            function timer:start(milliseconds, repeat_interval, callback)
+              self.milliseconds, self.repeat_interval, self.fire = milliseconds, repeat_interval, callback
+              return 0
+            end
+            function timer:stop()
+              self.stops = self.stops + 1
+              return 0
+            end
+            function timer:close()
+              self.closes = self.closes + 1
+            end
+            timers[#timers + 1] = timer
+            return timer
+          end
+          vim.uv.getaddrinfo = function(_, _, _, callback)
+            if submission_throws then
+              error(submission_error)
+            end
+            if submission_error then
+              return nil, submission_error
+            end
+            local request = {}
+            lookups[#lookups + 1] = { request = request, callback = callback }
+            return request
+          end
+          vim.uv.cancel = function(request)
+            cancel_calls = cancel_calls + 1
+            assert.equals(lookups[#lookups].request, request)
+            return cancel_result, cancel_result == nil and "EBUSY" or nil
+          end
+          vim.system = function(command, _, callback)
+            commands[#commands + 1] = command
+            callback({
+              code = 0,
+              stdout = vim.tbl_contains(command, "--head") and "200\n" or "<title>resolved</title>",
+              stderr = "",
+            })
+          end
+        end)
+
+        after_each(function()
+          vim.uv.getaddrinfo = originals.getaddrinfo
+          vim.uv.new_timer = originals.new_timer
+          vim.uv.cancel = originals.cancel
+          vim.system = originals.system
+        end)
+
+        ---@param url string|nil
+        local function fetch(url)
+          http_fetch.fetch_html_async(url or "https://public.example.test/", 1, function(html, err)
+            outcomes[#outcomes + 1] = { html = html, err = err }
+          end)
+        end
+
+        ---@param index number
+        local function resolve(index)
+          lookups[index].callback(nil, { { family = "inet", addr = "93.184.216.34" } })
+        end
+
+        it("times out initial DNS once and ignores late success and cancellation callbacks", function()
+          fetch()
+          assert.equals(1, #timers)
+          assert.equals(1000, timers[1].milliseconds)
+          assert.equals(0, timers[1].repeat_interval)
+          timers[1].fire()
+          resolve(1)
+          lookups[1].callback("ECANCELED", nil)
+          timers[1].fire()
+          assert.equals(1, #outcomes)
+          assert.is_nil(outcomes[1].html)
+          assert.matches("resolve host.*timed out", outcomes[1].err)
+          assert.equals(0, #commands)
+          assert.equals(1, cancel_calls)
+          assert.equals(1, timers[1].stops)
+          assert.equals(1, timers[1].closes)
+        end)
+
+        it("ignores late DNS when native cancellation reports an already running request", function()
+          cancel_result = nil
+          fetch()
+          timers[1].fire()
+          resolve(1)
+          assert.equals(1, #outcomes)
+          assert.matches("timed out", outcomes[1].err)
+          assert.equals(0, #commands)
+          assert.equals(1, cancel_calls)
+          assert.equals(1, timers[1].closes)
+        end)
+
+        it("ignores a cancellation callback delivered during timeout cleanup", function()
+          vim.uv.cancel = function()
+            cancel_calls = cancel_calls + 1
+            lookups[1].callback("ECANCELED", nil)
+            return 0
+          end
+          fetch()
+          timers[1].fire()
+          assert.equals(1, #outcomes)
+          assert.matches("timed out", outcomes[1].err)
+          assert.equals(0, #commands)
+          assert.equals(1, cancel_calls)
+          assert.equals(1, timers[1].closes)
+        end)
+
+        it("gives redirect DNS a fresh timeout and never fetches after it expires", function()
+          vim.system = function(command, _, callback)
+            commands[#commands + 1] = command
+            callback({ code = 0, stdout = "302\nhttps://redirect.example.test/", stderr = "" })
+          end
+          fetch()
+          resolve(1)
+          assert.equals(2, #timers)
+          assert.equals(1000, timers[2].milliseconds)
+          assert.equals(1, timers[1].closes)
+          timers[2].fire()
+          resolve(2)
+          lookups[2].callback("ECANCELED", nil)
+          assert.equals(1, #outcomes)
+          assert.matches("redirect target blocked.*timed out", outcomes[1].err)
+          assert.equals(1, #commands)
+          assert.equals(1, cancel_calls)
+          assert.equals(1, timers[2].closes)
+        end)
+
+        it("releases successful lookup timers without cancelling completed requests", function()
+          fetch()
+          resolve(1)
+          timers[1].fire()
+          resolve(1)
+          assert.equals(1, #outcomes)
+          assert.equals("<title>resolved</title>", outcomes[1].html)
+          assert.is_nil(outcomes[1].err)
+          assert.equals(2, #commands)
+          assert.equals(0, cancel_calls)
+          assert.equals(1, timers[1].stops)
+          assert.equals(1, timers[1].closes)
+        end)
+
+        it("releases failed lookup timers and ignores subsequent callbacks", function()
+          fetch()
+          lookups[1].callback("EAI_AGAIN", nil)
+          timers[1].fire()
+          resolve(1)
+          assert.equals(1, #outcomes)
+          assert.matches("EAI_AGAIN", outcomes[1].err)
+          assert.equals(0, #commands)
+          assert.equals(0, cancel_calls)
+          assert.equals(1, timers[1].closes)
+        end)
+
+        it("reports native submission failures and closes the unused timer", function()
+          submission_error = "EAI_FAIL"
+          fetch()
+          assert.equals(1, #outcomes)
+          assert.matches("EAI_FAIL", outcomes[1].err)
+          assert.equals(0, #commands)
+          assert.equals(0, cancel_calls)
+          assert.equals(1, timers[1].closes)
+          timers[1].fire()
+          assert.equals(1, #outcomes)
+        end)
+
+        it("reports thrown submission errors and closes the unused timer", function()
+          submission_error, submission_throws = "submission failed", true
+          fetch()
+          assert.equals(1, #outcomes)
+          assert.matches("submission failed", outcomes[1].err)
+          assert.equals(0, #commands)
+          assert.equals(1, timers[1].closes)
+        end)
+
+        it("reports timer creation failures without submitting DNS", function()
+          vim.uv.new_timer = function()
+            return nil, "EMFILE"
+          end
+          fetch()
+          assert.equals(1, #outcomes)
+          assert.matches("timer creation failed.*EMFILE", outcomes[1].err)
+          assert.equals(0, #lookups)
+          assert.equals(0, #commands)
+        end)
+
+        it("closes a timer that cannot start without submitting DNS", function()
+          local new_timer = vim.uv.new_timer
+          vim.uv.new_timer = function()
+            local timer = new_timer()
+            function timer:start()
+              return nil, "EINVAL"
+            end
+            return timer
+          end
+          fetch()
+          assert.equals(1, #outcomes)
+          assert.matches("timer start failed.*EINVAL", outcomes[1].err)
+          assert.equals(0, #lookups)
+          assert.equals(0, #commands)
+          assert.equals(1, timers[1].closes)
+        end)
+      end)
+
+      it("fetches a hostname using native resolver entries and pins both requests", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local resolved = false
+        local resolver_err
+        local results
+        original_getaddrinfo("127.0.0.1", nil, { socktype = "stream" }, function(err, entries)
+          resolver_err, results, resolved = err, entries, true
+        end)
+        assert.is_true(vim.wait(2000, function()
+          return resolved
+        end, 10))
+        assert.is_nil(resolver_err)
+        assert.is_not_nil(results[1])
+        for _, entry in ipairs(results) do
+          assert.equals("string", type(entry.addr))
+          entry.addr = "93.184.216.34"
+        end
+
+        local dns_calls = 0
+        local commands = {}
+        local callback_html
+        local callback_err
+        vim.uv.getaddrinfo = function(_, _, _, callback)
+          dns_calls = dns_calls + 1
+          callback(nil, results)
+        end
+        vim.system = function(command, _, callback)
+          commands[#commands + 1] = command
+          callback({
+            code = 0,
+            stdout = vim.tbl_contains(command, "--head") and "200\n" or "<title>native DNS</title>",
+            stderr = "",
+          })
+        end
+
+        http_fetch.fetch_html_async("https://public.example.test/page", 2, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+
+        assert.is_nil(callback_err)
+        assert.equals("<title>native DNS</title>", callback_html)
+        assert.equals(1, dns_calls, "HEAD and GET must reuse the checked addresses")
+        assert.equals(2, #commands)
+        assert.is_true(vim.tbl_contains(commands[1], "--head"))
+        assert.is_false(vim.tbl_contains(commands[2], "--head"))
+        for _, command in ipairs(commands) do
+          assert.equals("https://public.example.test/page", command[#command])
+          local resolve_index = vim.fn.index(command, "--resolve") + 1
+          assert.is_true(resolve_index > 0)
+          assert.equals("public.example.test:443:93.184.216.34", command[resolve_index + 1])
+        end
+      end)
+
+      it("pins public IPv4 and IPv6 answers with native resolver field shapes", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local commands = {}
+        local callback_html
+        local callback_err
+        vim.uv.getaddrinfo = function(_, _, _, callback)
+          callback(nil, {
+            { family = "inet", addr = "93.184.216.34" },
+            { family = "inet6", addr = "2606:4700:4700::1111" },
+          })
+        end
+        vim.system = function(command, _, callback)
+          commands[#commands + 1] = command
+          callback({
+            code = 0,
+            stdout = vim.tbl_contains(command, "--head") and "200\n" or "<title>dual stack</title>",
+            stderr = "",
+          })
+        end
+
+        http_fetch.fetch_html_async("https://public.example.test/page", 2, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+
+        assert.is_nil(callback_err)
+        assert.equals("<title>dual stack</title>", callback_html)
+        assert.equals(2, #commands)
+        for _, command in ipairs(commands) do
+          local resolve_index = vim.fn.index(command, "--resolve") + 1
+          assert.is_true(resolve_index > 0)
+          assert.equals("public.example.test:443:93.184.216.34,[2606:4700:4700::1111]", command[resolve_index + 1])
+        end
+      end)
+
+      it("blocks alternate loopback spellings before invoking curl", function()
+        local original_system = vim.system
+        local commands = {}
+        vim.system = function(command)
+          commands[#commands + 1] = command
+        end
+
+        for _, host in ipairs({ "2130706433", "0x7f000001", "127.1", "localhost." }) do
+          http_fetch.fetch_html_async("http://" .. host .. ":12345/", 2, function() end)
+        end
+
+        vim.system = original_system
+        assert.equals(0, #commands, "blocked loopback aliases must not start an HTTP request")
+      end)
+
+      it("blocks noncanonical IPv6 loopback literals after system normalization", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local addresses = {
+          ["0:0:0:0:0:0:0:1"] = "::1",
+          ["::ffff:7f00:1"] = "::ffff:127.0.0.1",
+          ["::7f00:1"] = "::127.0.0.1",
+        }
+        local commands = {}
+        vim.uv.getaddrinfo = function(host, _, _, callback)
+          callback(nil, {
+            {
+              family = "inet6",
+              addr = addresses[host],
+            },
+          })
+        end
+        vim.system = function(command)
+          commands[#commands + 1] = command
+        end
+
+        local outcomes = {}
+        for host in pairs(addresses) do
+          http_fetch.fetch_html_async("http://[" .. host .. "]/", 2, function(html, err)
+            outcomes[#outcomes + 1] = { html = html, err = err }
+          end)
+        end
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+        assert.equals(3, #outcomes)
+        for _, outcome in ipairs(outcomes) do
+          assert.is_nil(outcome.html)
+          assert.matches("URL blocked", outcome.err)
+        end
+        assert.equals(0, #commands, "normalized IPv6 loopback literals must not start an HTTP request")
+      end)
+
+      it("blocks hostnames that resolve to a private address before invoking curl", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local commands = {}
+        local callback_html
+        local callback_err
+
+        vim.uv.getaddrinfo = function(_, _, _, callback)
+          callback(nil, {
+            {
+              family = "inet",
+              addr = "127.0.0.1",
+            },
+          })
+        end
+        vim.system = function(command)
+          commands[#commands + 1] = command
+        end
+
+        http_fetch.fetch_html_async("http://private.example.test/", 2, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+
+        assert.is_nil(callback_html)
+        assert.matches("URL blocked", callback_err)
+        assert.equals(0, #commands)
+      end)
+
+      it("rejects mixed public and private DNS answers in either order", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local commands = {}
+        local outcomes = {}
+        vim.system = function(command)
+          commands[#commands + 1] = command
+        end
+        for _, entries in ipairs({
+          {
+            { family = "inet", addr = "93.184.216.34" },
+            { family = "inet6", addr = "::1" },
+          },
+          {
+            { family = "inet", addr = "127.0.0.1" },
+            { family = "inet6", addr = "2606:4700:4700::1111" },
+          },
+        }) do
+          vim.uv.getaddrinfo = function(_, _, _, callback)
+            callback(nil, entries)
+          end
+          http_fetch.fetch_html_async("http://mixed.example.test/", 2, function(html, err)
+            outcomes[#outcomes + 1] = { html = html, err = err }
+          end)
+        end
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+
+        assert.equals(2, #outcomes)
+        for _, outcome in ipairs(outcomes) do
+          assert.is_nil(outcome.html)
+          assert.matches("URL blocked", outcome.err)
+        end
+        assert.equals(0, #commands)
+      end)
+
+      it("returns a DNS error without starting curl", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local commands = {}
+        local callback_html
+        local callback_err
+
+        vim.uv.getaddrinfo = function(_, _, _, callback)
+          callback("EAI_AGAIN", nil)
+        end
+        vim.system = function(command)
+          commands[#commands + 1] = command
+        end
+
+        http_fetch.fetch_html_async("http://public.example.test/", 2, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+
+        assert.is_nil(callback_html)
+        assert.matches("unable to resolve host", callback_err)
+        assert.equals(0, #commands)
+      end)
+
+      it("normalizes public legacy IPv4 hosts before fetching", function()
+        local original_system = vim.system
+        local commands = {}
+        local callback_html
+        local callback_err
+
+        vim.system = function(command, _, callback)
+          commands[#commands + 1] = command
+          callback({
+            code = 0,
+            stdout = vim.tbl_contains(command, "-w") and "200\n" or "<title>public</title>",
+            stderr = "",
+          })
+        end
+
+        http_fetch.fetch_html_async("http://0x08080808:8080/page", 2, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        vim.system = original_system
+
+        assert.is_nil(callback_err)
+        assert.equals("<title>public</title>", callback_html)
+        assert.equals("http://8.8.8.8:8080/page", commands[1][#commands[1]])
+        assert.equals("http://8.8.8.8:8080/page", commands[2][#commands[2]])
+      end)
+
+      it("reports curl probe failures", function()
+        local original_system = vim.system
+        local restore_dns = mock_public_dns()
+        local callback_html
+        local callback_err
+
+        vim.system = function(_, _, callback)
+          callback({
+            code = 7,
+            stdout = "",
+            stderr = "connection failed",
+          })
+        end
+
+        http_fetch.fetch_html_async("http://public.example.test/", 2, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        restore_dns()
+        vim.system = original_system
+
+        assert.is_nil(callback_html)
+        assert.matches("curl failed %(7%)", callback_err)
+        assert.matches("connection failed", callback_err)
       end)
     end)
 
@@ -1130,6 +1757,7 @@ describe("markdown-plus links", function()
       local cmd = http_fetch._build_curl_base_cmd(10)
       assert.is_table(cmd)
       assert.are.equal("curl", cmd[1])
+      assert.is_true(vim.tbl_contains(cmd, "--noproxy"))
       -- Verify timeout is included
       local found_timeout = false
       for i, v in ipairs(cmd) do

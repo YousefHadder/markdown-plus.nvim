@@ -1010,6 +1010,17 @@ Requirements:
 - `curl` must be installed (check with `:checkhealth markdown-plus`)
 - Neovim 0.10+ (for `vim.system()` async API)
 
+Security:
+- Local/private IPv4 and IPv6 destinations are blocked, including alternate
+  numeric IPv4 spellings and localhost names with a trailing root dot.
+- Hostnames are resolved before fetching. Private results are rejected, and
+  public results are pinned for each request and redirect hop.
+- Fetches bypass curl proxy settings so the checked destination is the one
+  contacted.
+- Each DNS lookup, including redirect lookups, has its own configured
+  `links.smart_paste.timeout` limit, as does each curl operation. This is not
+  a single timeout budget for the entire fetch.
+
 ==============================================================================
 IMAGES                                              *markdown-plus-usage-images*
 
