@@ -104,6 +104,93 @@ describe("markdown-plus code_block", function()
       assert.is_true(ok)
     end)
 
+    it("applies delayed language selection to the original buffer", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "source" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      local source = vim.api.nvim_get_current_buf()
+      local complete
+      vim.ui.select = function(_, _, on_choice)
+        complete = on_choice
+      end
+
+      code_block.insert_with_language()
+
+      local other = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(other, 0, -1, false, { "OTHER BUFFER" })
+      vim.api.nvim_set_current_buf(other)
+      complete("lua")
+
+      local other_lines = vim.api.nvim_buf_get_lines(other, 0, -1, false)
+      local source_lines = vim.api.nvim_buf_get_lines(source, 0, -1, false)
+      vim.api.nvim_set_current_buf(source)
+      vim.api.nvim_buf_delete(other, { force = true })
+
+      assert.are.same({ "OTHER BUFFER" }, other_lines)
+      assert.are.same({ "source", "```lua", "", "```" }, source_lines)
+    end)
+
+    it("rejects delayed language selection after the source changes", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "source" })
+      local source = vim.api.nvim_get_current_buf()
+      local complete
+      vim.ui.select = function(_, _, on_choice)
+        complete = on_choice
+      end
+
+      local original_notify = vim.notify
+      local notified = false
+      vim.notify = function(message, level)
+        if message:match("source buffer changed") and level == vim.log.levels.ERROR then
+          notified = true
+        end
+      end
+
+      code_block.insert_with_language()
+      vim.api.nvim_buf_set_lines(source, 0, -1, false, { "edited source" })
+      complete("lua")
+      vim.notify = original_notify
+
+      assert.are.same({ "edited source" }, vim.api.nvim_buf_get_lines(source, 0, -1, false))
+      assert.is_true(notified)
+    end)
+
+    it("rejects delayed language selection after the source window closes", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "source" })
+      local source = vim.api.nvim_get_current_buf()
+      local source_window = vim.api.nvim_get_current_win()
+      local complete
+      vim.ui.select = function(_, _, on_choice)
+        complete = on_choice
+      end
+
+      local original_notify = vim.notify
+      local notified = false
+      vim.notify = function(message, level)
+        if message:match("source window is no longer available") and level == vim.log.levels.ERROR then
+          notified = true
+        end
+      end
+
+      code_block.insert_with_language()
+      vim.cmd("vsplit")
+      local other_window = vim.api.nvim_get_current_win()
+      local other = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(other, 0, -1, false, { "OTHER BUFFER" })
+      vim.api.nvim_win_set_buf(other_window, other)
+      vim.api.nvim_win_close(source_window, true)
+      complete("lua")
+      vim.notify = original_notify
+
+      local source_lines = vim.api.nvim_buf_get_lines(source, 0, -1, false)
+      local other_lines = vim.api.nvim_buf_get_lines(other, 0, -1, false)
+      vim.api.nvim_buf_delete(source, { force = true })
+      vim.api.nvim_buf_delete(other, { force = true })
+
+      assert.are.same({ "source" }, source_lines)
+      assert.are.same({ "OTHER BUFFER" }, other_lines)
+      assert.is_true(notified)
+    end)
+
     it("wraps visual selection in fenced code block", function()
       vim.api.nvim_buf_set_lines(0, 0, -1, false, { "one", "two", "three" })
       vim.api.nvim_win_set_cursor(0, { 2, 0 })

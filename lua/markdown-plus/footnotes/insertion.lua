@@ -38,6 +38,68 @@ local function should_confirm_delete()
   return confirm_delete
 end
 
+---@param bufnr integer
+---@param winid integer
+---@param source_lines string[]
+---@param id string
+---@param refs markdown-plus.footnotes.Reference[]
+---@param def markdown-plus.footnotes.Definition|nil
+---@return boolean
+local function validate_delete_target(bufnr, winid, source_lines, id, refs, def)
+  if not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then
+    utils.notify("Footnote deletion canceled: source buffer is no longer available", vim.log.levels.ERROR)
+    return false
+  end
+
+  if not vim.api.nvim_win_is_valid(winid) then
+    utils.notify("Footnote deletion canceled: source window is no longer available", vim.log.levels.ERROR)
+    return false
+  end
+
+  if not vim.deep_equal(vim.api.nvim_buf_get_lines(bufnr, 0, -1, false), source_lines) then
+    utils.notify(
+      "Footnote deletion canceled: source buffer changed while confirmation was pending",
+      vim.log.levels.ERROR
+    )
+    return false
+  end
+
+  if not vim.bo[bufnr].modifiable then
+    utils.notify("Footnote deletion canceled: source buffer is not modifiable", vim.log.levels.ERROR)
+    return false
+  end
+
+  local line_count = vim.api.nvim_buf_line_count(bufnr)
+  for _, ref in ipairs(refs) do
+    if ref.line_num < 1 or ref.line_num > line_count then
+      utils.notify("Footnote deletion canceled: a reference range is no longer valid", vim.log.levels.ERROR)
+      return false
+    end
+
+    local line = vim.api.nvim_buf_get_lines(bufnr, ref.line_num - 1, ref.line_num, false)[1]
+    if line:sub(ref.start_col, ref.end_col) ~= "[^" .. id .. "]" then
+      utils.notify("Footnote deletion canceled: a reference range is no longer valid", vim.log.levels.ERROR)
+      return false
+    end
+  end
+
+  if def then
+    if def.line_num < 1 or def.line_num > line_count then
+      utils.notify("Footnote deletion canceled: the definition range is no longer valid", vim.log.levels.ERROR)
+      return false
+    end
+
+    local line = vim.api.nvim_buf_get_lines(bufnr, def.line_num - 1, def.line_num, false)[1]
+    local parsed = parser.parse_definition(line)
+    if not parsed or parsed.id ~= id then
+      utils.notify("Footnote deletion canceled: the definition range is no longer valid", vim.log.levels.ERROR)
+      return false
+    end
+  end
+
+  return true
+end
+
 ---Find or create the footnotes section at the end of the document
 ---@param bufnr? number Buffer number (0 or nil for current)
 ---@return number line_num Line number where definitions should be added
@@ -190,7 +252,9 @@ end
 ---Delete a footnote (both reference and definition)
 ---Works from either reference or definition
 function M.delete_footnote()
-  local bufnr = 0
+  local bufnr = vim.api.nvim_get_current_buf()
+  local winid = vim.api.nvim_get_current_win()
+  local source_lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false)
   local fn_info = parser.get_footnote_at_cursor(bufnr)
 
   if not fn_info then
@@ -218,6 +282,10 @@ function M.delete_footnote()
 
   -- Confirm deletion if configured
   local function do_delete()
+    if not validate_delete_target(bufnr, winid, source_lines, id, refs, def) then
+      return
+    end
+
     -- Collect definition lines first, then delete references, then definition
     -- Work from bottom to top to avoid line number shifts
     local lines_to_delete = {}

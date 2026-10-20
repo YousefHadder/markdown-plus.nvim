@@ -21,6 +21,42 @@ local DEFAULT_LANGUAGES = {
 ---@type markdown-plus.InternalConfig
 M.config = {}
 
+---@return { bufnr: integer, winid: integer, lines: string[] }
+local function capture_source_context()
+  local bufnr = vim.api.nvim_get_current_buf()
+  return {
+    bufnr = bufnr,
+    winid = vim.api.nvim_get_current_win(),
+    lines = vim.api.nvim_buf_get_lines(bufnr, 0, -1, false),
+  }
+end
+
+---@param source { bufnr: integer, winid: integer, lines: string[] }
+---@return boolean
+local function validate_source_context(source)
+  if not vim.api.nvim_buf_is_valid(source.bufnr) or not vim.api.nvim_buf_is_loaded(source.bufnr) then
+    utils.notify("Code block operation canceled: source buffer is no longer available", vim.log.levels.ERROR)
+    return false
+  end
+
+  if not vim.api.nvim_win_is_valid(source.winid) then
+    utils.notify("Code block operation canceled: source window is no longer available", vim.log.levels.ERROR)
+    return false
+  end
+
+  if not vim.deep_equal(vim.api.nvim_buf_get_lines(source.bufnr, 0, -1, false), source.lines) then
+    utils.notify("Code block operation canceled: source buffer changed while the picker was open", vim.log.levels.ERROR)
+    return false
+  end
+
+  if not vim.bo[source.bufnr].modifiable then
+    utils.notify("Code block operation canceled: source buffer is not modifiable", vim.log.levels.ERROR)
+    return false
+  end
+
+  return true
+end
+
 ---@return string[]
 local function get_languages()
   local configured = M.config.code_block and M.config.code_block.languages
@@ -37,9 +73,10 @@ local function get_fence_delimiter()
 end
 
 ---@param current_language string
+---@param source { bufnr: integer, winid: integer, lines: string[] }
 ---@param on_selected fun(language: string|nil)
 ---@return nil
-local function select_language(current_language, on_selected)
+local function select_language(current_language, source, on_selected)
   local options = vim.deepcopy(get_languages())
   table.insert(options, CUSTOM_LANGUAGE_LABEL)
 
@@ -50,6 +87,10 @@ local function select_language(current_language, on_selected)
     end
 
     if choice == CUSTOM_LANGUAGE_LABEL then
+      if not validate_source_context(source) then
+        return
+      end
+
       local custom = utils.input("Code block language: ", current_language)
       if not custom then
         on_selected(nil)
@@ -93,38 +134,51 @@ end
 ---Insert a fenced code block below cursor with selected language
 ---@return nil
 function M.insert_with_language()
-  select_language("", function(language)
+  local source = capture_source_context()
+  local row = vim.api.nvim_win_get_cursor(source.winid)[1]
+
+  select_language("", source, function(language)
     if language == nil then
+      return
+    end
+
+    if not validate_source_context(source) then
       return
     end
 
     local fence = get_fence_delimiter()
     local opening = opening_fence_line(fence, language)
-    local row = utils.get_cursor()[1]
 
-    vim.api.nvim_buf_set_lines(0, row, row, false, { opening, "", fence })
-    utils.set_cursor(row + 1, 0)
+    vim.api.nvim_buf_set_lines(source.bufnr, row, row, false, { opening, "", fence })
+    if vim.api.nvim_win_get_buf(source.winid) == source.bufnr then
+      vim.api.nvim_win_set_cursor(source.winid, { row + 1, 0 })
+    end
   end)
 end
 
 ---Wrap visual selection in a fenced code block with selected language
 ---@return nil
 function M.wrap_selection()
+  local source = capture_source_context()
   local selection = utils.get_visual_selection(false)
   local start_row = math.min(selection.start_row, selection.end_row)
   local end_row = math.max(selection.start_row, selection.end_row)
   vim.cmd("normal! " .. ESC)
 
-  select_language("", function(language)
+  select_language("", source, function(language)
     if language == nil then
+      return
+    end
+
+    if not validate_source_context(source) then
       return
     end
 
     local fence = get_fence_delimiter()
     local opening = opening_fence_line(fence, language)
 
-    vim.api.nvim_buf_set_lines(0, start_row - 1, start_row - 1, false, { opening })
-    vim.api.nvim_buf_set_lines(0, end_row + 1, end_row + 1, false, { fence })
+    vim.api.nvim_buf_set_lines(source.bufnr, start_row - 1, start_row - 1, false, { opening })
+    vim.api.nvim_buf_set_lines(source.bufnr, end_row + 1, end_row + 1, false, { fence })
   end)
 end
 
@@ -137,14 +191,20 @@ function M.change_language()
     return
   end
 
-  select_language(block.language or "", function(language)
+  local source = capture_source_context()
+
+  select_language(block.language or "", source, function(language)
     if language == nil then
+      return
+    end
+
+    if not validate_source_context(source) then
       return
     end
 
     local fence = string.rep(block.fence_char, block.fence_length)
     local new_line = block.opening_indent .. opening_fence_line(fence, language)
-    utils.set_line(block.start_line, new_line)
+    vim.api.nvim_buf_set_lines(source.bufnr, block.start_line - 1, block.start_line, false, { new_line })
   end)
 end
 
