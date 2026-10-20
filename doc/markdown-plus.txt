@@ -1314,6 +1314,8 @@ Example:
 
 Formatting operations preserve alignment markers.
 Literal pipes in cell content are escaped so formatting, edits, rewrites, and CSV conversion preserve cell boundaries.
+Terminal backslashes in cells are preserved when parsing and formatting,
+including rows without a closing pipe.
 
 
 INSERT MODE NAVIGATION ~
