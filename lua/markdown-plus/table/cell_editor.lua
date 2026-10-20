@@ -91,9 +91,34 @@ function M.open()
 
   local orig_win = vim.api.nvim_get_current_win()
   local orig_buf = vim.api.nvim_get_current_buf()
-  local orig_changedtick = vim.api.nvim_buf_get_changedtick(orig_buf)
   local cell_content = table_info.cells[cells_index][pos.col + 1] or ""
   local segments = cell_breaks.split_segments(cell_content)
+
+  local source_changed = false
+  local tracking_source = true
+  ---@return boolean detach
+  local function invalidate_source()
+    if tracking_source then
+      source_changed = true
+    end
+    return true
+  end
+  -- Attach before opening the popup: BufLeave may autosave or edit the source.
+  if
+    not vim.api.nvim_buf_attach(orig_buf, false, {
+      on_lines = invalidate_source,
+      on_reload = invalidate_source,
+      on_detach = invalidate_source,
+      on_changedtick = function()
+        -- Writes can increment changedtick without changing text. Lua listeners
+        -- detach on an event; stop tracking immediately when the session closes.
+        return not tracking_source
+      end,
+    })
+  then
+    utils.notify("Cannot track source buffer changes; cannot open cell editor", vim.log.levels.ERROR)
+    return nil
+  end
 
   -- Create scratch buffer
   local scratch_buf = vim.api.nvim_create_buf(false, true)
@@ -135,6 +160,7 @@ function M.open()
       return
     end
     state.closed = true
+    tracking_source = false
     if vim.api.nvim_win_is_valid(scratch_win) then
       pcall(vim.api.nvim_win_close, scratch_win, true)
     end
@@ -151,7 +177,7 @@ function M.open()
       reason = "Original buffer was deleted or unloaded"
     elseif vim.api.nvim_win_get_buf(orig_win) ~= orig_buf then
       reason = "Original window now shows a different buffer"
-    elseif vim.api.nvim_buf_get_changedtick(orig_buf) ~= orig_changedtick then
+    elseif source_changed then
       reason = "Source buffer changed since the cell editor opened"
     elseif not vim.bo[orig_buf].modifiable then
       reason = "Original buffer is not modifiable"
@@ -239,6 +265,7 @@ function M.open()
     pattern = tostring(scratch_win),
     callback = function()
       state.closed = true
+      tracking_source = false
     end,
     once = true,
   })

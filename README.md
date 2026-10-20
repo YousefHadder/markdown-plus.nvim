@@ -35,6 +35,8 @@ The table cell popup (`<localleader>te`) saves with `<CR>` or `:write`. If the s
 open, saving is rejected instead of overwriting newer edits, even when the changes are outside the table. The popup
 stays open with your text intact; copy it before closing and reopening the editor on the current source cell.
 Missing source windows/buffers or a nonmodifiable source likewise leave the popup text available.
+Writing the source without editing its text does not invalidate the popup. Actual text edits (even if undone) and
+source reloads do invalidate it.
 
 ## Examples features
 

@@ -473,4 +473,148 @@ describe("table.cell_editor", function()
       end)
     end
   end)
+
+  describe("source writes and text revisions", function()
+    local state
+    local source_path
+    local original_attach
+    local keys = require("spec.helpers.insert_mode")
+
+    before_each(function()
+      state = nil
+      original_attach = vim.api.nvim_buf_attach
+      source_path = vim.fn.tempname() .. ".md"
+      vim.api.nvim_buf_set_name(0, source_path)
+      reset_to({ "| A | B |", "| --- | --- |", "| old | keep |" })
+      place_cursor_at(3, "old")
+    end)
+
+    after_each(function()
+      vim.api.nvim_buf_attach = original_attach
+      if state then
+        state.cancel()
+      end
+      vim.fn.delete(source_path)
+    end)
+
+    ---@return nil
+    local function edit_popup()
+      vim.api.nvim_buf_set_lines(state.scratch_buf, 0, -1, false, { "new" })
+    end
+
+    it("allows a source write without text changes followed by the real popup write", function()
+      local source = vim.api.nvim_get_current_buf()
+      local tick = vim.api.nvim_buf_get_changedtick(source)
+      state = cell_editor.open()
+      keys.press_normal("gg0Cnew<Esc><C-w>p", 1, 0)
+      keys.press_normal(":write<CR>", 3, 0)
+      assert.is_true(vim.api.nvim_buf_get_changedtick(source) > tick)
+      assert.are.same({ "| A | B |", "| --- | --- |", "| old | keep |" }, vim.fn.readfile(source_path))
+      vim.api.nvim_set_current_win(state.scratch_win)
+      keys.press_normal(":write<CR>", 1, 0)
+      assert.is_true(state.closed)
+      assert.are.same({ "new", "keep" }, parser.get_table_at_cursor().cells[2])
+    end)
+
+    for _, event in ipairs({ "BufLeave", "BufEnter" }) do
+      it("allows source autosave on " .. event .. " without text changes", function()
+        local source = vim.api.nvim_get_current_buf()
+        local tick = vim.api.nvim_buf_get_changedtick(source)
+        vim.api.nvim_create_autocmd(event, {
+          buffer = source,
+          once = true,
+          callback = function()
+            vim.cmd("silent write")
+          end,
+        })
+        state = cell_editor.open()
+        edit_popup()
+        assert.is_true(state.save())
+        assert.is_true(vim.api.nvim_buf_get_changedtick(source) > tick)
+        assert.are.same({ "new", "keep" }, parser.get_table_at_cursor().cells[2])
+      end)
+    end
+
+    it("rejects source changes that happen while entering the popup", function()
+      local source = vim.api.nvim_get_current_buf()
+      vim.api.nvim_create_autocmd("BufLeave", {
+        buffer = source,
+        once = true,
+        callback = function()
+          vim.api.nvim_buf_set_lines(source, 2, 3, false, { "| old | source edit |" })
+        end,
+      })
+      state = cell_editor.open()
+      edit_popup()
+      assert.is_false(state.save())
+      assert.equals("| old | source edit |", vim.api.nvim_buf_get_lines(source, 2, 3, false)[1])
+      assert.is_false(state.closed)
+      assert.are.same({ "new" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+    end)
+
+    it("rejects an edit followed by undo even when source text matches again", function()
+      local source = vim.api.nvim_get_current_buf()
+      local before = vim.api.nvim_buf_get_lines(source, 0, -1, false)
+      vim.cmd("silent write")
+      state = cell_editor.open()
+      edit_popup()
+      vim.api.nvim_set_current_win(state.orig_win)
+      keys.press_normal("A changed<Esc>", 3, 0)
+      keys.press_normal("u", 3, 0)
+      assert.are.same(before, vim.api.nvim_buf_get_lines(source, 0, -1, false))
+      vim.api.nvim_set_current_win(state.scratch_win)
+      assert.is_false(state.save())
+      assert.is_false(state.closed)
+      assert.are.same({ "new" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+    end)
+
+    it("rejects a source reload even when the file contents are unchanged", function()
+      vim.cmd("silent write")
+      state = cell_editor.open()
+      edit_popup()
+      vim.api.nvim_win_call(state.orig_win, function()
+        vim.cmd("edit!")
+      end)
+      assert.is_false(state.save())
+      assert.is_false(state.closed)
+      assert.are.same({ "new" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+    end)
+
+    for _, close_method in ipairs({ "save", "cancel", "window" }) do
+      it("stops source tracking after popup closure via " .. close_method, function()
+        local callbacks
+        local source = vim.api.nvim_get_current_buf()
+        vim.api.nvim_buf_attach = function(buffer, send_buffer, opts)
+          if buffer == source and opts.on_changedtick then
+            callbacks = opts
+          end
+          return original_attach(buffer, send_buffer, opts)
+        end
+        state = cell_editor.open()
+        assert.is_false(callbacks.on_changedtick())
+        if close_method == "window" then
+          vim.api.nvim_win_close(state.scratch_win, true)
+        else
+          assert.is_true(state[close_method]())
+        end
+        assert.is_true(state.closed)
+        assert.is_true(callbacks.on_changedtick())
+      end)
+    end
+
+    it("notifies instead of opening an untracked editor when buffer attachment fails", function()
+      local original_notify = vim.notify
+      local message
+      vim.notify = function(text)
+        message = text
+      end
+      vim.api.nvim_buf_attach = function()
+        return false
+      end
+      state = cell_editor.open()
+      vim.notify = original_notify
+      assert.is_nil(state)
+      assert.matches("Cannot track source buffer changes", message, 1, true)
+    end)
+  end)
 end)

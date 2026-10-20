@@ -1408,6 +1408,8 @@ saving is rejected with an error instead of overwriting newer edits. Missing
 source windows/buffers, a switched source window, or a nonmodifiable source also
 prevent saving. The popup stays open and retains your text. Copy the text before
 closing and reopening the editor on the current source cell; cancel discards it.
+Writing the source without changing its text is allowed, including autosave.
+Text edits followed by undo and source reloads still invalidate the session.
 
 TABLE FEATURES ~
 
