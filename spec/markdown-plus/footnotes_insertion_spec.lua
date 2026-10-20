@@ -3,17 +3,19 @@ describe("markdown-plus footnotes insertion", function()
   local insertion = require("markdown-plus.footnotes.insertion")
   local parser = require("markdown-plus.footnotes.parser")
   local mocks = require("spec.helpers.mocks")
-  local notify_spy, input_spy, select_spy
+  local notify_spy, input_spy, select_spy, original_ui_select
   local stubs = {}
 
   before_each(function()
     vim.cmd("enew")
     vim.bo.filetype = "markdown"
+    original_ui_select = vim.ui.select
     notify_spy = mocks.mock_notify()
     insertion.set_confirm_delete(false) -- disable confirmation for most tests
   end)
 
   after_each(function()
+    vim.ui.select = original_ui_select
     notify_spy.restore()
     if input_spy then
       input_spy.restore()
@@ -321,6 +323,105 @@ describe("markdown-plus footnotes insertion", function()
       local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
       assert.equals("Text [^1] here", lines[1])
       assert.equals("[^1]: Definition", lines[3])
+    end)
+
+    it("applies delayed confirmation to the original buffer", function()
+      insertion.set_confirm_delete(true)
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "original [^1]",
+        "",
+        "[^1]: original definition",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 9 })
+      local source = vim.api.nvim_get_current_buf()
+      local complete
+      vim.ui.select = function(_, _, on_choice)
+        complete = on_choice
+      end
+
+      insertion.delete_footnote()
+
+      local other = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(other, 0, -1, false, {
+        "IMPORTANT OTHER TEXT",
+        "",
+        "[^1]: other definition",
+      })
+      vim.api.nvim_set_current_buf(other)
+      complete("Yes")
+
+      local other_lines = vim.api.nvim_buf_get_lines(other, 0, -1, false)
+      local source_lines = vim.api.nvim_buf_get_lines(source, 0, -1, false)
+      vim.api.nvim_set_current_buf(source)
+      vim.api.nvim_buf_delete(other, { force = true })
+
+      assert.are.same({ "IMPORTANT OTHER TEXT", "", "[^1]: other definition" }, other_lines)
+      assert.are.same({ "original ", "" }, source_lines)
+    end)
+
+    it("rejects delayed confirmation after the source changes", function()
+      insertion.set_confirm_delete(true)
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "original [^1]",
+        "",
+        "[^1]: original definition",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 9 })
+      local source = vim.api.nvim_get_current_buf()
+      local complete
+      vim.ui.select = function(_, _, on_choice)
+        complete = on_choice
+      end
+
+      insertion.delete_footnote()
+      vim.api.nvim_buf_set_lines(source, 0, 1, false, { "edited [^1]" })
+      complete("Yes")
+
+      assert.are.same(
+        { "edited [^1]", "", "[^1]: original definition" },
+        vim.api.nvim_buf_get_lines(source, 0, -1, false)
+      )
+      local notified = false
+      for _, call in ipairs(notify_spy.calls) do
+        if call.msg:match("source buffer changed") and call.level == vim.log.levels.ERROR then
+          notified = true
+          break
+        end
+      end
+      assert.is_true(notified)
+    end)
+
+    it("rejects delayed confirmation after the source buffer is deleted", function()
+      insertion.set_confirm_delete(true)
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+        "original [^1]",
+        "",
+        "[^1]: original definition",
+      })
+      vim.api.nvim_win_set_cursor(0, { 1, 9 })
+      local source = vim.api.nvim_get_current_buf()
+      local complete
+      vim.ui.select = function(_, _, on_choice)
+        complete = on_choice
+      end
+
+      insertion.delete_footnote()
+
+      local other = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_buf_set_lines(other, 0, -1, false, { "IMPORTANT OTHER TEXT" })
+      vim.api.nvim_set_current_buf(other)
+      vim.api.nvim_buf_delete(source, { force = true })
+      complete("Yes")
+
+      assert.are.same({ "IMPORTANT OTHER TEXT" }, vim.api.nvim_buf_get_lines(other, 0, -1, false))
+      local notified = false
+      for _, call in ipairs(notify_spy.calls) do
+        if call.msg:match("source buffer is no longer available") and call.level == vim.log.levels.ERROR then
+          notified = true
+          break
+        end
+      end
+      assert.is_true(notified)
     end)
   end)
 

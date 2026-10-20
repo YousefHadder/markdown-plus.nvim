@@ -810,6 +810,13 @@ Insert or wrap fenced code blocks with language picker:
 - `<localleader>mC`: change language on code block under cursor
 - `]b` / `[b`: jump to next/previous fenced code block
 
+Language-picker actions operate on the buffer where the picker was opened.
+If its text differs from when the picker opened, or its source window/buffer
+is closed or the buffer is unloaded or nonmodifiable, the action is canceled
+with an error notification. Writing or autosaving unchanged text does not
+cancel the action. Restoring the exact original text also allows completion;
+changes followed by a write are still rejected when the text differs.
+
 >markdown
     ```lua
     print("hello")
@@ -1476,6 +1483,12 @@ Delete a footnote with `<localleader>mfd`:
 4. Both reference(s) and definition are removed
 
 If a footnote has multiple references, all references are deleted.
+Confirmation applies to the buffer where deletion started. If its text differs
+from when confirmation opened, or its source window/buffer is closed or the
+buffer is unloaded or nonmodifiable, deletion is canceled with an error
+notification. Writing or autosaving unchanged text does not cancel deletion.
+Restoring the exact original text also allows completion; changes followed by
+a write are still rejected when the text differs.
 
 
 NAVIGATION ~

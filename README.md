@@ -39,6 +39,12 @@ Writing the source without editing its text does not invalidate the popup. Actua
 source reloads do invalidate it.
 Closing or cancelling the popup during a save aborts that save without updating the source.
 
+Code-block language-picker actions and confirmed footnote deletion always target the buffer where they began. If its
+text differs from when the dialog opened, or its source window/buffer is closed or the buffer is unloaded or
+nonmodifiable, the operation is canceled with an error notification instead of using stale coordinates.
+Writing or autosaving unchanged source text does not cancel the action. Restoring the exact original text also
+allows completion; changes followed by a write are still rejected when the text differs.
+
 ## Examples features
 
 https://github.com/user-attachments/assets/493361af-f191-4faf-ac1c-4da01222e37d
