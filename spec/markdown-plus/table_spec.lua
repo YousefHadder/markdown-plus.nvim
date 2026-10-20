@@ -99,6 +99,26 @@ describe("table.parser", function()
       assert.are.same({ { "\\" }, { "\\" } }, table_info.cells)
     end)
 
+    it("distinguishes terminal escaped pipes from closing delimiters", function()
+      for count = 1, 4 do
+        local backslashes = string.rep("\\", count)
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "| A | B |",
+          "| --- | --- |",
+          "| keep | value" .. backslashes .. "|",
+        })
+        vim.fn.cursor(3, 1)
+
+        local expected
+        if count % 2 == 1 then
+          expected = { "keep", "value" .. string.rep("\\", count - 1) .. "|" }
+        else
+          expected = { "keep", "value" .. backslashes }
+        end
+        assert.are.same(expected, parser.get_table_at_cursor().cells[2])
+      end
+    end)
+
     it("preserves ordinary backslashes and odd/even escaping before pipes", function()
       for count = 1, 4 do
         local backslashes = string.rep("\\", count)
@@ -190,6 +210,33 @@ describe("table.formatter", function()
           assert.are.same(formatted, vim.api.nvim_buf_get_lines(0, 0, -1, false))
           assert.are.same(expected, parser.get_table_at_cursor().cells)
         end
+      end
+    end)
+
+    it("preserves terminal escaped pipes through formatting", function()
+      for count = 1, 4 do
+        local backslashes = string.rep("\\", count)
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, {
+          "| A | B |",
+          "| --- | --- |",
+          "| keep | value" .. backslashes .. "|",
+        })
+        vim.fn.cursor(3, 1)
+
+        local expected
+        if count % 2 == 1 then
+          expected = { { "A", "B" }, { "keep", "value" .. string.rep("\\", count - 1) .. "|" } }
+        else
+          expected = { { "A", "B" }, { "keep", "value" .. backslashes } }
+        end
+
+        assert.are.same(expected, parser.get_table_at_cursor().cells)
+        assert.is_true(require("markdown-plus.table").format_table())
+        assert.are.same(expected, parser.get_table_at_cursor().cells)
+        local formatted = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+        assert.is_true(require("markdown-plus.table").format_table())
+        assert.are.same(formatted, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+        assert.are.same(expected, parser.get_table_at_cursor().cells)
       end
     end)
 
