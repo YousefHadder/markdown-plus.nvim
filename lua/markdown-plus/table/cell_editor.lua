@@ -91,6 +91,7 @@ function M.open()
 
   local orig_win = vim.api.nvim_get_current_win()
   local orig_buf = vim.api.nvim_get_current_buf()
+  local orig_changedtick = vim.api.nvim_buf_get_changedtick(orig_buf)
   local cell_content = table_info.cells[cells_index][pos.col + 1] or ""
   local segments = cell_breaks.split_segments(cell_content)
 
@@ -128,6 +129,7 @@ function M.open()
     closed = false,
   }
 
+  ---@return nil
   local function close_scratch()
     if state.closed then
       return
@@ -138,6 +140,34 @@ function M.open()
     end
   end
 
+  ---Check that the captured table still belongs to the unchanged, writable source.
+  ---@param require_focus? boolean
+  ---@return boolean
+  local function can_save(require_focus)
+    local reason
+    if not vim.api.nvim_win_is_valid(orig_win) then
+      reason = "Original window was closed"
+    elseif not vim.api.nvim_buf_is_valid(orig_buf) or not vim.api.nvim_buf_is_loaded(orig_buf) then
+      reason = "Original buffer was deleted or unloaded"
+    elseif vim.api.nvim_win_get_buf(orig_win) ~= orig_buf then
+      reason = "Original window now shows a different buffer"
+    elseif vim.api.nvim_buf_get_changedtick(orig_buf) ~= orig_changedtick then
+      reason = "Source buffer changed since the cell editor opened"
+    elseif not vim.bo[orig_buf].modifiable then
+      reason = "Original buffer is not modifiable"
+    elseif require_focus and vim.api.nvim_get_current_win() ~= orig_win then
+      reason = "Source window lost focus"
+    end
+    if reason then
+      utils.notify(
+        reason .. "; cannot save cell. Popup text is retained; copy it before reopening.",
+        vim.log.levels.ERROR
+      )
+      return false
+    end
+    return true
+  end
+
   ---@return boolean success
   function state.save()
     if state.closed then
@@ -146,19 +176,7 @@ function M.open()
     if not vim.api.nvim_buf_is_valid(scratch_buf) then
       return false
     end
-    if not vim.api.nvim_win_is_valid(orig_win) then
-      utils.notify("Original window was closed; cannot save cell", vim.log.levels.ERROR)
-      close_scratch()
-      return false
-    end
-    if not vim.api.nvim_buf_is_valid(orig_buf) then
-      utils.notify("Original buffer was deleted; cannot save cell", vim.log.levels.ERROR)
-      close_scratch()
-      return false
-    end
-    if vim.api.nvim_win_get_buf(orig_win) ~= orig_buf then
-      utils.notify("Original window now shows a different buffer; cannot save cell", vim.log.levels.ERROR)
-      close_scratch()
+    if not can_save() then
       return false
     end
 
@@ -167,6 +185,13 @@ function M.open()
 
     -- Switch focus to the original window so format_table and parser run there.
     vim.api.nvim_set_current_win(orig_win)
+    -- Window-entry autocommands may edit or replace the source while focus changes.
+    if not can_save(true) then
+      if vim.api.nvim_win_is_valid(scratch_win) then
+        vim.api.nvim_set_current_win(scratch_win)
+      end
+      return false
+    end
     state.table_info.cells[state.cells_index][state.pos.col + 1] = joined
 
     local formatter = require("markdown-plus.table.format")

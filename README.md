@@ -31,6 +31,11 @@ Table formatting escapes literal pipes in cell content, preserving cell boundari
 and CSV conversion. Terminal backslashes in cells are preserved when parsing and formatting, including rows without
 a closing pipe.
 
+The table cell popup (`<localleader>te`) saves with `<CR>` or `:write`. If the source buffer changes while the popup is
+open, saving is rejected instead of overwriting newer edits, even when the changes are outside the table. The popup
+stays open with your text intact; copy it before closing and reopening the editor on the current source cell.
+Missing source windows/buffers or a nonmodifiable source likewise leave the popup text available.
+
 ## Examples features
 
 https://github.com/user-attachments/assets/493361af-f191-4faf-ac1c-4da01222e37d

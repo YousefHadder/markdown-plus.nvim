@@ -1402,6 +1402,13 @@ Open a floating popup to edit long cell content comfortably:
 
 Popup dimensions and border style can be configured via `table.cell_editor`.
 
+Save with `<CR>` or `:write`; cancel with `q` or `<Esc><Esc>`.
+If the source buffer changes after opening the popup (even outside the table),
+saving is rejected with an error instead of overwriting newer edits. Missing
+source windows/buffers, a switched source window, or a nonmodifiable source also
+prevent saving. The popup stays open and retains your text. Copy the text before
+closing and reopening the editor on the current source cell; cancel discards it.
+
 TABLE FEATURES ~
 
 Smart cursor positioning:

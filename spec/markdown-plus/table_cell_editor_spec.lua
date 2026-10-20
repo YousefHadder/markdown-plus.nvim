@@ -290,8 +290,9 @@ describe("table.cell_editor", function()
       assert.are.same(orig_lines, vim.api.nvim_buf_get_lines(orig_buf, 0, -1, false))
       -- The other buffer is unchanged
       assert.are.same({ "unrelated content" }, vim.api.nvim_buf_get_lines(other_buf, 0, -1, false))
-      -- Popup was closed by the guard
-      assert.is_true(state.closed)
+      assert.is_false(state.closed)
+      assert.are.same({ "edits", "from", "popup" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+      state.cancel()
 
       pcall(vim.api.nvim_buf_delete, other_buf, { force = true })
     end)
@@ -315,7 +316,161 @@ describe("table.cell_editor", function()
       pcall(vim.api.nvim_buf_delete, orig_buf, { force = true })
 
       assert.is_false(state.save())
-      assert.is_true(state.closed)
+      assert.is_false(state.closed)
+      assert.are.same({ "edits" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+      state.cancel()
     end)
+  end)
+
+  describe("stale save protection", function()
+    local state
+    local notifications
+    local original_notify
+    local keys = require("spec.helpers.insert_mode")
+
+    before_each(function()
+      notifications = {}
+      original_notify = vim.notify
+      vim.notify = function(message, level)
+        table.insert(notifications, { message = message, level = level })
+      end
+      reset_to({ "BEFORE", "", "| A | B |", "| --- | --- |", "| old | keep |", "", "AFTER" })
+      place_cursor_at(5, "old")
+      state = cell_editor.open()
+      vim.api.nvim_buf_set_lines(state.scratch_buf, 0, -1, false, { "new", "popup text" })
+    end)
+
+    after_each(function()
+      state.cancel()
+      vim.notify = original_notify
+    end)
+
+    ---@param message string
+    ---@return nil
+    local function assert_rejected(message)
+      local source = vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false)
+      local tick = vim.api.nvim_buf_get_changedtick(state.orig_buf)
+      assert.is_false(state.save())
+      assert.are.same(source, vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false))
+      assert.equals(tick, vim.api.nvim_buf_get_changedtick(state.orig_buf))
+      assert.is_false(state.closed)
+      assert.is_true(vim.api.nvim_win_is_valid(state.scratch_win))
+      assert.are.same({ "new", "popup text" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+      assert.is_true(vim.bo[state.scratch_buf].modified)
+      assert.matches(message, notifications[#notifications].message, 1, true)
+      assert.equals(vim.log.levels.ERROR, notifications[#notifications].level)
+    end
+
+    local changes = {
+      { name = "another source cell changes", start = 4, finish = 5, lines = { "| old | external edit |" } },
+      { name = "the target cell changes", start = 4, finish = 5, lines = { "| external edit | keep |" } },
+      { name = "text is inserted above the table", start = 0, finish = 0, lines = { "IMPORTANT NEW TEXT" } },
+      { name = "text is deleted above the table", start = 0, finish = 2, lines = {} },
+      { name = "the target row is deleted", start = 4, finish = 5, lines = {} },
+      { name = "the table is replaced", start = 2, finish = 5, lines = { "REPLACEMENT TEXT" } },
+      { name = "text outside the table changes", start = 6, finish = 7, lines = { "NEW AFTER" } },
+    }
+
+    for _, change in ipairs(changes) do
+      it("rejects without changing source or losing popup text when " .. change.name, function()
+        vim.api.nvim_buf_set_lines(state.orig_buf, change.start, change.finish, false, change.lines)
+        assert_rejected("Source buffer changed")
+      end)
+    end
+
+    it("retains popup text when the original window is closed", function()
+      vim.api.nvim_set_current_win(state.orig_win)
+      vim.cmd("vsplit")
+      vim.api.nvim_set_current_win(state.scratch_win)
+      vim.api.nvim_win_close(state.orig_win, true)
+      assert_rejected("Original window was closed")
+    end)
+
+    it("retains popup text when the source becomes unmodifiable", function()
+      vim.bo[state.orig_buf].modifiable = false
+      assert_rejected("Original buffer is not modifiable")
+      vim.bo[state.orig_buf].modifiable = true
+    end)
+
+    it("retains popup text when the source buffer is unloaded", function()
+      local placeholder = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_win_set_buf(state.orig_win, placeholder)
+      vim.api.nvim_buf_delete(state.orig_buf, { unload = true, force = true })
+      assert.is_false(vim.api.nvim_buf_is_loaded(state.orig_buf))
+      assert.is_false(state.save())
+      assert.is_false(state.closed)
+      assert.are.same({ "new", "popup text" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+      assert.matches("Original buffer was deleted or unloaded", notifications[#notifications].message, 1, true)
+    end)
+
+    it("rejects source edits made by an autocommand while returning to the original window", function()
+      vim.api.nvim_create_autocmd("BufEnter", {
+        buffer = state.orig_buf,
+        once = true,
+        callback = function()
+          vim.api.nvim_buf_set_lines(state.orig_buf, 4, 5, false, { "| old | autocmd edit |" })
+        end,
+      })
+
+      assert.is_false(state.save())
+      assert.equals("| old | autocmd edit |", vim.api.nvim_buf_get_lines(state.orig_buf, 4, 5, false)[1])
+      assert.is_false(state.closed)
+      assert.equals(state.scratch_win, vim.api.nvim_get_current_win())
+      assert.are.same({ "new", "popup text" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+      assert.matches("Source buffer changed", notifications[#notifications].message, 1, true)
+    end)
+
+    it("does not write to a window selected by a source-entry autocommand", function()
+      vim.api.nvim_set_current_win(state.orig_win)
+      vim.cmd("new")
+      local other_win = vim.api.nvim_get_current_win()
+      local other_buf = vim.api.nvim_get_current_buf()
+      vim.api.nvim_buf_set_lines(other_buf, 0, -1, false, { "UNRELATED", "", "", "", "" })
+      vim.api.nvim_set_current_win(state.scratch_win)
+      local source = vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false)
+      vim.api.nvim_create_autocmd("BufEnter", {
+        buffer = state.orig_buf,
+        once = true,
+        callback = function()
+          vim.api.nvim_set_current_win(other_win)
+        end,
+      })
+
+      assert.is_false(state.save())
+      assert.are.same(source, vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false))
+      assert.are.same({ "UNRELATED", "", "", "", "" }, vim.api.nvim_buf_get_lines(other_buf, 0, -1, false))
+      assert.is_false(state.closed)
+      assert.are.same({ "new", "popup text" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+      assert.matches("Source window lost focus", notifications[#notifications].message, 1, true)
+      vim.api.nvim_win_close(other_win, true)
+    end)
+
+    for _, save_keys in ipairs({ ":write<CR>", "<CR>" }) do
+      it("rejects stale source through real popup keys " .. save_keys, function()
+        state.cancel()
+        reset_to({ "| A | B |", "| --- | --- |", "| old | keep |" })
+        place_cursor_at(3, "old")
+        state = cell_editor.open()
+        keys.press_normal("gg0Cnew<Esc><C-w>p", 1, 0)
+        assert.equals(state.orig_buf, vim.api.nvim_get_current_buf())
+        keys.press_normal("ggOIMPORTANT NEW TEXT<Esc>", 1, 0)
+        local source = vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false)
+        assert.equals("IMPORTANT NEW TEXT", source[1])
+        vim.api.nvim_set_current_win(state.scratch_win)
+        keys.press_normal(save_keys, 1, 0)
+        assert.are.same(source, vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false))
+        assert.is_false(state.closed)
+        assert.are.same({ "new" }, vim.api.nvim_buf_get_lines(state.scratch_buf, 0, -1, false))
+        assert.is_true(vim.bo[state.scratch_buf].modified)
+        assert.matches("Source buffer changed", notifications[#notifications].message, 1, true)
+      end)
+
+      it("saves unchanged source through real popup keys " .. save_keys, function()
+        keys.press_normal("gg0Cnew<Esc>" .. save_keys, 1, 0)
+        assert.is_true(state.closed)
+        assert.equals(state.orig_buf, vim.api.nvim_get_current_buf())
+        assert.are.same({ "new<br>popup text", "keep" }, parser.get_table_at_cursor().cells[2])
+      end)
+    end
   end)
 end)
