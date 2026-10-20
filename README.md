@@ -37,6 +37,7 @@ stays open with your text intact; copy it before closing and reopening the edito
 Missing source windows/buffers or a nonmodifiable source likewise leave the popup text available.
 Writing the source without editing its text does not invalidate the popup. Actual text edits (even if undone) and
 source reloads do invalidate it.
+Closing or cancelling the popup during a save aborts that save without updating the source.
 
 ## Examples features
 

@@ -420,6 +420,41 @@ describe("table.cell_editor", function()
       assert.matches("Source buffer changed", notifications[#notifications].message, 1, true)
     end)
 
+    for _, close_method in ipairs({ "cancel", "window" }) do
+      for _, save_method in ipairs({ "callback", "<CR>" }) do
+        it("aborts " .. save_method .. " after source-entry closure via " .. close_method, function()
+          local source = vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false)
+          source[5] = "| old | newer source edit |"
+          local tick_after_edit
+          vim.api.nvim_create_autocmd("BufEnter", {
+            buffer = state.orig_buf,
+            once = true,
+            callback = function()
+              if close_method == "cancel" then
+                state.cancel()
+              else
+                vim.api.nvim_win_close(state.scratch_win, true)
+              end
+              vim.api.nvim_buf_set_lines(state.orig_buf, 4, 5, false, { source[5] })
+              tick_after_edit = vim.api.nvim_buf_get_changedtick(state.orig_buf)
+            end,
+          })
+
+          if save_method == "callback" then
+            assert.is_false(state.save())
+          else
+            keys.press_normal(save_method, 1, 0)
+          end
+          assert.is_not_nil(tick_after_edit)
+          assert.are.same(source, vim.api.nvim_buf_get_lines(state.orig_buf, 0, -1, false))
+          assert.equals(tick_after_edit, vim.api.nvim_buf_get_changedtick(state.orig_buf))
+          assert.is_true(state.closed)
+          assert.is_false(vim.api.nvim_win_is_valid(state.scratch_win))
+          assert.is_false(state.save())
+        end)
+      end
+    end
+
     it("does not write to a window selected by a source-entry autocommand", function()
       vim.api.nvim_set_current_win(state.orig_win)
       vim.cmd("new")

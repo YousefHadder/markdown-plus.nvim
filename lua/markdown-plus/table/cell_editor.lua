@@ -211,7 +211,11 @@ function M.open()
 
     -- Switch focus to the original window so format_table and parser run there.
     vim.api.nvim_set_current_win(orig_win)
-    -- Window-entry autocommands may edit or replace the source while focus changes.
+    -- Window-entry autocommands may cancel the session or change the source.
+    if state.closed or not vim.api.nvim_win_is_valid(scratch_win) or not vim.api.nvim_buf_is_valid(scratch_buf) then
+      close_scratch()
+      return false
+    end
     if not can_save(true) then
       if vim.api.nvim_win_is_valid(scratch_win) then
         vim.api.nvim_set_current_win(scratch_win)

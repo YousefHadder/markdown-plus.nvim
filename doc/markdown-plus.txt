@@ -1410,6 +1410,8 @@ prevent saving. The popup stays open and retains your text. Copy the text before
 closing and reopening the editor on the current source cell; cancel discards it.
 Writing the source without changing its text is allowed, including autosave.
 Text edits followed by undo and source reloads still invalidate the session.
+Closing or cancelling the popup during a save aborts that save without updating
+the source.
 
 TABLE FEATURES ~
 
