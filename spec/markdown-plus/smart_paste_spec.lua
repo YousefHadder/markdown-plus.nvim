@@ -220,6 +220,202 @@ describe("markdown-plus smart paste", function()
       -- Should NOT be wrapped in markdown link syntax
       assert.falsy(line:match("%[.+%]%(https://example%.com%)"))
     end)
+
+    describe("pending placeholder edits", function()
+      local insert_mode = require("spec.helpers.insert_mode")
+      local url = "https://example.com/"
+      local fetch_callback
+
+      ---Read the byte column immediately after the pending placeholder.
+      ---@return integer
+      local function placeholder_end()
+        local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
+        return assert(line:find("SUFFIX", 1, true)) - 1
+      end
+
+      before_each(function()
+        smart_paste.setup(enabled_config)
+        mock_clipboard(url)
+        schedule_spy = mocks.mock_schedule()
+        fetch_callback = nil
+        http_fetch.fetch_html_async = function(_, _, callback)
+          fetch_callback = callback
+        end
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "prefix SUFFIX" })
+        vim.api.nvim_win_set_cursor(0, { 1, 7 })
+        smart_paste.smart_paste()
+        assert.is_function(fetch_callback)
+      end)
+
+      for _, completion in ipairs({
+        { name = "fetched title", html = "<title>Page</title>", result = "[Page](" .. url .. ")" },
+        {
+          name = "manual title after fetch failure",
+          err = "timeout",
+          responses = { "Manual Title" },
+          result = "[Manual Title](" .. url .. ")",
+        },
+        {
+          name = "manual title without page title",
+          html = "<html><body>No title</body></html>",
+          responses = { "Manual Title" },
+          result = "[Manual Title](" .. url .. ")",
+        },
+        { name = "cancelled title prompt", err = "timeout", responses = {}, result = url },
+      }) do
+        describe(completion.name, function()
+          ---Finish the held request and any title-input callbacks.
+          ---@return nil
+          local function complete()
+            input_spy = mocks.mock_input(completion.responses or {})
+            fetch_callback(completion.html, completion.err)
+            schedule_spy.flush()
+            schedule_spy.flush()
+          end
+
+          it("completes an untouched placeholder", function()
+            complete()
+            assert.same({ "prefix " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("preserves API insertion at the ending boundary", function()
+            local stop = placeholder_end()
+            vim.api.nvim_buf_set_text(0, 0, stop, 0, stop, { "NEW TEXT" })
+            complete()
+            assert.same(
+              { "prefix " .. completion.result .. "NEW TEXTSUFFIX" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("preserves real insert-mode typing at the ending boundary", function()
+            local cursor = vim.api.nvim_win_get_cursor(0)
+            local pending = vim.api.nvim_get_current_line()
+            local result = insert_mode.press("NEW TEXT", cursor[1], cursor[2])
+            assert.same({ (pending:gsub("SUFFIX$", "NEW TEXTSUFFIX")) }, result.lines)
+            complete()
+            assert.same(
+              { "prefix " .. completion.result .. "NEW TEXTSUFFIX" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("preserves insertion at the starting boundary", function()
+            vim.api.nvim_buf_set_text(0, 0, 7, 0, 7, { "BEFORE" })
+            complete()
+            assert.same(
+              { "prefix BEFORE" .. completion.result .. "SUFFIX" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("preserves a newline at the ending boundary", function()
+            local stop = placeholder_end()
+            vim.api.nvim_buf_set_text(0, 0, stop, 0, stop, { "", "NEW TEXT" })
+            complete()
+            assert.same(
+              { "prefix " .. completion.result, "NEW TEXTSUFFIX" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("does not recreate a deleted placeholder", function()
+            vim.api.nvim_buf_set_text(0, 0, 7, 0, placeholder_end(), {})
+            complete()
+            assert.same({ "prefix SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("does not recreate a deleted source line", function()
+            vim.api.nvim_buf_set_lines(0, 0, -1, false, {})
+            complete()
+            assert.same({ "" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("preserves a user replacement", function()
+            vim.api.nvim_buf_set_text(0, 0, 7, 0, placeholder_end(), { "custom text" })
+            complete()
+            assert.same({ "prefix custom textSUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("preserves edits inside the placeholder", function()
+            vim.api.nvim_buf_set_text(0, 0, 15, 0, 15, { "EDIT" })
+            local edited = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            complete()
+            assert.same(edited, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("preserves a newline inserted inside the placeholder", function()
+            vim.api.nvim_buf_set_text(0, 0, 15, 0, 15, { "", "" })
+            local edited = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            complete()
+            assert.same(edited, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("preserves a multiline replacement", function()
+            vim.api.nvim_buf_set_text(0, 0, 7, 0, placeholder_end(), { "custom", "text" })
+            complete()
+            assert.same({ "prefix custom", "textSUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("tracks both endpoints after unrelated preceding edits", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "another line", "BEFORE " })
+            complete()
+            assert.same(
+              { "another line", "BEFORE prefix " .. completion.result .. "SUFFIX" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("completes after unrelated edits on another line", function()
+            vim.api.nvim_buf_set_lines(0, 1, 1, false, { "another line" })
+            complete()
+            assert.same(
+              { "prefix " .. completion.result .. "SUFFIX", "another line" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+        end)
+      end
+
+      for _, reverse_order in ipairs({ false, true }) do
+        it(
+          "completes independent pastes on one line in " .. (reverse_order and "reverse" or "request") .. " order",
+          function()
+            local first_callback = fetch_callback
+            vim.api.nvim_win_set_cursor(0, { 1, 0 })
+            smart_paste.smart_paste()
+            if reverse_order then
+              fetch_callback("<title>Second</title>", nil)
+              first_callback("<title>First</title>", nil)
+            else
+              first_callback("<title>First</title>", nil)
+              fetch_callback("<title>Second</title>", nil)
+            end
+            schedule_spy.flush()
+            assert.same(
+              { "[Second](" .. url .. ")prefix [First](" .. url .. ")SUFFIX" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end
+        )
+      end
+
+      for _, response in ipairs({ "Manual Title", "" }) do
+        it("preserves a replacement made while title input is pending: " .. response, function()
+          local confirm
+          input_spy = mocks.stub_fn(vim.ui, "input", function(_, callback)
+            confirm = callback
+          end)
+          fetch_callback(nil, "timeout")
+          schedule_spy.flush()
+          assert.is_function(confirm)
+          vim.api.nvim_buf_set_text(0, 0, 7, 0, placeholder_end(), { "custom", "text" })
+          confirm(response)
+          schedule_spy.flush()
+          assert.same({ "prefix custom", "textSUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+        end)
+      end
+    end)
   end)
 
   describe("_get_clipboard_url", function()
