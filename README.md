@@ -28,7 +28,8 @@ A comprehensive Neovim plugin that provides modern markdown editing capabilities
 **Key Features:** Zero dependencies • Works with any filetype • Full test coverage (85%+) • Extensively documented
 
 Table formatting escapes literal pipes in cell content, preserving cell boundaries through repeated formatting, edits,
-and CSV conversion.
+and CSV conversion. Terminal backslashes in cells are preserved when parsing and formatting, including rows without
+a closing pipe.
 
 ## Examples features
 

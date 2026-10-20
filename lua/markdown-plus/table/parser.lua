@@ -82,7 +82,7 @@ local function split_row_into_cells(row)
   if trimmed:match("^|") then
     trimmed = trimmed:sub(2)
   end
-  if trimmed:match("|$") then
+  if trimmed:match("|$") and M.is_cell_boundary(trimmed, #trimmed) then
     trimmed = trimmed:sub(1, -2)
   end
 
@@ -111,6 +111,10 @@ local function split_row_into_cells(row)
       current = current .. char
     end
     i = i + 1
+  end
+
+  if escaped then
+    current = current .. "\\"
   end
 
   -- Add last cell
