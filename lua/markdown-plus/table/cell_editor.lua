@@ -94,6 +94,32 @@ function M.open()
   local cell_content = table_info.cells[cells_index][pos.col + 1] or ""
   local segments = cell_breaks.split_segments(cell_content)
 
+  local source_changed = false
+  local tracking_source = true
+  ---@return boolean detach
+  local function invalidate_source()
+    if tracking_source then
+      source_changed = true
+    end
+    return true
+  end
+  -- Attach before opening the popup: BufLeave may autosave or edit the source.
+  if
+    not vim.api.nvim_buf_attach(orig_buf, false, {
+      on_lines = invalidate_source,
+      on_reload = invalidate_source,
+      on_detach = invalidate_source,
+      on_changedtick = function()
+        -- Writes can increment changedtick without changing text. Lua listeners
+        -- detach on an event; stop tracking immediately when the session closes.
+        return not tracking_source
+      end,
+    })
+  then
+    utils.notify("Cannot track source buffer changes; cannot open cell editor", vim.log.levels.ERROR)
+    return nil
+  end
+
   -- Create scratch buffer
   local scratch_buf = vim.api.nvim_create_buf(false, true)
   vim.bo[scratch_buf].bufhidden = "wipe"
@@ -128,14 +154,44 @@ function M.open()
     closed = false,
   }
 
+  ---@return nil
   local function close_scratch()
     if state.closed then
       return
     end
     state.closed = true
+    tracking_source = false
     if vim.api.nvim_win_is_valid(scratch_win) then
       pcall(vim.api.nvim_win_close, scratch_win, true)
     end
+  end
+
+  ---Check that the captured table still belongs to the unchanged, writable source.
+  ---@param require_focus? boolean
+  ---@return boolean
+  local function can_save(require_focus)
+    local reason
+    if not vim.api.nvim_win_is_valid(orig_win) then
+      reason = "Original window was closed"
+    elseif not vim.api.nvim_buf_is_valid(orig_buf) or not vim.api.nvim_buf_is_loaded(orig_buf) then
+      reason = "Original buffer was deleted or unloaded"
+    elseif vim.api.nvim_win_get_buf(orig_win) ~= orig_buf then
+      reason = "Original window now shows a different buffer"
+    elseif source_changed then
+      reason = "Source buffer changed since the cell editor opened"
+    elseif not vim.bo[orig_buf].modifiable then
+      reason = "Original buffer is not modifiable"
+    elseif require_focus and vim.api.nvim_get_current_win() ~= orig_win then
+      reason = "Source window lost focus"
+    end
+    if reason then
+      utils.notify(
+        reason .. "; cannot save cell. Popup text is retained; copy it before reopening.",
+        vim.log.levels.ERROR
+      )
+      return false
+    end
+    return true
   end
 
   ---@return boolean success
@@ -146,19 +202,7 @@ function M.open()
     if not vim.api.nvim_buf_is_valid(scratch_buf) then
       return false
     end
-    if not vim.api.nvim_win_is_valid(orig_win) then
-      utils.notify("Original window was closed; cannot save cell", vim.log.levels.ERROR)
-      close_scratch()
-      return false
-    end
-    if not vim.api.nvim_buf_is_valid(orig_buf) then
-      utils.notify("Original buffer was deleted; cannot save cell", vim.log.levels.ERROR)
-      close_scratch()
-      return false
-    end
-    if vim.api.nvim_win_get_buf(orig_win) ~= orig_buf then
-      utils.notify("Original window now shows a different buffer; cannot save cell", vim.log.levels.ERROR)
-      close_scratch()
+    if not can_save() then
       return false
     end
 
@@ -167,6 +211,17 @@ function M.open()
 
     -- Switch focus to the original window so format_table and parser run there.
     vim.api.nvim_set_current_win(orig_win)
+    -- Window-entry autocommands may cancel the session or change the source.
+    if state.closed or not vim.api.nvim_win_is_valid(scratch_win) or not vim.api.nvim_buf_is_valid(scratch_buf) then
+      close_scratch()
+      return false
+    end
+    if not can_save(true) then
+      if vim.api.nvim_win_is_valid(scratch_win) then
+        vim.api.nvim_set_current_win(scratch_win)
+      end
+      return false
+    end
     state.table_info.cells[state.cells_index][state.pos.col + 1] = joined
 
     local formatter = require("markdown-plus.table.format")
@@ -214,6 +269,7 @@ function M.open()
     pattern = tostring(scratch_win),
     callback = function()
       state.closed = true
+      tracking_source = false
     end,
     once = true,
   })
