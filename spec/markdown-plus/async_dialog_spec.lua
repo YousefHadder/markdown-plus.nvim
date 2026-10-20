@@ -176,5 +176,57 @@ describe("markdown-plus delayed dialog source writes", function()
       assert.are.same(action.lines, vim.api.nvim_buf_get_lines(source, 0, -1, false))
       assert.are.same({}, notify_spy.calls)
     end)
+
+    it("rejects completion when the source is nonmodifiable during " .. action.name, function()
+      vim.api.nvim_buf_set_lines(source, 0, -1, false, action.lines)
+      vim.api.nvim_win_set_cursor(source_win, { 1, action.col or 0 })
+      local complete
+      vim.ui.select = function(_, _, callback)
+        complete = callback
+      end
+      action.run()
+      vim.bo[source].modifiable = false
+      complete(action.choice)
+      vim.bo[source].modifiable = true
+
+      assert.are.same(action.lines, vim.api.nvim_buf_get_lines(source, 0, -1, false))
+      local rejected = false
+      for _, call in ipairs(notify_spy.calls) do
+        if call.level == vim.log.levels.ERROR and call.msg:match("source buffer is not modifiable") then
+          rejected = true
+        end
+      end
+      assert.is_true(rejected)
+    end)
   end
+
+  it("rejects footnote deletion after its source window closes", function()
+    local action = actions[4]
+    vim.api.nvim_buf_set_lines(source, 0, -1, false, action.lines)
+    vim.api.nvim_win_set_cursor(source_win, { 1, action.col })
+    local complete
+    vim.ui.select = function(_, _, callback)
+      complete = callback
+    end
+    action.run()
+
+    vim.cmd("vsplit")
+    local other_win = vim.api.nvim_get_current_win()
+    local other_buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_buf_set_lines(other_buf, 0, -1, false, { "other" })
+    vim.api.nvim_win_set_buf(other_win, other_buf)
+    vim.api.nvim_win_close(source_win, true)
+
+    complete("Yes")
+
+    assert.are.same(action.lines, vim.api.nvim_buf_get_lines(source, 0, -1, false))
+    local rejected = false
+    for _, call in ipairs(notify_spy.calls) do
+      if call.level == vim.log.levels.ERROR and call.msg:match("source window is no longer available") then
+        rejected = true
+      end
+    end
+    assert.is_true(rejected)
+    vim.api.nvim_buf_delete(other_buf, { force = true })
+  end)
 end)
