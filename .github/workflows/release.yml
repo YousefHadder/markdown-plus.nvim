@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
 
       - name: LuaRocks Tag Release
-        uses: nvim-neorocks/luarocks-tag-release@v7
+        uses: nvim-neorocks/luarocks-tag-release@v9
         env:
           LUAROCKS_API_KEY: ${{ secrets.LUAROCKS_API_KEY }}
         with:
