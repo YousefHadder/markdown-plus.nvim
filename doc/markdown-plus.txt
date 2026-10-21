@@ -394,6 +394,7 @@ mode:
     - Regular item         Press <localleader>mx    →  - [ ] Regular item
     - [ ] Unchecked        Press <localleader>mx    →  - [x] Unchecked
     - [x] Checked          Press <localleader>mx    →  - [ ] Checked
+    - []                   Press <localleader>mx    →  - [x]
 
     Works with all list types:
     1. Item                →  1. [ ] Item       →  1. [x] Item
@@ -1018,8 +1019,9 @@ While fetching or waiting for manual title input:
 - Only the original, unchanged placeholder is replaced. Editing, replacing,
   or deleting it cancels completion with a warning and preserves your changes.
 - Automatic list renumbering and unrelated buffer edits do not cancel completion.
-- List marker and checkbox changes (including completion timestamps), list
-  newlines, and callout conversion preserve the unchanged placeholder.
+- List marker and checkbox changes (including empty `[]` states and completion
+  timestamps), list newlines, and callout conversion preserve the unchanged
+  placeholder.
 - Abandoned pastes do not open manual-title prompts. Edits made after a prompt
   opens are checked again before completion.
 

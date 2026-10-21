@@ -1354,6 +1354,13 @@ describe("markdown-plus list management", function()
 
       ---@type { input: string, expected: string }[]
       local CASES = {
+        { input = "- []", expected = "- [x] " },
+        { input = "* []", expected = "* [x] " },
+        { input = "1. []", expected = "1. [x] " },
+        { input = "a. []", expected = "a. [x] " },
+        { input = "  - []", expected = "  - [x] " },
+        { input = "\t- []", expected = "\t- [x] " },
+        { input = "- []   ", expected = "- [x] " },
         { input = "- [ ]", expected = "- [x] " },
         { input = "- [x]", expected = "- [ ] " },
         { input = "- [X]", expected = "- [ ] " },
@@ -1384,6 +1391,13 @@ describe("markdown-plus list management", function()
         list.toggle_checkbox_on_line(1)
         -- The marker→content pad is re-emitted, so the line keeps a single trailing space;
         -- the checkbox itself round-trips and is never duplicated.
+        assert.are.same({ "- [ ] " }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+      end)
+
+      it("round-trips an initially empty checkbox state", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "- []" })
+        list.toggle_checkbox_on_line(1)
+        list.toggle_checkbox_on_line(1)
         assert.are.same({ "- [ ] " }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
       end)
 

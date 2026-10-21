@@ -459,6 +459,21 @@ describe("markdown-plus smart paste", function()
             assert.same({ "- [ ] " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
           end)
 
+          for _, with_timestamp in ipairs({ false, true }) do
+            it("completes after checking an empty checkbox state, timestamps=" .. tostring(with_timestamp), function()
+              vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- [] " })
+              if with_timestamp then
+                enable_checkbox_timestamps()
+              end
+              require("markdown-plus.list.checkbox").toggle_checkbox_on_line(1)
+              complete()
+              assert.same(
+                { "- [x] " .. completion.result .. "SUFFIX" .. (with_timestamp and timestamp or "") },
+                vim.api.nvim_buf_get_lines(0, 0, -1, false)
+              )
+            end)
+          end
+
           it("completes after checking a task and adding a timestamp", function()
             vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- [ ] " })
             enable_checkbox_timestamps()

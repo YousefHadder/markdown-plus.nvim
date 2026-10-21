@@ -140,11 +140,12 @@ function M.toggle_checkbox_on_line(line_num)
     -- Keep prefix changes separate from optional timestamps around unchanged content.
     if list_info.checkbox then
       local state_col = #prefix + 1
-      vim.api.nvim_buf_set_text(0, row, state_col, row, state_col + 1, {
+      vim.api.nvim_buf_set_text(0, row, state_col, row, state_col + #list_info.checkbox, {
         new_line:sub(state_col + 1, state_col + 1),
       })
       local spacing_col = #prefix + 3
-      local old_spacing = line:sub(spacing_col + 1):match("^%s*") or ""
+      local old_spacing_col = #prefix + #list_info.checkbox + 2
+      local old_spacing = line:sub(old_spacing_col + 1):match("^%s*") or ""
       local new_spacing = new_line:sub(spacing_col + 1):match("^%s*") or ""
       if old_spacing ~= new_spacing then
         vim.api.nvim_buf_set_text(0, row, spacing_col, row, spacing_col + #old_spacing, { new_spacing })
