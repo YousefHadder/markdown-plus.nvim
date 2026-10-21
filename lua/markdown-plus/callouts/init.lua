@@ -322,15 +322,14 @@ function M.convert_to_callout()
     -- Update first line to add callout marker
     local first_line = utils.get_line(start_line)
     local content = first_line:match(BLOCKQUOTE_LINE)
-
-    local new_line
-    if content == "" then
-      new_line = first_line:gsub("^(%s*>%s?)", string.format("%%1[!%s]", choice), 1)
-    else
-      new_line = first_line:gsub("^(%s*>%s?)", string.format("%%1[!%s] ", choice), 1)
+    if content == nil then
+      vim.notify("markdown-plus: Not in a blockquote", vim.log.levels.WARN)
+      return
     end
 
-    utils.set_line(start_line, new_line)
+    local col = #first_line - #content
+    local marker = string.format("[!%s]", choice) .. (content == "" and "" or " ")
+    vim.api.nvim_buf_set_text(0, start_line - 1, col, start_line - 1, col, { marker })
     vim.notify(string.format("Converted to %s callout", choice), vim.log.levels.INFO)
   end)
 end
@@ -347,11 +346,19 @@ function M.convert_to_blockquote()
 
   -- Remove [!TYPE] marker from first line
   local first_line = utils.get_line(callout_info.start_line)
-  local new_line = first_line:gsub("%s*%[![A-Z]+%]%s?", " ", 1)
-  -- Clean up extra spaces
-  new_line = new_line:gsub("^(%s*>)%s+$", "%1", 1)
+  local marker_start, marker_end = first_line:find("%s*%[![A-Z]+%]%s?")
+  if not marker_start or not marker_end then
+    vim.notify("markdown-plus: Not in a callout block", vim.log.levels.WARN)
+    return
+  end
+  local replacement = " "
+  if first_line:sub(marker_end + 1):match("^%s*$") then
+    marker_end = #first_line
+    replacement = ""
+  end
 
-  utils.set_line(callout_info.start_line, new_line)
+  local row = callout_info.start_line - 1
+  vim.api.nvim_buf_set_text(0, row, marker_start - 1, row, marker_end, { replacement })
   vim.notify("Converted callout to blockquote", vim.log.levels.INFO)
 end
 

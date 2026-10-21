@@ -84,42 +84,60 @@ end
 -- Core Smart Paste Logic
 -- =============================================================================
 
----Replace text at an extmark position and delete the extmark
+---Validate the original placeholder at its tracked range
 ---@param bufnr number Buffer number
 ---@param mark_id number Extmark ID
----@param text string Replacement text
----@return boolean success Whether the replacement was performed
-local function replace_at_mark(bufnr, mark_id, text)
-  if not vim.api.nvim_buf_is_valid(bufnr) then
-    return false
+---@param placeholder string Original placeholder text
+---@return {start_row: integer, start_col: integer, end_row: integer, end_col: integer}|nil
+local function get_placeholder_range(bufnr, mark_id, placeholder)
+  if not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then
+    return nil
   end
 
   if not vim.bo[bufnr].modifiable then
+    vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
     vim.notify("markdown-plus: Buffer is not modifiable", vim.log.levels.WARN)
-    return false
+    return nil
   end
 
   local mark = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns_id, mark_id, { details = true })
   if not mark or #mark == 0 then
-    return false
+    return nil
   end
 
   local row = mark[1]
   local start_col = mark[2]
   local details = mark[3]
+  local end_row = details and details.end_row or row
   local end_col = details and details.end_col or start_col
 
-  local lines = vim.api.nvim_buf_get_lines(bufnr, row, row + 1, false)
-  if #lines == 0 then
+  ---@type string[]
+  local current_text = {}
+  if row <= end_row and (row < end_row or start_col <= end_col) and end_row < vim.api.nvim_buf_line_count(bufnr) then
+    current_text = vim.api.nvim_buf_get_text(bufnr, row, start_col, end_row, end_col, {})
+  end
+  if #current_text ~= 1 or current_text[1] ~= placeholder then
+    vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
+    vim.notify("markdown-plus: Smart paste canceled: placeholder changed or was deleted", vim.log.levels.WARN)
+    return nil
+  end
+
+  return { start_row = row, start_col = start_col, end_row = end_row, end_col = end_col }
+end
+
+---Replace an unchanged placeholder at its tracked range and delete the extmark
+---@param bufnr number Buffer number
+---@param mark_id number Extmark ID
+---@param text string Replacement text
+---@param placeholder string Original placeholder text
+---@return boolean success Whether the replacement was performed
+local function replace_at_mark(bufnr, mark_id, text, placeholder)
+  local range = get_placeholder_range(bufnr, mark_id, placeholder)
+  if not range then
     return false
   end
 
-  local line = lines[1]
-  local before = line:sub(1, start_col)
-  local after = line:sub(end_col + 1)
-  local new_line = before .. text .. after
-
-  vim.api.nvim_buf_set_lines(bufnr, row, row + 1, false, { new_line })
+  vim.api.nvim_buf_set_text(bufnr, range.start_row, range.start_col, range.end_row, range.end_col, { text })
   vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
   return true
 end
@@ -129,11 +147,13 @@ end
 ---@param mark_id number Extmark ID
 ---@param url string Original URL
 ---@param title string Title for the link
-local function replace_placeholder(bufnr, mark_id, url, title)
+---@param placeholder string Original placeholder text
+---@return nil
+local function replace_placeholder(bufnr, mark_id, url, title, placeholder)
   local safe_title = truncate_title(title):gsub("%]", "\\]")
   local safe_url = format_url_for_markdown(url)
   local new_link = string.format("[%s](%s)", safe_title, safe_url)
-  replace_at_mark(bufnr, mark_id, new_link)
+  replace_at_mark(bufnr, mark_id, new_link, placeholder)
 end
 
 ---Prompt user for title input
@@ -141,7 +161,13 @@ end
 ---@param mark_id number Extmark ID
 ---@param url string Original URL
 ---@param err_msg string|nil Error message to show
-local function prompt_for_title(bufnr, mark_id, url, err_msg)
+---@param placeholder string Original placeholder text
+---@return nil
+local function prompt_for_title(bufnr, mark_id, url, err_msg, placeholder)
+  if not get_placeholder_range(bufnr, mark_id, placeholder) then
+    return
+  end
+
   if err_msg then
     vim.notify("markdown-plus: " .. err_msg, vim.log.levels.WARN)
   end
@@ -149,15 +175,16 @@ local function prompt_for_title(bufnr, mark_id, url, err_msg)
   vim.ui.input({ prompt = "Link title: " }, function(input)
     vim.schedule(function()
       if input and input ~= "" then
-        replace_placeholder(bufnr, mark_id, url, input)
+        replace_placeholder(bufnr, mark_id, url, input, placeholder)
       else
-        replace_at_mark(bufnr, mark_id, url)
+        replace_at_mark(bufnr, mark_id, url, placeholder)
       end
     end)
   end)
 end
 
 ---Main smart paste function - reads URL from clipboard and creates markdown link
+---@return nil
 function M.smart_paste()
   -- Check if feature is enabled
   if not config.links or not config.links.smart_paste or not config.links.smart_paste.enabled then
@@ -188,24 +215,18 @@ function M.smart_paste()
   local row = cursor[1] - 1 -- 0-indexed
   local col = cursor[2]
 
-  -- Get current line
-  local line = vim.api.nvim_get_current_line()
-
   -- Create placeholder (format URL for markdown safety)
   local safe_url = format_url_for_markdown(url)
   local placeholder = "[⏳ Loading...](" .. safe_url .. ")"
 
   -- Insert placeholder at cursor position
-  local before = line:sub(1, col)
-  local after = line:sub(col + 1)
-  local new_line = before .. placeholder .. after
-  vim.api.nvim_set_current_line(new_line)
+  vim.api.nvim_buf_set_text(bufnr, row, col, row, col, { placeholder })
 
   -- Create extmark to track placeholder position
   local mark_id = vim.api.nvim_buf_set_extmark(bufnr, ns_id, row, col, {
     end_col = col + #placeholder,
-    right_gravity = false,
-    end_right_gravity = true,
+    right_gravity = true,
+    end_right_gravity = false,
   })
 
   -- Move cursor after placeholder
@@ -216,15 +237,15 @@ function M.smart_paste()
   http_fetch.fetch_html_async(url, timeout, function(html, err)
     vim.schedule(function()
       if err then
-        prompt_for_title(bufnr, mark_id, url, "Failed to fetch page: " .. err)
+        prompt_for_title(bufnr, mark_id, url, "Failed to fetch page: " .. err, placeholder)
         return
       end
 
       local title = html_parser.parse_title(html)
       if title then
-        replace_placeholder(bufnr, mark_id, url, title)
+        replace_placeholder(bufnr, mark_id, url, title, placeholder)
       else
-        prompt_for_title(bufnr, mark_id, url, "Could not extract title from page")
+        prompt_for_title(bufnr, mark_id, url, "Could not extract title from page", placeholder)
       end
     end)
   end)

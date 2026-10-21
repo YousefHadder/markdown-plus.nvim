@@ -104,15 +104,13 @@ function M.handle_enter()
     -- Use UTF-8 safe split to handle multibyte characters correctly
     local content_before, content_after = utils.split_at_cursor(current_line, col)
 
-    -- Update current line with content before cursor
-    utils.set_line(row, content_before)
-
     -- Create next list item with content after cursor
     local next_marker = parser.get_next_marker(list_info)
     local next_prefix = handler_utils.build_list_prefix(list_info.indent, next_marker, list_info.checkbox)
-    local next_line = next_prefix .. content_after:match("^%s*(.*)")
+    local content_col = #content_before + #(content_after:match("^%s*") or "")
 
-    utils.insert_line(row + 1, next_line)
+    -- Split in place so marks in the unchanged suffix move to the new line.
+    vim.api.nvim_buf_set_text(0, row - 1, #content_before, row - 1, content_col, { "", next_prefix })
     -- Place cursor at the start of the new item's content (after marker, pad, and optional checkbox)
     utils.set_cursor(row + 1, #next_prefix)
     return
@@ -162,14 +160,11 @@ function M.continue_list_content()
   -- Use UTF-8 safe split to handle multibyte characters correctly
   local line_before, line_after = utils.split_at_cursor(current_line, col)
 
-  -- Update current line
-  utils.set_line(row, line_before)
-
   -- Create continuation line with proper indentation
   local continuation_indent = string.rep(" ", marker_end)
-  local continuation_line = continuation_indent .. line_after:match("^%s*(.*)")
+  local content_col = #line_before + #(line_after:match("^%s*") or "")
 
-  utils.insert_line(row + 1, continuation_line)
+  vim.api.nvim_buf_set_text(0, row - 1, #line_before, row - 1, content_col, { "", continuation_indent })
   utils.set_cursor(row + 1, marker_end)
 end
 

@@ -154,6 +154,7 @@ end
 
 ---Insert a new footnote at cursor position
 ---Prompts user for ID (pre-filled with next numeric), inserts reference and definition
+---@return nil
 function M.insert_footnote()
   local bufnr = 0
   local cursor = vim.api.nvim_win_get_cursor(0)
@@ -187,9 +188,8 @@ function M.insert_footnote()
     local reference = "[^" .. id .. "]"
 
     -- Use UTF-8 safe split to handle multibyte characters correctly
-    local before, after = utils.split_after_cursor(line, col)
-    local new_line = before .. reference .. after
-    vim.api.nvim_buf_set_lines(bufnr, row - 1, row, false, { new_line })
+    local before = utils.split_after_cursor(line, col)
+    vim.api.nvim_buf_set_text(bufnr, row - 1, #before, row - 1, #before, { reference })
 
     -- If definition already exists, just insert the reference and notify
     if existing_def then

@@ -103,6 +103,76 @@ describe("markdown-plus utils", function()
     end)
   end)
 
+  describe("set_line range preservation", function()
+    local buf
+    local ns = vim.api.nvim_create_namespace("markdown_plus_utils_set_line_spec")
+
+    before_each(function()
+      buf = vim.api.nvim_create_buf(false, true)
+      vim.api.nvim_set_current_buf(buf)
+    end)
+
+    after_each(function()
+      vim.api.nvim_buf_delete(buf, { force = true })
+    end)
+
+    for _, change in ipairs({
+      { name = "marker replacement", before = "9. target", after = "1. target" },
+      { name = "prefix insertion", before = "target suffix", after = "prefix target suffix" },
+      { name = "prefix deletion", before = "prefix target suffix", after = "target suffix" },
+      { name = "suffix replacement", before = "prefix target old", after = "prefix target new" },
+      { name = "unchanged text", before = "prefix target suffix", after = "prefix target suffix" },
+      { name = "multibyte prefix", before = "é target", after = "ê target" },
+      { name = "multibyte suffix", before = "target é", after = "target ê" },
+    }) do
+      it("preserves unchanged extmarks during " .. change.name, function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { change.before })
+        local start_col = assert(change.before:find("target", 1, true)) - 1
+        local mark = vim.api.nvim_buf_set_extmark(buf, ns, 0, start_col, {
+          end_col = start_col + #"target",
+          right_gravity = true,
+          end_right_gravity = false,
+        })
+
+        utils.set_line(1, change.after)
+
+        assert.equals(change.after, utils.get_line(1))
+        local expected_start = assert(change.after:find("target", 1, true)) - 1
+        local tracked = vim.api.nvim_buf_get_extmark_by_id(buf, ns, mark, { details = true })
+        assert.same({ 0, expected_start }, { tracked[1], tracked[2] })
+        assert.equals(0, tracked[3].end_row)
+        assert.equals(expected_start + #"target", tracked[3].end_col)
+      end)
+    end
+
+    it("does not create an edit for unchanged text", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "unchanged" })
+      local changedtick = vim.api.nvim_buf_get_changedtick(buf)
+      utils.set_line(1, "unchanged")
+      assert.equals(changedtick, vim.api.nvim_buf_get_changedtick(buf))
+    end)
+
+    it("retains clamped appends beyond the last line", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "first", "last" })
+      utils.set_line(99, "appended")
+      assert.same({ "first", "last", "appended" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    end)
+
+    it("retains negative line indexing", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "first", "last" })
+      utils.set_line(-1, "replaced")
+      assert.same({ "first", "replaced" }, vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    end)
+
+    it("retains write errors in non-modifiable buffers", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "unchanged" })
+      vim.bo[buf].modifiable = false
+      assert.has_error(function()
+        utils.set_line(1, "unchanged")
+      end)
+    end)
+  end)
+
   describe("get_char_end_byte", function()
     it("returns correct byte index for ASCII characters", function()
       local line = "hello world"
@@ -579,6 +649,7 @@ describe("markdown-plus utils", function()
 
   describe("insert_after_cursor", function()
     local buf
+    local ns = vim.api.nvim_create_namespace("markdown_plus_utils_insert_after_cursor_spec")
 
     before_each(function()
       buf = vim.api.nvim_create_buf(false, true)
@@ -636,6 +707,54 @@ describe("markdown-plus utils", function()
       utils.insert_after_cursor("世界")
 
       assert.are.equal("你世界好", utils.get_line(1))
+    end)
+
+    for _, boundary in ipairs({ "before", "after" }) do
+      it("preserves an unchanged range when inserting shared delimiters " .. boundary .. " it", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "prefix [tracked]suffix" })
+        local mark = vim.api.nvim_buf_set_extmark(buf, ns, 0, 7, {
+          end_col = 16,
+          right_gravity = true,
+          end_right_gravity = false,
+        })
+        vim.api.nvim_win_set_cursor(0, { 1, boundary == "before" and 6 or 15 })
+
+        utils.insert_after_cursor("[inserted]")
+
+        local expected_start = boundary == "before" and 17 or 7
+        local tracked = vim.api.nvim_buf_get_extmark_by_id(buf, ns, mark, { details = true })
+        assert.same({ 0, expected_start }, { tracked[1], tracked[2] })
+        assert.equals(0, tracked[3].end_row)
+        assert.equals(expected_start + #"[tracked]", tracked[3].end_col)
+        assert.same({ "[tracked]" }, vim.api.nvim_buf_get_text(buf, 0, tracked[2], 0, tracked[3].end_col, {}))
+      end)
+    end
+
+    it("inserts into an empty line", function()
+      utils.insert_after_cursor("text")
+      assert.equals("text", utils.get_line(1))
+      assert.same({ 1, 3 }, vim.api.nvim_win_get_cursor(0))
+    end)
+
+    it("does not create an edit for empty content", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "prefix suffix" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 })
+      local changedtick = vim.api.nvim_buf_get_changedtick(buf)
+
+      utils.insert_after_cursor("")
+
+      assert.equals("prefix suffix", utils.get_line(1))
+      assert.equals(changedtick, vim.api.nvim_buf_get_changedtick(buf))
+      assert.same({ 1, 7 }, vim.api.nvim_win_get_cursor(0))
+    end)
+
+    it("retains write errors in non-modifiable buffers", function()
+      vim.bo[buf].modifiable = false
+      for _, content in ipairs({ "", "text" }) do
+        assert.has_error(function()
+          utils.insert_after_cursor(content)
+        end)
+      end
     end)
   end)
 
