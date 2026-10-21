@@ -649,6 +649,7 @@ describe("markdown-plus utils", function()
 
   describe("insert_after_cursor", function()
     local buf
+    local ns = vim.api.nvim_create_namespace("markdown_plus_utils_insert_after_cursor_spec")
 
     before_each(function()
       buf = vim.api.nvim_create_buf(false, true)
@@ -706,6 +707,54 @@ describe("markdown-plus utils", function()
       utils.insert_after_cursor("世界")
 
       assert.are.equal("你世界好", utils.get_line(1))
+    end)
+
+    for _, boundary in ipairs({ "before", "after" }) do
+      it("preserves an unchanged range when inserting shared delimiters " .. boundary .. " it", function()
+        vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "prefix [tracked]suffix" })
+        local mark = vim.api.nvim_buf_set_extmark(buf, ns, 0, 7, {
+          end_col = 16,
+          right_gravity = true,
+          end_right_gravity = false,
+        })
+        vim.api.nvim_win_set_cursor(0, { 1, boundary == "before" and 6 or 15 })
+
+        utils.insert_after_cursor("[inserted]")
+
+        local expected_start = boundary == "before" and 17 or 7
+        local tracked = vim.api.nvim_buf_get_extmark_by_id(buf, ns, mark, { details = true })
+        assert.same({ 0, expected_start }, { tracked[1], tracked[2] })
+        assert.equals(0, tracked[3].end_row)
+        assert.equals(expected_start + #"[tracked]", tracked[3].end_col)
+        assert.same({ "[tracked]" }, vim.api.nvim_buf_get_text(buf, 0, tracked[2], 0, tracked[3].end_col, {}))
+      end)
+    end
+
+    it("inserts into an empty line", function()
+      utils.insert_after_cursor("text")
+      assert.equals("text", utils.get_line(1))
+      assert.same({ 1, 3 }, vim.api.nvim_win_get_cursor(0))
+    end)
+
+    it("does not create an edit for empty content", function()
+      vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "prefix suffix" })
+      vim.api.nvim_win_set_cursor(0, { 1, 6 })
+      local changedtick = vim.api.nvim_buf_get_changedtick(buf)
+
+      utils.insert_after_cursor("")
+
+      assert.equals("prefix suffix", utils.get_line(1))
+      assert.equals(changedtick, vim.api.nvim_buf_get_changedtick(buf))
+      assert.same({ 1, 7 }, vim.api.nvim_win_get_cursor(0))
+    end)
+
+    it("retains write errors in non-modifiable buffers", function()
+      vim.bo[buf].modifiable = false
+      for _, content in ipairs({ "", "text" }) do
+        assert.has_error(function()
+          utils.insert_after_cursor(content)
+        end)
+      end
     end)
   end)
 

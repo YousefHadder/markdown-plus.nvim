@@ -174,9 +174,14 @@ function M.insert_after_cursor(content)
   local col = cursor[2]
 
   -- Use UTF-8 safe split to handle multibyte characters correctly
-  local before, after = text.split_after_cursor(line, col)
-  local new_line = before .. content .. after
-  M.set_line(cursor[1], new_line)
+  local before = text.split_after_cursor(line, col)
+  if content == "" then
+    -- Retain no-op insertion and write-error behavior.
+    M.set_line(cursor[1], line)
+  else
+    local row = cursor[1] - 1
+    vim.api.nvim_buf_set_text(0, row, #before, row, #before, { content })
+  end
 
   -- Move cursor after the inserted content
   M.set_cursor(cursor[1], #before + #content)

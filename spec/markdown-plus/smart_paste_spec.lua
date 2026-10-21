@@ -453,6 +453,42 @@ describe("markdown-plus smart paste", function()
           end)
 
           for _, boundary in ipairs({ "before", "after" }) do
+            it("completes after inserting another link " .. boundary .. " the placeholder", function()
+              vim.api.nvim_win_set_cursor(0, { 1, boundary == "before" and 6 or placeholder_end() - 1 })
+              input_spy = mocks.mock_input({ "text", "https://example.org/" })
+              require("markdown-plus.links").insert_link()
+              assert.equals(2, #input_spy.calls)
+              input_spy.restore()
+              input_spy = nil
+              complete()
+              local inserted = "[text](https://example.org/)"
+              assert.same({
+                "prefix "
+                  .. (boundary == "before" and inserted or "")
+                  .. completion.result
+                  .. (boundary == "after" and inserted or "")
+                  .. "SUFFIX",
+              }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+            end)
+
+            it("completes after inserting an image " .. boundary .. " the placeholder", function()
+              vim.api.nvim_win_set_cursor(0, { 1, boundary == "before" and 6 or placeholder_end() - 1 })
+              input_spy = mocks.mock_input({ "alt", "https://example.org/image.png", "caption" })
+              require("markdown-plus.images").insert_image()
+              assert.equals(3, #input_spy.calls)
+              input_spy.restore()
+              input_spy = nil
+              complete()
+              local inserted = '![alt](https://example.org/image.png "caption")'
+              assert.same({
+                "prefix "
+                  .. (boundary == "before" and inserted or "")
+                  .. completion.result
+                  .. (boundary == "after" and inserted or "")
+                  .. "SUFFIX",
+              }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+            end)
+
             it("completes after inserting an existing footnote " .. boundary .. " the placeholder", function()
               vim.api.nvim_buf_set_lines(0, 1, 1, false, { "", "[^note]: existing" })
               vim.api.nvim_win_set_cursor(0, { 1, boundary == "before" and 6 or placeholder_end() - 1 })
