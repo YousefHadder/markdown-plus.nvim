@@ -216,6 +216,81 @@ describe("markdown-plus list toggle", function()
     end)
   end)
 
+  describe("range preservation", function()
+    for _, operation in ipairs({
+      {
+        name = "task conversion",
+        before = { "- [alpha]", "", "plain", "- [beta]", "outside" },
+        after = { "- [ ] [alpha]", "", "- [ ] plain", "- [ ] [beta]", "outside" },
+        run = function()
+          toggle.toggle_list_in_range(1, 4, "task")
+        end,
+      },
+      {
+        name = "task removal",
+        before = { "- [ ] [alpha]", "", "- [x] plain", "- [ ] [beta]", "outside" },
+        after = { "[alpha]", "", "plain", "[beta]", "outside" },
+        run = function()
+          toggle.toggle_list_in_range(4, 1, "task")
+        end,
+      },
+      {
+        name = "explicit marker clearing",
+        before = { "- [alpha]", "", "plain", "1. [beta]", "outside" },
+        after = { "[alpha]", "", "plain", "[beta]", "outside" },
+        run = function()
+          toggle.clear_list_in_range(1, 4)
+        end,
+      },
+    }) do
+      it("preserves tracked content during multi-row " .. operation.name, function()
+        set_lines(operation.before)
+        local ns = vim.api.nvim_create_namespace("markdown_plus_list_toggle_spec")
+        local marks = {}
+        for _, content in ipairs({
+          { row = 1, text = "[alpha]" },
+          { row = 3, text = "plain" },
+          { row = 4, text = "[beta]" },
+          { row = 5, text = "outside" },
+        }) do
+          local col = assert(operation.before[content.row]:find(content.text, 1, true)) - 1
+          local id = vim.api.nvim_buf_set_extmark(buf, ns, content.row - 1, col, {
+            end_row = content.row - 1,
+            end_col = col + #content.text,
+            right_gravity = true,
+            end_right_gravity = false,
+          })
+          marks[#marks + 1] = { id = id, text = content.text }
+        end
+
+        operation.run()
+        assert.same(operation.after, get_lines())
+        for _, mark in ipairs(marks) do
+          local range = vim.api.nvim_buf_get_extmark_by_id(buf, ns, mark.id, { details = true })
+          local finish = range[3]
+          assert.is_true(range[1] < finish.end_row or (range[1] == finish.end_row and range[2] <= finish.end_col))
+          assert.same(
+            { mark.text },
+            vim.api.nvim_buf_get_text(buf, range[1], range[2], finish.end_row, finish.end_col, {})
+          )
+        end
+      end)
+
+      it("preserves the cursor and one-step undo during multi-row " .. operation.name, function()
+        set_lines(operation.before)
+        vim.api.nvim_win_set_cursor(0, { 4, 4 })
+        vim.bo.undolevels = vim.bo.undolevels
+        operation.run()
+        assert.same(operation.after, get_lines())
+        assert.same({ 4, 4 }, vim.api.nvim_win_get_cursor(0))
+        vim.cmd("silent undo")
+        assert.same(operation.before, get_lines())
+        vim.cmd("silent redo")
+        assert.same(operation.after, get_lines())
+      end)
+    end
+  end)
+
   describe("edge cases", function()
     it("does nothing for an all-blank selection", function()
       set_lines({ "", "" })

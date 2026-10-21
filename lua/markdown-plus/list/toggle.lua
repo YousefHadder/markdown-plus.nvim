@@ -112,6 +112,20 @@ local function build_cleared_line(parts)
   return parts.indent .. parts.content
 end
 
+---Replace the known prefix without rewriting unchanged list content.
+---@param row number 1-indexed row
+---@param line string Original line
+---@param content string Unchanged content suffix
+---@param new_line string Converted line
+---@return nil
+local function set_list_prefix(row, line, content, new_line)
+  if line == new_line then
+    return
+  end
+  local prefix = new_line:sub(1, #new_line - #content)
+  vim.api.nvim_buf_set_text(0, row - 1, 0, row - 1, #line - #content, { prefix })
+end
+
 ---Toggle the list type across a row range.
 ---@param start_row number 1-indexed start row
 ---@param end_row number 1-indexed end row
@@ -172,7 +186,12 @@ function M.toggle_list_in_range(start_row, end_row, target_type)
   end
 
   local cursor = vim.api.nvim_win_get_cursor(0)
-  vim.api.nvim_buf_set_lines(0, start_row - 1, end_row, false, new_lines)
+  for idx, new_line in ipairs(new_lines) do
+    local parts = entries[idx].parts
+    if parts then
+      set_list_prefix(start_row + idx - 1, lines[idx], parts.content, new_line)
+    end
+  end
 
   -- Orderable conversions need sequential markers fixed per indent group.
   if not clearing and TYPE_DEFS[target_type].family == "orderable" then
@@ -222,17 +241,24 @@ function M.clear_list_in_range(start_row, end_row)
 
   local lines = vim.api.nvim_buf_get_lines(0, start_row - 1, end_row, false)
   local new_lines = {}
+  local parts_by_index = {}
   for idx, line in ipairs(lines) do
     if line:match("^%s*$") then
       new_lines[idx] = line
     else
       local parts = get_line_parts(line, start_row + idx - 1)
+      parts_by_index[idx] = parts
       new_lines[idx] = parts.list_info and build_cleared_line(parts) or line
     end
   end
 
   local cursor = vim.api.nvim_win_get_cursor(0)
-  vim.api.nvim_buf_set_lines(0, start_row - 1, end_row, false, new_lines)
+  for idx, new_line in ipairs(new_lines) do
+    local parts = parts_by_index[idx]
+    if parts then
+      set_list_prefix(start_row + idx - 1, lines[idx], parts.content, new_line)
+    end
+  end
 
   local line_count = vim.api.nvim_buf_line_count(0)
   local row = math.min(cursor[1], line_count)

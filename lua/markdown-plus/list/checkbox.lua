@@ -115,6 +115,7 @@ end
 
 ---Toggle checkbox on a specific line
 ---@param line_num number 1-indexed line number
+---@return nil
 function M.toggle_checkbox_on_line(line_num)
   local line = utils.get_line(line_num)
   if line == "" then
@@ -128,7 +129,30 @@ function M.toggle_checkbox_on_line(line_num)
   end
 
   local new_line = M.toggle_checkbox_in_line(line, list_info)
-  if new_line then
+  if new_line and new_line ~= line then
+    local prefix = line:match("^" .. utils.escape_pattern(list_info.indent .. list_info.marker) .. "%s*")
+    if not prefix then
+      vim.notify("markdown-plus: Could not locate the checkbox prefix", vim.log.levels.ERROR)
+      return
+    end
+
+    local row = line_num - 1
+    -- Keep prefix changes separate from optional timestamps around unchanged content.
+    if list_info.checkbox then
+      local state_col = #prefix + 1
+      vim.api.nvim_buf_set_text(0, row, state_col, row, state_col + 1, {
+        new_line:sub(state_col + 1, state_col + 1),
+      })
+      local spacing_col = #prefix + 3
+      local old_spacing = line:sub(spacing_col + 1):match("^%s*") or ""
+      local new_spacing = new_line:sub(spacing_col + 1):match("^%s*") or ""
+      if old_spacing ~= new_spacing then
+        vim.api.nvim_buf_set_text(0, row, spacing_col, row, spacing_col + #old_spacing, { new_spacing })
+      end
+    else
+      local added = #new_line - #line
+      vim.api.nvim_buf_set_text(0, row, #prefix, row, #prefix, { new_line:sub(#prefix + 1, #prefix + added) })
+    end
     utils.set_line(line_num, new_line)
   end
 end

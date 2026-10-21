@@ -54,7 +54,7 @@ describe("markdown-plus smart paste", function()
   describe("smart_paste() integration", function()
     local http_fetch = require("markdown-plus.links.http_fetch")
     local mocks = require("spec.helpers.mocks")
-    local notify_spy, schedule_spy, input_spy
+    local notify_spy, schedule_spy, input_spy, select_spy, checkbox_config_spy
     local orig_getreg, orig_fetch
     local enabled_config = { links = { smart_paste = { enabled = true, timeout = 5 } } }
 
@@ -90,6 +90,14 @@ describe("markdown-plus smart paste", function()
       if input_spy then
         input_spy.restore()
         input_spy = nil
+      end
+      if select_spy then
+        select_spy.restore()
+        select_spy = nil
+      end
+      if checkbox_config_spy then
+        checkbox_config_spy.restore()
+        checkbox_config_spy = nil
       end
       vim.fn.getreg = orig_getreg
       http_fetch.fetch_html_async = orig_fetch
@@ -226,12 +234,27 @@ describe("markdown-plus smart paste", function()
       local url = "https://example.com/"
       local fetch_callback
       local renumber_buf
+      local timestamp = " <!-- completed: 2000-01-02 -->"
 
       ---Read the byte column immediately after the pending placeholder.
       ---@return integer
       local function placeholder_end()
         local line = vim.api.nvim_buf_get_lines(0, 0, 1, false)[1]
         return assert(line:find("SUFFIX", 1, true)) - 1
+      end
+
+      ---Use a deterministic completion timestamp through the production checkbox writer.
+      ---@return nil
+      local function enable_checkbox_timestamps()
+        checkbox_config_spy = mocks.stub_fn(require("markdown-plus.list.checkbox"), "get_completion_config", function()
+          return {
+            enabled = true,
+            format = "comment",
+            date_format = "2000-01-02",
+            remove_on_uncheck = true,
+            update_existing = true,
+          }
+        end)
       end
 
       before_each(function()
@@ -428,6 +451,111 @@ describe("markdown-plus smart paste", function()
             complete()
             assert.same({ "prefix " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
           end)
+
+          it("completes after adding a checkbox immediately before the placeholder", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- " })
+            require("markdown-plus.list.checkbox").toggle_checkbox_on_line(1)
+            complete()
+            assert.same({ "- [ ] " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after checking a task and adding a timestamp", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- [ ] " })
+            enable_checkbox_timestamps()
+            require("markdown-plus.list.checkbox").toggle_checkbox_on_line(1)
+            complete()
+            assert.same(
+              { "- [x] " .. completion.result .. "SUFFIX" .. timestamp },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("completes after unchecking a task and removing its timestamp", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- [x] " })
+            local line_end = #vim.api.nvim_get_current_line()
+            vim.api.nvim_buf_set_text(0, 0, line_end, 0, line_end, { timestamp })
+            enable_checkbox_timestamps()
+            require("markdown-plus.list.checkbox").toggle_checkbox_on_line(1)
+            complete()
+            assert.same({ "- [ ] " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after changing the list type to task", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- " })
+            require("markdown-plus.list.toggle").toggle_list_line("task")
+            complete()
+            assert.same({ "- [ ] " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after toggling off the task list marker", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- [ ] " })
+            require("markdown-plus.list.toggle").toggle_list_line("task")
+            complete()
+            assert.same({ completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after clearing the list marker", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- " })
+            require("markdown-plus.list.toggle").clear_list_line()
+            complete()
+            assert.same({ completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after converting a blockquote to a callout", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "> " })
+            select_spy = mocks.mock_select(1)
+            require("markdown-plus.callouts").convert_to_callout()
+            complete()
+            assert.same({ "> [!NOTE] " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after converting a callout to a blockquote", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "> [!NOTE] " })
+            require("markdown-plus.callouts").convert_to_blockquote()
+            complete()
+            assert.same({ "> " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after a callout conversion round trip", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "> " })
+            select_spy = mocks.mock_select(1)
+            local callouts = require("markdown-plus.callouts")
+            callouts.convert_to_callout()
+            callouts.convert_to_blockquote()
+            complete()
+            assert.same({ "> " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          for _, split in ipairs({
+            { name = "Enter", run = require("markdown-plus.list.enter_handler").handle_enter, prefix = "- " },
+            {
+              name = "continuation Enter",
+              run = require("markdown-plus.list.enter_handler").continue_list_content,
+              prefix = "  ",
+            },
+          }) do
+            it("completes after " .. split.name .. " at the starting boundary", function()
+              vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- text " })
+              vim.api.nvim_win_set_cursor(0, { 1, 7 })
+              split.run()
+              complete()
+              assert.same(
+                { "- text ", split.prefix .. completion.result .. "SUFFIX" },
+                vim.api.nvim_buf_get_lines(0, 0, -1, false)
+              )
+            end)
+
+            it("completes after " .. split.name .. " at the ending boundary", function()
+              vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- text " })
+              vim.api.nvim_win_set_cursor(0, { 1, placeholder_end() })
+              split.run()
+              complete()
+              assert.same(
+                { "- text " .. completion.result, split.prefix .. "SUFFIX" },
+                vim.api.nvim_buf_get_lines(0, 0, -1, false)
+              )
+            end)
+          end
         end)
       end
 
