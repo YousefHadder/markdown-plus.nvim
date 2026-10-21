@@ -452,6 +452,62 @@ describe("markdown-plus smart paste", function()
             assert.same({ "prefix " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
           end)
 
+          for _, boundary in ipairs({ "before", "after" }) do
+            it("completes after inserting an existing footnote " .. boundary .. " the placeholder", function()
+              vim.api.nvim_buf_set_lines(0, 1, 1, false, { "", "[^note]: existing" })
+              vim.api.nvim_win_set_cursor(0, { 1, boundary == "before" and 6 or placeholder_end() - 1 })
+              input_spy = mocks.mock_input({ "note" })
+              require("markdown-plus.footnotes.insertion").insert_footnote()
+              input_spy.restore()
+              input_spy = nil
+              complete()
+              assert.same({
+                "prefix "
+                  .. (boundary == "before" and "[^note]" or "")
+                  .. completion.result
+                  .. (boundary == "after" and "[^note]" or "")
+                  .. "SUFFIX",
+                "",
+                "[^note]: existing",
+              }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+            end)
+
+            it("completes after inserting a table break " .. boundary .. " the placeholder", function()
+              vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "| " })
+              local line_end = #vim.api.nvim_get_current_line()
+              vim.api.nvim_buf_set_text(0, 0, line_end, 0, line_end, { " |" })
+              vim.api.nvim_buf_set_lines(0, 1, 1, false, { "| --- |" })
+              vim.api.nvim_win_set_cursor(0, { 1, boundary == "before" and 9 or placeholder_end() })
+              assert.is_true(require("markdown-plus.table.cell_ops").insert_break())
+              complete()
+              assert.same({
+                "| prefix "
+                  .. (boundary == "before" and "<br>" or "")
+                  .. completion.result
+                  .. (boundary == "after" and "<br>" or "")
+                  .. "SUFFIX |",
+                "| --- |",
+              }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+            end)
+          end
+
+          it("completes after inserting a new footnote and its definition", function()
+            vim.api.nvim_win_set_cursor(0, { 1, 6 })
+            input_spy = mocks.mock_input({ "note" })
+            require("markdown-plus.footnotes.insertion").insert_footnote()
+            input_spy.restore()
+            input_spy = nil
+            vim.cmd("stopinsert")
+            complete()
+            assert.same({
+              "prefix [^note]" .. completion.result .. "SUFFIX",
+              "",
+              "## Footnotes",
+              "",
+              "[^note]: ",
+            }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
           it("completes after adding a checkbox immediately before the placeholder", function()
             vim.api.nvim_buf_set_text(0, 0, 0, 0, 7, { "- " })
             require("markdown-plus.list.checkbox").toggle_checkbox_on_line(1)

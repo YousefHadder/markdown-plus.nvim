@@ -1020,8 +1020,8 @@ While fetching or waiting for manual title input:
   or deleting it cancels completion with a warning and preserves your changes.
 - Automatic list renumbering and unrelated buffer edits do not cancel completion.
 - List marker and checkbox changes (including empty `[]` states and completion
-  timestamps), list newlines, and callout conversion preserve the unchanged
-  placeholder.
+  timestamps), list newlines, callout conversion, footnote-reference insertion,
+  and table-break insertion preserve the unchanged placeholder.
 - Abandoned pastes do not open manual-title prompts. Edits made after a prompt
   opens are checked again before completion.
 
@@ -2300,6 +2300,7 @@ markdown-plus.links.smart_paste()
 
     Edits outside the placeholder are preserved. Editing or deleting the
     placeholder cancels replacement, including while title input is pending.
+    Footnote-reference and table-break insertion preserve an unchanged placeholder.
     Abandoned pastes do not open a manual-title prompt.
 
 QUOTES MODULE                                           *markdown-plus.quote*

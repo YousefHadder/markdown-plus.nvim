@@ -115,10 +115,8 @@ function M.insert_break()
   local cursor = vim.api.nvim_win_get_cursor(0)
   local row = cursor[1]
   local col = cursor[2]
-  local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ""
 
-  local new_line = line:sub(1, col) .. wrap_break .. line:sub(col + 1)
-  vim.api.nvim_buf_set_lines(0, row - 1, row, false, { new_line })
+  vim.api.nvim_buf_set_text(0, row - 1, col, row - 1, col, { wrap_break })
   vim.api.nvim_win_set_cursor(0, { row, col + #wrap_break })
   return true
 end
