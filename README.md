@@ -101,6 +101,12 @@ That's it! The plugin will automatically activate with default keymaps when you 
 - Formatting defaults moved to avoid key collisions: strikethrough `<localleader>mS`, inline code `<localleader>m\``, highlight `<localleader>m=`, clear formatting `<localleader>mF`.
 - If needed, set `vim.g.maplocalleader = "\\"` (or your preferred key) before plugin setup.
 
+### TOC window commands
+
+Markdown buffers provide `:Toc` (vertical split), `:Toch` (horizontal split), and `:Toct` (new tab). During
+reconfiguration, feature disable, or teardown, markdown-plus removes only commands it registered and that have not
+since been replaced; pre-existing and replacement commands remain untouched.
+
 **Want to customize?**
 
 ```lua
