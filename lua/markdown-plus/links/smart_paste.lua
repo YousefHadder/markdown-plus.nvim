@@ -84,25 +84,25 @@ end
 -- Core Smart Paste Logic
 -- =============================================================================
 
----Replace an unchanged placeholder at its tracked range and delete the extmark
+---Validate the original placeholder at its tracked range
 ---@param bufnr number Buffer number
 ---@param mark_id number Extmark ID
----@param text string Replacement text
 ---@param placeholder string Original placeholder text
----@return boolean success Whether the replacement was performed
-local function replace_at_mark(bufnr, mark_id, text, placeholder)
-  if not vim.api.nvim_buf_is_valid(bufnr) then
-    return false
+---@return {start_row: integer, start_col: integer, end_row: integer, end_col: integer}|nil
+local function get_placeholder_range(bufnr, mark_id, placeholder)
+  if not vim.api.nvim_buf_is_valid(bufnr) or not vim.api.nvim_buf_is_loaded(bufnr) then
+    return nil
   end
 
   if not vim.bo[bufnr].modifiable then
+    vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
     vim.notify("markdown-plus: Buffer is not modifiable", vim.log.levels.WARN)
-    return false
+    return nil
   end
 
   local mark = vim.api.nvim_buf_get_extmark_by_id(bufnr, ns_id, mark_id, { details = true })
   if not mark or #mark == 0 then
-    return false
+    return nil
   end
 
   local row = mark[1]
@@ -119,10 +119,25 @@ local function replace_at_mark(bufnr, mark_id, text, placeholder)
   if #current_text ~= 1 or current_text[1] ~= placeholder then
     vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
     vim.notify("markdown-plus: Smart paste canceled: placeholder changed or was deleted", vim.log.levels.WARN)
+    return nil
+  end
+
+  return { start_row = row, start_col = start_col, end_row = end_row, end_col = end_col }
+end
+
+---Replace an unchanged placeholder at its tracked range and delete the extmark
+---@param bufnr number Buffer number
+---@param mark_id number Extmark ID
+---@param text string Replacement text
+---@param placeholder string Original placeholder text
+---@return boolean success Whether the replacement was performed
+local function replace_at_mark(bufnr, mark_id, text, placeholder)
+  local range = get_placeholder_range(bufnr, mark_id, placeholder)
+  if not range then
     return false
   end
 
-  vim.api.nvim_buf_set_text(bufnr, row, start_col, end_row, end_col, { text })
+  vim.api.nvim_buf_set_text(bufnr, range.start_row, range.start_col, range.end_row, range.end_col, { text })
   vim.api.nvim_buf_del_extmark(bufnr, ns_id, mark_id)
   return true
 end
@@ -149,6 +164,10 @@ end
 ---@param placeholder string Original placeholder text
 ---@return nil
 local function prompt_for_title(bufnr, mark_id, url, err_msg, placeholder)
+  if not get_placeholder_range(bufnr, mark_id, placeholder) then
+    return
+  end
+
   if err_msg then
     vim.notify("markdown-plus: " .. err_msg, vim.log.levels.WARN)
   end

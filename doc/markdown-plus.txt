@@ -1009,7 +1009,7 @@ Usage:
     Step 2 (async):     [GitHub](https://github.com)|
 <
 
-When title fetch fails:
+When title fetch fails and the placeholder is still unchanged:
 - You'll be prompted to enter a title manually
 - If you cancel the prompt, the placeholder is replaced with the raw URL
 
@@ -1017,7 +1017,9 @@ While fetching or waiting for manual title input:
 - Typing before or after the placeholder is preserved, including newlines.
 - Only the original, unchanged placeholder is replaced. Editing, replacing,
   or deleting it cancels completion with a warning and preserves your changes.
-- Unrelated buffer edits do not cancel completion.
+- Automatic list renumbering and unrelated buffer edits do not cancel completion.
+- Abandoned pastes do not open manual-title prompts. Edits made after a prompt
+  opens are checked again before completion.
 
 Requirements:
 - `curl` must be installed (check with `:checkhealth markdown-plus`)
@@ -2290,10 +2292,11 @@ markdown-plus.links.smart_paste()
         2. Inserts placeholder: `[⏳ Loading...](url)`
         3. Fetches page title asynchronously via curl
         4. Updates the unchanged placeholder with actual title
-        5. On failure, prompts user for title or replaces with raw URL
+        5. On failure, prompts for title or raw URL if the placeholder is unchanged
 
     Edits outside the placeholder are preserved. Editing or deleting the
     placeholder cancels replacement, including while title input is pending.
+    Abandoned pastes do not open a manual-title prompt.
 
 QUOTES MODULE                                           *markdown-plus.quote*
 

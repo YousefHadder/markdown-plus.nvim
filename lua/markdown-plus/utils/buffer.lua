@@ -31,12 +31,38 @@ function M.get_line(line_num)
   return vim.api.nvim_buf_get_lines(0, line_num - 1, line_num, false)[1] or ""
 end
 
----Set line content by line number (1-indexed)
+---Set line content without rewriting its unchanged prefix and suffix
 ---@param line_num number 1-indexed line number
 ---@param content string New line content
 ---@return nil
 function M.set_line(line_num, content)
-  vim.api.nvim_buf_set_lines(0, line_num - 1, line_num, false, { content })
+  local row = line_num - 1
+  if row < 0 or row >= vim.api.nvim_buf_line_count(0) or not vim.bo.modifiable then
+    vim.api.nvim_buf_set_lines(0, row, line_num, false, { content })
+    return
+  end
+
+  local current = M.get_line(line_num)
+  if current == content then
+    return
+  end
+
+  local start_col = 0
+  local end_col = #current
+  local new_end_col = #content
+  while
+    start_col < end_col
+    and start_col < new_end_col
+    and current:byte(start_col + 1) == content:byte(start_col + 1)
+  do
+    start_col = start_col + 1
+  end
+  while end_col > start_col and new_end_col > start_col and current:byte(end_col) == content:byte(new_end_col) do
+    end_col = end_col - 1
+    new_end_col = new_end_col - 1
+  end
+
+  vim.api.nvim_buf_set_text(0, row, start_col, row, end_col, { content:sub(start_col + 1, new_end_col) })
 end
 
 ---Insert line at position (1-indexed)

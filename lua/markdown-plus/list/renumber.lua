@@ -1,6 +1,7 @@
 -- List renumbering module for markdown-plus.nvim
 local shared = require("markdown-plus.list.shared")
 local group_scanner = require("markdown-plus.list.group_scanner")
+local utils = require("markdown-plus.utils")
 local M = {}
 
 local ORDERED_LIST_CANDIDATE_PATTERNS = {
@@ -65,41 +66,17 @@ local function has_ordered_list_candidates(lines)
   return false
 end
 
----Apply line changes using contiguous batch writes
+---Apply line changes without replacing unchanged item content
 ---@param changes {line_num: integer, new_line: string}[]
+---@return nil
 local function apply_changes(changes)
   table.sort(changes, function(a, b)
     return a.line_num < b.line_num
   end)
 
-  local start_line = nil
-  local end_line = nil
-  local replacement_lines = {}
-
-  local function flush_segment()
-    if not start_line then
-      return
-    end
-    vim.api.nvim_buf_set_lines(0, start_line - 1, end_line, false, replacement_lines)
-  end
-
   for _, change in ipairs(changes) do
-    if not start_line then
-      start_line = change.line_num
-      end_line = change.line_num
-      replacement_lines = { change.new_line }
-    elseif change.line_num == end_line + 1 then
-      end_line = change.line_num
-      table.insert(replacement_lines, change.new_line)
-    else
-      flush_segment()
-      start_line = change.line_num
-      end_line = change.line_num
-      replacement_lines = { change.new_line }
-    end
+    utils.set_line(change.line_num, change.new_line)
   end
-
-  flush_segment()
 end
 
 ---Renumber all ordered lists in the buffer

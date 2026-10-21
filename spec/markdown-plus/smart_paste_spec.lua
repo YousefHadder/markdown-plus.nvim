@@ -225,6 +225,7 @@ describe("markdown-plus smart paste", function()
       local insert_mode = require("spec.helpers.insert_mode")
       local url = "https://example.com/"
       local fetch_callback
+      local renumber_buf
 
       ---Read the byte column immediately after the pending placeholder.
       ---@return integer
@@ -245,6 +246,14 @@ describe("markdown-plus smart paste", function()
         vim.api.nvim_win_set_cursor(0, { 1, 7 })
         smart_paste.smart_paste()
         assert.is_function(fetch_callback)
+      end)
+
+      after_each(function()
+        if renumber_buf then
+          require("markdown-plus.list.autocmds").stop_debounce_timer(renumber_buf)
+          pcall(vim.api.nvim_del_augroup_by_name, "MarkdownPlusListRenumber_" .. renumber_buf)
+          renumber_buf = nil
+        end
       end)
 
       for _, completion in ipairs({
@@ -374,7 +383,111 @@ describe("markdown-plus smart paste", function()
               vim.api.nvim_buf_get_lines(0, 0, -1, false)
             )
           end)
+
+          it("completes after renumbering adjacent list items", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "9. " })
+            vim.api.nvim_buf_set_lines(0, 1, 1, false, { "9. next" })
+            require("markdown-plus.list.renumber").renumber_ordered_lists()
+            complete()
+            assert.same(
+              { "1. prefix " .. completion.result .. "SUFFIX", "2. next" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("completes after automatic TextChanged renumbering", function()
+            vim.api.nvim_buf_set_text(0, 0, 0, 0, 0, { "9. " })
+            renumber_buf = vim.api.nvim_get_current_buf()
+            require("markdown-plus.list.autocmds").setup_renumber_autocmds()
+            vim.api.nvim_exec_autocmds("TextChanged", { buffer = renumber_buf })
+            assert.matches("^1%. prefix ", vim.api.nvim_get_current_line())
+            complete()
+            assert.same({ "1. prefix " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
+
+          it("completes after a helper edits only the line prefix", function()
+            require("markdown-plus.utils").set_line(1, "BEFORE " .. vim.api.nvim_get_current_line())
+            complete()
+            assert.same(
+              { "BEFORE prefix " .. completion.result .. "SUFFIX" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("completes after a helper edits only the line suffix", function()
+            require("markdown-plus.utils").set_line(1, vim.api.nvim_get_current_line() .. " AFTER")
+            complete()
+            assert.same(
+              { "prefix " .. completion.result .. "SUFFIX AFTER" },
+              vim.api.nvim_buf_get_lines(0, 0, -1, false)
+            )
+          end)
+
+          it("completes after a helper leaves the line unchanged", function()
+            require("markdown-plus.utils").set_line(1, vim.api.nvim_get_current_line())
+            complete()
+            assert.same({ "prefix " .. completion.result .. "SUFFIX" }, vim.api.nvim_buf_get_lines(0, 0, -1, false))
+          end)
         end)
+      end
+
+      for _, failure in ipairs({
+        { name = "fetch failure", err = "timeout" },
+        { name = "missing page title", html = "<html><body>No title</body></html>" },
+      }) do
+        for _, abandoned in ipairs({
+          {
+            name = "deleted placeholder",
+            edit = function()
+              vim.api.nvim_buf_set_text(0, 0, 7, 0, placeholder_end(), {})
+            end,
+          },
+          {
+            name = "replaced placeholder",
+            edit = function()
+              vim.api.nvim_buf_set_text(0, 0, 7, 0, placeholder_end(), { "custom text" })
+            end,
+          },
+          {
+            name = "multiline placeholder",
+            edit = function()
+              vim.api.nvim_buf_set_text(0, 0, 15, 0, 15, { "", "" })
+            end,
+          },
+          {
+            name = "wiped source buffer",
+            edit = function()
+              vim.api.nvim_buf_delete(0, { force = true })
+            end,
+          },
+          {
+            name = "missing tracking mark",
+            edit = function()
+              local ns = vim.api.nvim_create_namespace("markdown_plus_smart_paste")
+              vim.api.nvim_buf_clear_namespace(0, ns, 0, -1)
+            end,
+          },
+          {
+            name = "non-modifiable source buffer",
+            edit = function()
+              vim.bo.modifiable = false
+            end,
+          },
+        }) do
+          it("does not prompt after " .. failure.name .. " for a " .. abandoned.name, function()
+            abandoned.edit()
+            input_spy = mocks.mock_input({ "Unused title" })
+            fetch_callback(failure.html, failure.err)
+            schedule_spy.flush()
+            schedule_spy.flush()
+            vim.bo.modifiable = true
+            assert.equals(0, #input_spy.calls)
+            for _, call in ipairs(notify_spy.calls) do
+              assert.is_nil(call.msg:find("Failed to fetch", 1, true))
+              assert.is_nil(call.msg:find("Could not extract title", 1, true))
+            end
+          end)
+        end
       end
 
       for _, reverse_order in ipairs({ false, true }) do
