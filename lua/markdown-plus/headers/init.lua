@@ -241,9 +241,14 @@ function M.disable(bufnr)
   owned_toc_commands[bufnr] = nil
 
   local cleanup_autocmd = owned_toc_cleanup_autocmds[bufnr]
+  owned_toc_cleanup_autocmds[bufnr] = nil
   if cleanup_autocmd then
-    vim.api.nvim_del_autocmd(cleanup_autocmd)
-    owned_toc_cleanup_autocmds[bufnr] = nil
+    for _, autocmd in ipairs(vim.api.nvim_get_autocmds({ buffer = bufnr, event = "BufWipeout" })) do
+      if autocmd.id == cleanup_autocmd then
+        vim.api.nvim_del_autocmd(cleanup_autocmd)
+        break
+      end
+    end
   end
 end
 

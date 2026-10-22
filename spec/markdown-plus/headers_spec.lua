@@ -790,6 +790,32 @@ describe("markdown-plus headers", function()
       assert.is_nil(commands.Toct)
     end)
 
+    it("can repeatedly disable after external autocmd cleanup while preserving foreign commands", function()
+      local invoked = false
+      vim.api.nvim_buf_create_user_command(buf, "Toc", function()
+        invoked = true
+      end, { desc = "foreign command" })
+      headers.setup({ keymaps = { enabled = true } })
+      headers.setup_keymaps()
+      vim.api.nvim_clear_autocmds({ buffer = buf })
+
+      assert.has_no.errors(function()
+        headers.disable(buf)
+        headers.disable(0)
+        headers.setup_keymaps()
+        vim.api.nvim_clear_autocmds({ buffer = buf })
+        headers.disable(0)
+        headers.disable(buf)
+      end)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_not_nil(commands.Toc)
+      assert.is_nil(commands.Toch)
+      assert.is_nil(commands.Toct)
+      vim.cmd("Toc")
+      assert.is_true(invoked)
+    end)
+
     it("preserves foreign TOC commands across repeated setup and disable", function()
       local invoked = {}
       for _, command in ipairs(toc_commands) do
@@ -936,6 +962,24 @@ describe("markdown-plus headers", function()
   describe("public command lifecycle", function()
     after_each(function()
       markdown_plus.teardown()
+    end)
+
+    it("can repeatedly reconfigure and tear down after buffer autocmds are cleared externally", function()
+      markdown_plus.setup()
+      vim.api.nvim_clear_autocmds({ buffer = buf })
+
+      assert.has_no.errors(function()
+        markdown_plus.setup({ features = { headers_toc = false } })
+        markdown_plus.setup()
+        vim.api.nvim_clear_autocmds({ buffer = buf })
+        markdown_plus.teardown()
+        markdown_plus.teardown()
+      end)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      for _, command in ipairs(toc_commands) do
+        assert.is_nil(commands[command])
+      end
     end)
 
     it("preserves foreign commands on reconfiguration and explicit teardown", function()
