@@ -1804,6 +1804,9 @@ Future versions may add:
                 See note above regarding toggle behavior.
 
 These commands are buffer-local and only available in markdown buffers.
+During reconfiguration, feature disable, or teardown, markdown-plus removes only
+commands it registered and that have not since been replaced. Pre-existing or
+replacement commands with the same names are left untouched.
 
 You can also call the Lua API functions directly if needed:
 

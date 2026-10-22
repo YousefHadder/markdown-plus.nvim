@@ -12,8 +12,85 @@ local toc_window = require("markdown-plus.headers.toc_window")
 local M = {}
 local TOC_BUFFER_COMMANDS = { "Toc", "Toch", "Toct" }
 
+---@class markdown-plus.OwnedTocCommand
+---@field metadata table
+---@field callback_fingerprint string|nil
+
+---@type table<integer, table<string, markdown-plus.OwnedTocCommand>>
+local owned_toc_commands = {}
+---@type table<integer, integer>
+local owned_toc_cleanup_autocmds = {}
+
 ---@type markdown-plus.InternalConfig
 M.config = {}
+
+---@param bufnr number
+---@param command string
+---@return string|nil
+local function get_command_callback_fingerprint(bufnr, command)
+  -- Neovim 0.11 omits Lua callbacks from nvim_buf_get_commands().
+  local output = vim.api.nvim_buf_call(bufnr, function()
+    return vim.fn.execute("verbose command " .. command)
+  end)
+
+  for line in output:gmatch("[^\n]+") do
+    local callback = line:match("^b%s+" .. command .. "%s.-(<Lua [^>]+>)")
+    if callback then
+      return callback
+    end
+  end
+end
+
+---@param bufnr number
+---@param command string
+---@param current table Current user-command metadata
+---@param registered markdown-plus.OwnedTocCommand
+---@return boolean
+local function is_owned_toc_command(bufnr, command, current, registered)
+  if not vim.deep_equal(current, registered.metadata) then
+    return false
+  end
+  if current.callback ~= nil or registered.metadata.callback ~= nil then
+    return current.callback ~= nil and current.callback == registered.metadata.callback
+  end
+
+  return registered.callback_fingerprint ~= nil
+    and get_command_callback_fingerprint(bufnr, command) == registered.callback_fingerprint
+end
+
+---@param bufnr number
+---@param command string
+---@param callback function
+---@param description string
+---@return nil
+local function create_toc_command(bufnr, command, callback, description)
+  local commands = vim.api.nvim_buf_get_commands(bufnr, {})
+  if commands[command] then
+    return
+  end
+
+  vim.api.nvim_buf_create_user_command(bufnr, command, callback, { desc = description })
+
+  local registered = vim.api.nvim_buf_get_commands(bufnr, {})[command]
+  if registered then
+    owned_toc_commands[bufnr] = owned_toc_commands[bufnr] or {}
+    owned_toc_commands[bufnr][command] = {
+      metadata = registered,
+      callback_fingerprint = get_command_callback_fingerprint(bufnr, command),
+    }
+
+    if not owned_toc_cleanup_autocmds[bufnr] then
+      owned_toc_cleanup_autocmds[bufnr] = vim.api.nvim_create_autocmd("BufWipeout", {
+        buffer = bufnr,
+        once = true,
+        callback = function()
+          owned_toc_commands[bufnr] = nil
+          owned_toc_cleanup_autocmds[bufnr] = nil
+        end,
+      })
+    end
+  end
+end
 
 ---Header pattern (matches # through ######) - Re-export from parser
 M.header_pattern = parser.header_pattern
@@ -127,39 +204,50 @@ function M.setup_keymaps()
   keymap_helper.setup_keymaps(M.config, keymaps)
 
   local bufnr = vim.api.nvim_get_current_buf()
-  local commands = vim.api.nvim_buf_get_commands(bufnr, {})
 
   -- User commands for TOC window
-  if not commands.Toc then
-    vim.api.nvim_buf_create_user_command(bufnr, "Toc", function()
-      toc_window.open_toc_window("vertical")
-    end, { desc = "Open TOC in vertical window" })
-  end
-
-  if not commands.Toch then
-    vim.api.nvim_buf_create_user_command(bufnr, "Toch", function()
-      toc_window.open_toc_window("horizontal")
-    end, { desc = "Open TOC in horizontal window" })
-  end
-
-  if not commands.Toct then
-    vim.api.nvim_buf_create_user_command(bufnr, "Toct", function()
-      toc_window.open_toc_window("tab")
-    end, { desc = "Open TOC in new tab" })
-  end
+  create_toc_command(bufnr, "Toc", function()
+    toc_window.open_toc_window("vertical")
+  end, "Open TOC in vertical window")
+  create_toc_command(bufnr, "Toch", function()
+    toc_window.open_toc_window("horizontal")
+  end, "Open TOC in horizontal window")
+  create_toc_command(bufnr, "Toct", function()
+    toc_window.open_toc_window("tab")
+  end, "Open TOC in new tab")
 end
 
 ---@param bufnr number
 ---@return nil
 function M.disable(bufnr)
-  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+  if not bufnr then
+    return
+  end
+  if bufnr == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  if not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
 
   local commands = vim.api.nvim_buf_get_commands(bufnr, {})
+  local owned_commands = owned_toc_commands[bufnr]
   for _, command in ipairs(TOC_BUFFER_COMMANDS) do
-    if commands[command] then
+    local registered = owned_commands and owned_commands[command]
+    if commands[command] and registered and is_owned_toc_command(bufnr, command, commands[command], registered) then
       vim.api.nvim_buf_del_user_command(bufnr, command)
+    end
+  end
+  owned_toc_commands[bufnr] = nil
+
+  local cleanup_autocmd = owned_toc_cleanup_autocmds[bufnr]
+  owned_toc_cleanup_autocmds[bufnr] = nil
+  if cleanup_autocmd then
+    for _, autocmd in ipairs(vim.api.nvim_get_autocmds({ buffer = bufnr, event = "BufWipeout" })) do
+      if autocmd.id == cleanup_autocmd then
+        vim.api.nvim_del_autocmd(cleanup_autocmd)
+        break
+      end
     end
   end
 end

@@ -2,9 +2,11 @@
 ---Tests header parsing, slug generation, TOC detection, and TOC generation
 ---@diagnostic disable: undefined-field
 local headers = require("markdown-plus.headers")
+local markdown_plus = require("markdown-plus")
 
 describe("markdown-plus headers", function()
   local buf
+  local toc_commands = { "Toc", "Toch", "Toct" }
 
   before_each(function()
     buf = vim.api.nvim_create_buf(false, true)
@@ -752,6 +754,255 @@ describe("markdown-plus headers", function()
 
       local commands = vim.api.nvim_buf_get_commands(buf, {})
       assert.is_nil(commands.Toc)
+      assert.is_nil(commands.Toch)
+      assert.is_nil(commands.Toct)
+    end)
+
+    it("cleans up current-buffer commands through buffer zero and preserves foreign commands", function()
+      local invoked = false
+      vim.api.nvim_buf_create_user_command(buf, "Toc", function()
+        invoked = true
+      end, { desc = "foreign command" })
+
+      headers.setup({ keymaps = { enabled = true } })
+      headers.setup_keymaps()
+      headers.disable(0)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_not_nil(commands.Toc)
+      assert.is_nil(commands.Toch)
+      assert.is_nil(commands.Toct)
+      vim.api.nvim_buf_call(buf, function()
+        vim.cmd("Toc")
+      end)
+      assert.is_true(invoked)
+    end)
+
+    it("removes all owned TOC commands when disabling the current buffer by zero", function()
+      headers.setup({ keymaps = { enabled = true } })
+      headers.setup_keymaps()
+
+      headers.disable(0)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_nil(commands.Toc)
+      assert.is_nil(commands.Toch)
+      assert.is_nil(commands.Toct)
+    end)
+
+    it("can repeatedly disable after external autocmd cleanup while preserving foreign commands", function()
+      local invoked = false
+      vim.api.nvim_buf_create_user_command(buf, "Toc", function()
+        invoked = true
+      end, { desc = "foreign command" })
+      headers.setup({ keymaps = { enabled = true } })
+      headers.setup_keymaps()
+      vim.api.nvim_clear_autocmds({ buffer = buf })
+
+      assert.has_no.errors(function()
+        headers.disable(buf)
+        headers.disable(0)
+        headers.setup_keymaps()
+        vim.api.nvim_clear_autocmds({ buffer = buf })
+        headers.disable(0)
+        headers.disable(buf)
+      end)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_not_nil(commands.Toc)
+      assert.is_nil(commands.Toch)
+      assert.is_nil(commands.Toct)
+      vim.cmd("Toc")
+      assert.is_true(invoked)
+    end)
+
+    it("preserves foreign TOC commands across repeated setup and disable", function()
+      local invoked = {}
+      for _, command in ipairs(toc_commands) do
+        vim.api.nvim_buf_create_user_command(buf, command, function()
+          invoked[command] = true
+        end, { desc = "foreign command" })
+      end
+
+      headers.setup({ keymaps = { enabled = true } })
+      headers.setup_keymaps()
+      headers.setup_keymaps()
+      headers.disable(buf)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      for _, command in ipairs(toc_commands) do
+        assert.is_not_nil(commands[command])
+        vim.api.nvim_buf_call(buf, function()
+          vim.cmd(command)
+        end)
+        assert.is_true(invoked[command])
+      end
+    end)
+
+    it("preserves foreign replacements with matching TOC command descriptions", function()
+      local invoked = {}
+      local descriptions = {
+        Toc = "Open TOC in vertical window",
+        Toch = "Open TOC in horizontal window",
+        Toct = "Open TOC in new tab",
+      }
+
+      headers.setup({ keymaps = { enabled = true } })
+      headers.setup_keymaps()
+
+      for _, command in ipairs(toc_commands) do
+        vim.api.nvim_buf_create_user_command(buf, command, function()
+          invoked[command] = true
+        end, { desc = descriptions[command] })
+      end
+
+      headers.disable(buf)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      for _, command in ipairs(toc_commands) do
+        assert.is_not_nil(commands[command])
+        vim.api.nvim_buf_call(buf, function()
+          vim.cmd(command)
+        end)
+        assert.is_true(invoked[command])
+      end
+    end)
+
+    it("preserves replacement command options even when the Lua callback is reused", function()
+      headers.setup({ keymaps = { enabled = true } })
+      local captured_callbacks = {}
+      local original_create_command = vim.api.nvim_buf_create_user_command
+      vim.api.nvim_buf_create_user_command = function(buffer, command, callback, opts)
+        captured_callbacks[command] = callback
+        return original_create_command(buffer, command, callback, opts)
+      end
+      local registered, registration_error = pcall(headers.setup_keymaps)
+      vim.api.nvim_buf_create_user_command = original_create_command
+      assert.is_true(registered, registration_error)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      local toc_window = require("markdown-plus.headers.toc_window")
+      local original_open = toc_window.open_toc_window
+      local invoked = {}
+      toc_window.open_toc_window = function(layout)
+        invoked[layout] = true
+      end
+
+      local ok, err = pcall(function()
+        for _, command in ipairs(toc_commands) do
+          vim.api.nvim_buf_create_user_command(buf, command, captured_callbacks[command], {
+            desc = commands[command].definition,
+            bang = true,
+          })
+        end
+
+        commands = vim.api.nvim_buf_get_commands(buf, {})
+        for _, command in ipairs(toc_commands) do
+          assert.is_true(commands[command].bang)
+          if commands[command].callback then
+            assert.are.equal(captured_callbacks[command], commands[command].callback)
+          end
+        end
+        headers.disable(buf)
+
+        commands = vim.api.nvim_buf_get_commands(buf, {})
+        for _, command in ipairs(toc_commands) do
+          assert.is_not_nil(commands[command])
+          assert.is_true(commands[command].bang)
+          vim.cmd(command .. "!")
+        end
+        assert.is_true(invoked.vertical)
+        assert.is_true(invoked.horizontal)
+        assert.is_true(invoked.tab)
+      end)
+      toc_window.open_toc_window = original_open
+      assert.is_true(ok, err)
+    end)
+
+    it("cleans up owned commands per buffer without deleting foreign aliases", function()
+      local second_buf = vim.api.nvim_create_buf(false, true)
+      vim.bo[second_buf].filetype = "markdown"
+      local foreign_invoked = false
+
+      vim.api.nvim_buf_create_user_command(buf, "Toc", function()
+        foreign_invoked = true
+      end, { desc = "foreign command" })
+      headers.setup({ keymaps = { enabled = true } })
+      headers.setup_keymaps()
+
+      vim.api.nvim_set_current_buf(second_buf)
+      headers.setup_keymaps()
+      vim.api.nvim_buf_create_user_command(second_buf, "Toch", function()
+        foreign_invoked = true
+      end, { desc = "Open TOC in horizontal window" })
+
+      headers.disable(buf)
+      local first_commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_not_nil(first_commands.Toc)
+      assert.is_nil(first_commands.Toch)
+      assert.is_nil(first_commands.Toct)
+
+      headers.disable(second_buf)
+      local second_commands = vim.api.nvim_buf_get_commands(second_buf, {})
+      assert.is_nil(second_commands.Toc)
+      assert.is_not_nil(second_commands.Toch)
+      assert.is_nil(second_commands.Toct)
+
+      vim.api.nvim_buf_call(buf, function()
+        vim.cmd("Toc")
+      end)
+      vim.api.nvim_buf_call(second_buf, function()
+        vim.cmd("Toch")
+      end)
+      assert.is_true(foreign_invoked)
+      vim.api.nvim_buf_delete(second_buf, { force = true })
+    end)
+  end)
+
+  describe("public command lifecycle", function()
+    after_each(function()
+      markdown_plus.teardown()
+    end)
+
+    it("can repeatedly reconfigure and tear down after buffer autocmds are cleared externally", function()
+      markdown_plus.setup()
+      vim.api.nvim_clear_autocmds({ buffer = buf })
+
+      assert.has_no.errors(function()
+        markdown_plus.setup({ features = { headers_toc = false } })
+        markdown_plus.setup()
+        vim.api.nvim_clear_autocmds({ buffer = buf })
+        markdown_plus.teardown()
+        markdown_plus.teardown()
+      end)
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      for _, command in ipairs(toc_commands) do
+        assert.is_nil(commands[command])
+      end
+    end)
+
+    it("preserves foreign commands on reconfiguration and explicit teardown", function()
+      local invoked = false
+      vim.api.nvim_buf_create_user_command(buf, "Toc", function()
+        invoked = true
+      end, { desc = "foreign command" })
+
+      markdown_plus.setup()
+      markdown_plus.setup()
+      markdown_plus.setup({ features = { headers_toc = false } })
+
+      local commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_not_nil(commands.Toc)
+      vim.api.nvim_buf_call(buf, function()
+        vim.cmd("Toc")
+      end)
+      assert.is_true(invoked)
+
+      markdown_plus.setup()
+      markdown_plus.teardown()
+      commands = vim.api.nvim_buf_get_commands(buf, {})
+      assert.is_not_nil(commands.Toc)
       assert.is_nil(commands.Toch)
       assert.is_nil(commands.Toct)
     end)
