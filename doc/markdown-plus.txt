@@ -1635,6 +1635,28 @@ Table keymaps are configured separately under `table.keymaps`:
 
 OPTIONS                                      *markdown-plus-configuration-options*
 
+Code-block and table features activate only when both their `features.*` flag and
+their module-level `enabled` flag are true. To disable automatic activation for
+these modules:
+
+>lua
+    require("markdown-plus").setup({
+      code_block = { enabled = false },
+      table = { enabled = false },
+    })
+<
+
+Calling `setup()` again applies these switches to already-open matching buffers
+and future buffers. Disabling a module removes its plugin-owned default mappings
+without deleting user mappings.
+
+The legacy text-formatting mapping `<localleader>mw` is controlled by
+`features.text_formatting`, independently of `code_block.enabled`.
+
+To keep the features and their `<Plug>` mappings available while disabling only
+default keybindings, use `keymaps.enabled = false`, or
+`table.keymaps.enabled = false` for table defaults only.
+
 The plugin can be configured through the setup function:
 
 >lua

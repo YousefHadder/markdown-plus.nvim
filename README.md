@@ -138,6 +138,23 @@ opts = {
 
 Use `<Plug>(MarkdownPlus...)` mappings for custom remaps instead of undocumented top-level `keymaps.*` action keys.
 
+### Module enablement
+
+Code-block and table features activate only when both their `features.*` flag and their module-level `enabled` flag are true. To disable automatic activation for these modules:
+
+```lua
+require("markdown-plus").setup({
+  code_block = { enabled = false },
+  table = { enabled = false },
+})
+```
+
+Calling `setup()` again applies these switches to already-open matching buffers and future buffers. Disabling a module removes its plugin-owned default mappings without deleting user mappings.
+
+The legacy text-formatting mapping `<localleader>mw` is controlled by `features.text_formatting`, independently of `code_block.enabled`.
+
+To keep the features and their `<Plug>` mappings available while disabling only default keybindings, use `keymaps.enabled = false`, or `table.keymaps.enabled = false` for table defaults only.
+
 ## Interop with other plugins
 
 markdown-plus maps keys other plugins commonly own: `<BS>`, `<CR>`, `<Tab>`, `<S-Tab>`, `<A-CR>` (insert), `o` / `O` (normal) and the table cell navigation keys `<A-h>` / `<A-j>` / `<A-k>` / `<A-l>` (insert). In its own context — a list for the list keys, a table for the navigation keys — markdown-plus acts. **Everywhere else it hands the key back** instead of reimplementing the default behavior. No configuration required — this is always on.

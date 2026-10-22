@@ -248,12 +248,12 @@ function M.setup(opts)
     M.callouts.setup(M.config)
   end
 
-  if M.config.features.code_block then
+  if M.config.features.code_block and M.config.code_block.enabled then
     M.code_block = require("markdown-plus.code_block")
     M.code_block.setup(M.config)
   end
 
-  if M.config.features.table then
+  if M.config.features.table and M.config.table.enabled then
     M.table = require("markdown-plus.table")
     if M.config.table then
       M.table.setup(M.config.table)
