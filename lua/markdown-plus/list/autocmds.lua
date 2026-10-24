@@ -199,6 +199,22 @@ function M.setup_renumber_autocmds()
   })
 end
 
+---Stop pending renumbering and remove autocommands for one buffer.
+---@param bufnr integer Buffer number (0 for current)
+---@return nil
+function M.disable(bufnr)
+  if bufnr == 0 then
+    bufnr = vim.api.nvim_get_current_buf()
+  end
+  M.stop_debounce_timer(bufnr)
+
+  local group_name = RENUMBER_AUGROUP_PREFIX .. bufnr
+  local exists = pcall(vim.api.nvim_get_autocmds, { group = group_name })
+  if exists then
+    vim.api.nvim_del_augroup_by_name(group_name)
+  end
+end
+
 ---Tear down list autocommand runtime state: stop all timers and remove the
 ---per-buffer renumber augroups.
 ---@return nil

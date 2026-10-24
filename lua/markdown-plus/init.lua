@@ -154,6 +154,22 @@ local function clear_plugin_default_keymaps()
   end
 end
 
+---Release only the runtime state owned by markdown-plus in one buffer.
+---@param bufnr integer Buffer number
+---@return nil
+local function disable_features_for_buffer(bufnr)
+  if M.list then
+    M.list.disable(bufnr)
+  end
+  if M.headers then
+    M.headers.disable(bufnr)
+  end
+  if M.footnotes then
+    M.footnotes.disable(bufnr)
+  end
+  require("markdown-plus.keymap_helper").clear_default_keymaps(bufnr)
+end
+
 ---Clear markdown-plus root autocmd group if present.
 ---@return nil
 local function clear_root_augroup()
@@ -267,7 +283,7 @@ function M.setup(opts)
     M.footnotes.setup(M.config)
   end
 
-  -- Set up autocommands for markdown files
+  -- Track entry into and exit from the configured filetypes.
   M.setup_autocmds()
 
   -- Re-enable features for all already-open buffers matching config.filetypes
@@ -323,16 +339,20 @@ function M.enable_features_for_buffer()
   end
 end
 
----Set up autocommands for markdown files
+---Set up autocommands for configured filetype transitions.
 ---@return nil
 function M.setup_autocmds()
   local group = vim.api.nvim_create_augroup("MarkdownPlus", { clear = true })
 
   vim.api.nvim_create_autocmd("FileType", {
     group = group,
-    pattern = M.config.filetypes or "markdown",
-    callback = function()
-      M.enable_features_for_buffer()
+    pattern = "*",
+    callback = function(args)
+      if vim.tbl_contains(M.config.filetypes, vim.bo[args.buf].filetype) then
+        M.enable_features_for_buffer()
+      else
+        disable_features_for_buffer(args.buf)
+      end
     end,
   })
 end

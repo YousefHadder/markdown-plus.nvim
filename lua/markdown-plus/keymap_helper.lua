@@ -122,9 +122,12 @@ end
 
 ---Clear buffer-local default keymaps created through this helper.
 ---User mappings to <Plug>(MarkdownPlus...) targets are preserved because only tracked defaults are removed.
+---@param target_bufnr? integer Only clear this buffer (0 for current); omit to clear all buffers
 ---@return nil
-function M.clear_default_keymaps()
-  for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
+function M.clear_default_keymaps(target_bufnr)
+  local buffers = target_bufnr and { target_bufnr == 0 and vim.api.nvim_get_current_buf() or target_bufnr }
+    or vim.api.nvim_list_bufs()
+  for _, bufnr in ipairs(buffers) do
     if vim.api.nvim_buf_is_valid(bufnr) then
       local records = get_default_keymap_records(bufnr)
       if #records > 0 then
