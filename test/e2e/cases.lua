@@ -29,6 +29,29 @@ local function RIVAL_ALT_CR()
 end
 
 return {
+  {
+    name = "Vimscript expression Tab fallback executes key notation",
+    priority = "P1",
+    lines = { "plain" },
+    setup = function()
+      vim.bo.expandtab = false
+      vim.bo.softtabstop = 0
+      vim.cmd([[imap <expr> <Tab> '<Tab>']])
+    end,
+    keys = "A<Tab><Esc>",
+    expected = { "plain\t" },
+  },
+  {
+    name = "Vimscript expression fallback executes a foreign Plug mapping",
+    priority = "P1",
+    lines = { "plain" },
+    setup = function()
+      vim.keymap.set("i", "<Plug>(ForeignExprFallback)", "expanded")
+      vim.cmd([[imap <expr> <Tab> '<Plug>(ForeignExprFallback)']])
+    end,
+    keys = "A<Tab><Esc>",
+    expected = { "plainexpanded" },
+  },
   -- ---------------------------------------------------------------- P0: corruption path
   {
     name = "toggle empty unchecked task (main wrote '- [ ] [ ]')",

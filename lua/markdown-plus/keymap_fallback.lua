@@ -59,7 +59,10 @@ end
 ---@return nil
 local function run_rhs(target, lhs, count, degrade)
   if target.expr then
-    local ok, result = pcall(vim.api.nvim_eval, target.rhs)
+    -- Keymap queries return printable notation. Restore mapping-time key encoding before
+    -- evaluation, not afterwards: `<lt>Tab>` must still produce literal `<Tab>` text.
+    local rhs = vim.api.nvim_replace_termcodes(target.rhs, true, true, true)
+    local ok, result = pcall(vim.api.nvim_eval, rhs)
     if not ok then
       notify_failure(lhs, result)
       -- Countless for the same reason as the callback error path above: possibly already spent.
