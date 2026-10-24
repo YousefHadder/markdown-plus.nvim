@@ -103,9 +103,9 @@ That's it! The plugin will automatically activate with default keymaps when you 
 
 ### TOC window commands
 
-Markdown buffers provide `:Toc` (vertical split), `:Toch` (horizontal split), and `:Toct` (new tab). During
-reconfiguration, feature disable, or teardown, markdown-plus removes only commands it registered and that have not
-since been replaced; pre-existing and replacement commands remain untouched.
+Buffers matching `filetypes` provide `:Toc` (vertical split), `:Toch` (horizontal split), and `:Toct` (new tab). When
+leaving those filetypes, reconfiguring, disabling the feature, or tearing down, markdown-plus removes only commands
+it registered and that have not since been replaced; pre-existing and replacement commands remain untouched.
 
 **Want to customize?**
 
@@ -137,6 +137,18 @@ opts = {
 ```
 
 Use `<Plug>(MarkdownPlus...)` mappings for custom remaps instead of undocumented top-level `keymaps.*` action keys.
+
+### Filetype transitions
+
+`filetypes` controls automatic activation, including changes to an already-open buffer:
+
+```lua
+require("markdown-plus").setup({
+  filetypes = { "markdown", "text", "txt" },
+})
+```
+
+Leaving the configured filetypes removes that buffer's plugin-owned default mappings, automatic list-renumbering callbacks and pending work, and owned TOC commands. Returning to a configured filetype reinstalls them without affecting other buffers. User mappings (including custom `<Plug>` mappings), foreign replacement mappings, and foreign commands remain intact.
 
 ### Module enablement
 

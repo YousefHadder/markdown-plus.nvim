@@ -1,4 +1,4 @@
--- End-to-end scenarios for the #387 empty-checkbox fix, mirroring TESTING.md.
+-- End-to-end scenarios for Markdown editing and keymap lifecycle.
 --
 -- Each case is driven through the real buffer-local keymaps with real keypresses, so a pass
 -- means the whole chain works: filetype detection, keymap registration, handler dispatch and
@@ -98,6 +98,37 @@ return {
     lines = { "- [x] done task" },
     keys = "A<CR><Esc>",
     expected = { "- [x] done task", "- [ ] " },
+  },
+  {
+    name = "Enter uses a plain newline after leaving configured filetypes",
+    priority = "P0",
+    lines = { "- item" },
+    setup = function()
+      vim.bo.filetype = "lua"
+    end,
+    keys = "A<CR><Esc>",
+    expected = { "- item", "" },
+  },
+  {
+    name = "Enter continues a list again after re-entering a configured filetype",
+    priority = "P0",
+    lines = { "- item" },
+    setup = function()
+      vim.bo.filetype = "lua"
+      vim.bo.filetype = "markdown"
+    end,
+    keys = "A<CR><Esc>",
+    expected = { "- item", "- " },
+  },
+  {
+    name = "normal o uses native editing after leaving configured filetypes",
+    priority = "P0",
+    lines = { "- item" },
+    setup = function()
+      vim.bo.filetype = "lua"
+    end,
+    keys = "o<Esc>",
+    expected = { "- item", "" },
   },
 
   -- ---------------------------------------------------------------- P0: must not over-match

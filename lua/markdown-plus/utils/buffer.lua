@@ -74,8 +74,8 @@ function M.insert_line(line_num, content)
 end
 
 -- Check if current buffer is markdown (deprecated, kept for compatibility)
--- Note: This check is now redundant as the autocmd pattern already filters by filetype
----@return boolean True if buffer filetype is markdown
+-- Automatic activation is filtered by root setup/FileType dispatch.
+---@return boolean Always true
 function M.is_markdown_buffer()
   return true
 end

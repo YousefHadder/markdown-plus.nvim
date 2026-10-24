@@ -1769,6 +1769,13 @@ The plugin can be enabled for any filetype, not just markdown. This is useful
 for plain text files, note-taking formats, or any text-based format where you
 want markdown-style formatting.
 
+Changing an already-open buffer's filetype also updates automatic activation.
+Leaving the configured filetypes removes that buffer's plugin-owned default
+mappings, automatic list-renumbering callbacks and pending work, and owned TOC
+commands. Returning to a configured filetype reinstalls them without affecting
+other buffers. User mappings (including custom <Plug> mappings), foreign
+replacement mappings, and foreign commands remain intact.
+
 Example: Enable for markdown and plain text files ~
 >lua
     require('markdown-plus').setup({
@@ -1825,10 +1832,11 @@ Future versions may add:
 :Toct           Open Table of Contents in new tab.
                 See note above regarding toggle behavior.
 
-These commands are buffer-local and only available in markdown buffers.
-During reconfiguration, feature disable, or teardown, markdown-plus removes only
-commands it registered and that have not since been replaced. Pre-existing or
-replacement commands with the same names are left untouched.
+These commands are buffer-local and available in buffers matching `filetypes`.
+When leaving those filetypes, reconfiguring, disabling the feature, or tearing
+down, markdown-plus removes only commands it registered and that have not since
+been replaced. Pre-existing or replacement commands with the same names are left
+untouched.
 
 You can also call the Lua API functions directly if needed:
 

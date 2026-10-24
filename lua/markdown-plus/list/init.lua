@@ -50,6 +50,7 @@ end
 
 -- Re-export autocommand lifecycle for backwards compatibility
 M.setup_renumber_autocmds = autocmds.setup_renumber_autocmds
+M.disable = autocmds.disable
 M.teardown = autocmds.teardown
 
 -- Public API: composition hook for users and plugin authors (see `list/context.lua`)
