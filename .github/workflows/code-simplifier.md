@@ -16,6 +16,8 @@ imports:
 - shared/reporting.md
 safe-outputs:
   create-pull-request:
+    excluded-files:
+    - CHANGELOG.md
     expires: 1d
     labels:
     - refactoring
