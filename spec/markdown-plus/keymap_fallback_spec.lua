@@ -29,6 +29,7 @@ describe("markdown-plus keymap_fallback", function()
   after_each(function()
     unmap("n", "<F5>")
     unmap("n", "<F6>")
+    unmap("n", "<Plug>(ForeignExprFallback)")
     unmap("i", "<F5>")
     unmap("i", "<F6>")
     unmap("i", "<Plug>(MarkdownPlusFallbackSpec)")
@@ -85,6 +86,110 @@ describe("markdown-plus keymap_fallback", function()
       flush()
       assert.are.equal("x", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
     end)
+
+    it("restores Vimscript expression key notation before evaluation", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.bo.expandtab = false
+      vim.bo.softtabstop = 0
+      vim.cmd([[nnoremap <expr> <F5> 'i<Tab><Esc>']])
+
+      fallback.run("n", "<F5>")
+      flush()
+
+      assert.are.equal("\t", vim.api.nvim_get_current_line())
+    end)
+
+    it("executes a foreign Plug returned by a Vimscript expression", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.keymap.set("n", "<Plug>(ForeignExprFallback)", "iexpanded<Esc>")
+      vim.cmd([[nmap <expr> <F5> '<Plug>(ForeignExprFallback)']])
+
+      fallback.run("n", "<F5>")
+      flush()
+
+      assert.are.equal("expanded", vim.api.nvim_get_current_line())
+    end)
+
+    it("preserves literal notation escaped with lt in a Vimscript expression", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.cmd([[nnoremap <expr> <F5> 'i<lt>Tab><Esc>']])
+
+      fallback.run("n", "<F5>")
+      flush()
+
+      assert.are.equal("<Tab>", vim.api.nvim_get_current_line())
+    end)
+
+    it("preserves backslash-escaped keys in a Vimscript expression", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.bo.expandtab = false
+      vim.bo.softtabstop = 0
+      vim.cmd([[nnoremap <expr> <F5> "i\<Tab>\<Esc>"]])
+
+      fallback.run("n", "<F5>")
+      flush()
+
+      assert.are.equal("\t", vim.api.nvim_get_current_line())
+    end)
+
+    it("preserves already encoded Lua expression results without interpreting literal notation", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+      vim.keymap.set("n", "<F5>", function()
+        return "i<Tab>" .. vim.api.nvim_replace_termcodes("<Esc>", true, false, true)
+      end, { expr = true, replace_keycodes = false })
+
+      fallback.run("n", "<F5>")
+      flush()
+
+      assert.are.equal("<Tab>", vim.api.nvim_get_current_line())
+    end)
+
+    for _, replace_keycodes in ipairs({ false, true }) do
+      it("preserves UTF-8 expression comparisons with replace_keycodes=" .. tostring(replace_keycodes), function()
+        local line = vim.fn.nr2char(0x2022) .. " item"
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { line })
+        vim.keymap.set("n", "<F5>", string.format([[getline('.') ==# '%s' ? 'Ayes<Esc>' : 'Ano<Esc>']], line), {
+          expr = true,
+          replace_keycodes = replace_keycodes,
+        })
+
+        fallback.run("n", "<F5>")
+        flush()
+
+        assert.are.equal(line .. "yes", vim.api.nvim_get_current_line())
+      end)
+
+      it("preserves UTF-8 expression output with replace_keycodes=" .. tostring(replace_keycodes), function()
+        local text = vim.fn.nr2char(0x2014)
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+        vim.bo.expandtab = false
+        vim.bo.softtabstop = 0
+        vim.keymap.set("n", "<F5>", "'i" .. text .. "<lt>Tab><Esc>'", {
+          expr = true,
+          replace_keycodes = replace_keycodes,
+        })
+
+        fallback.run("n", "<F5>")
+        flush()
+
+        assert.are.equal(text .. (replace_keycodes and "\t" or "<Tab>"), vim.api.nvim_get_current_line())
+      end)
+
+      it("honors replacement of computed notation with replace_keycodes=" .. tostring(replace_keycodes), function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+        vim.bo.expandtab = false
+        vim.bo.softtabstop = 0
+        vim.keymap.set("n", "<F5>", [['i' . nr2char(60) . 'Tab>' . "\<Esc>"]], {
+          expr = true,
+          replace_keycodes = replace_keycodes,
+        })
+
+        fallback.run("n", "<F5>")
+        flush()
+
+        assert.are.equal(replace_keycodes and "\t" or "<Tab>", vim.api.nvim_get_current_line())
+      end)
+    end
 
     it("feeds a remappable rhs so nested mappings still fire", function()
       local nested = false
@@ -213,6 +318,17 @@ describe("markdown-plus keymap_fallback", function()
       -- The bounce degrades to the raw key, which replaces the whole target execution:
       -- `3x` must still delete three characters.
       assert.are.equal("def", vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])
+    end)
+
+    it("degrades a Vimscript expression returning our own Plug without executing it", function()
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, { "abcdef" })
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.cmd([[nnoremap <expr> <F5> '<Plug>(MarkdownPlusListBackspace)']])
+
+      fallback.run("n", "<F5>", { count = 3, fallback_key = "x" })
+      flush()
+
+      assert.are.equal("def", vim.api.nvim_get_current_line())
     end)
 
     -- The in-flight guard's bounce branch is a degradation path like any other: the previous

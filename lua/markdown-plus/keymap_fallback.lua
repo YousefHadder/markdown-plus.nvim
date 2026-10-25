@@ -15,6 +15,9 @@ local resolve = require("markdown-plus.keymap.resolve")
 local feed = require("markdown-plus.keymap.feed")
 local M = {}
 
+local K_SPECIAL = "\128"
+local ESCAPED_K_SPECIAL_PATTERN = vim.pesc(vim.api.nvim_replace_termcodes(K_SPECIAL, true, true, true))
+
 -- Preserve the existing entry points for callers and teardown.
 M.resolve = resolve.resolve
 M.reset = guard.reset
@@ -59,14 +62,24 @@ end
 ---@return nil
 local function run_rhs(target, lhs, count, degrade)
   if target.expr then
-    local ok, result = pcall(vim.api.nvim_eval, target.rhs)
+    -- Keymap queries return printable notation. Restore mapping-time key encoding before
+    -- evaluation, not afterwards: `<lt>Tab>` must still produce literal `<Tab>` text.
+    local rhs = vim.api.nvim_replace_termcodes(target.rhs, true, true, true)
+    -- Internal key escaping is for typeahead, not Vimscript string comparisons.
+    rhs = rhs:gsub(ESCAPED_K_SPECIAL_PATTERN, K_SPECIAL)
+    local ok, result = pcall(vim.api.nvim_eval, rhs)
     if not ok then
       notify_failure(lhs, result)
       -- Countless for the same reason as the callback error path above: possibly already spent.
       feed.raw(degrade or lhs)
       return
     end
-    feed.expr_result(result, target, lhs, count, degrade)
+    if type(result) == "string" and result ~= "" then
+      -- Protect literal notation unless replacement was requested; encode UTF-8 only once.
+      local notation = target.replace_keycodes and result or vim.fn.keytrans(result)
+      local keys = vim.api.nvim_replace_termcodes(notation, true, true, true)
+      feed.target(keys, target, lhs, count, degrade)
+    end
     return
   end
 
