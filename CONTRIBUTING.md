@@ -59,6 +59,33 @@ Copilot code review uses the separate, checkout-only
 `.github/workflows/copilot-code-review.yml`; it does not inherit these installations.
 When updating the tool pins, update the StyLua archive checksum as well.
 
+### Agentic Workflow Maintenance
+
+Use gh-aw `v0.93.3` to regenerate `.github/workflows/*.lock.yml` and the generated
+`agentics-maintenance.yml`. Keep the compiler version in `copilot-setup-steps.yml`
+and the matching `gh-aw-actions` runtime together; updating only the runtime can
+break safe-output publication.
+
+```bash
+gh aw compile --strict --action-mode action
+```
+
+`.github/aw/actions-lock.json` records the verified setup action pins for the
+`gh-aw-actions` `v0.93.3` release. Update those pins alongside the compiler version. Do not use
+`--action-tag` with a commit SHA: maintenance jobs also use that value as the CLI
+release version to install.
+Do not hand-edit generated workflows or independently bump their setup actions.
+Keep the existing Dependabot exclusions for `github/gh-aw-actions/setup` and
+`setup-cli`; upgrade the compiler and regenerate the workflows together instead.
+
+After regeneration, verify that publishing safe-output steps include
+`GH_AW_JOB_CHECK_RUN_ID: ${{ job.check_run_id }}`. This must come from the real
+Actions job context, not a hard-coded value or a disabled provenance check.
+
+PR-producing workflows explicitly exclude the automated `CHANGELOG.md` from
+their patches because this compiler no longer includes it in the default
+protected-file set.
+
 ### Project Structure
 
 ```
