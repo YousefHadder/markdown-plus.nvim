@@ -75,6 +75,7 @@ local function run_case(case, index)
   local cursor = case.cursor or { 1, 0 }
   pcall(vim.api.nvim_win_set_cursor, 0, cursor)
 
+  local cpoptions = vim.o.cpoptions
   local mappings = snapshot_mappings()
   local ok, err = true, nil
   if case.setup then
@@ -94,6 +95,7 @@ local function run_case(case, index)
   pcall(vim.api.nvim_feedkeys, vim.api.nvim_replace_termcodes("<Esc>", true, false, true), "nx", false)
 
   local actual = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  vim.o.cpoptions = cpoptions
   local restored, restore_err = pcall(restore_mappings, mappings)
   if not restored then
     err = (ok and "" or tostring(err) .. "; ") .. "mapping cleanup: " .. tostring(restore_err)
