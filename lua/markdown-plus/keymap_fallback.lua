@@ -33,6 +33,16 @@ local function notify_failure(lhs, err)
   )
 end
 
+---Shield already-converted text from mapping-style backslash processing.
+---@param text string
+---@return string
+local function preserve_backslashes(text)
+  if not vim.o.cpoptions:find("B", 1, true) then
+    return (text:gsub("\\", "\\\\"))
+  end
+  return text
+end
+
 ---Run a Lua callback target
 ---@param target markdown-plus.FallbackTarget Resolved target
 ---@param lhs string Left-hand side, used for error reporting and the raw-key fallback
@@ -64,7 +74,7 @@ local function run_rhs(target, lhs, count, degrade)
   if target.expr then
     -- Keymap queries return printable notation. Restore mapping-time key encoding before
     -- evaluation, not afterwards: `<lt>Tab>` must still produce literal `<Tab>` text.
-    local rhs = vim.api.nvim_replace_termcodes(target.rhs, true, true, true)
+    local rhs = vim.api.nvim_replace_termcodes(preserve_backslashes(target.rhs), true, true, true)
     -- Internal key escaping is for typeahead, not Vimscript string comparisons.
     rhs = rhs:gsub(ESCAPED_K_SPECIAL_PATTERN, K_SPECIAL)
     local ok, result = pcall(vim.api.nvim_eval, rhs)
@@ -76,7 +86,7 @@ local function run_rhs(target, lhs, count, degrade)
     end
     if type(result) == "string" and result ~= "" then
       -- Protect literal notation unless replacement was requested; encode UTF-8 only once.
-      local notation = target.replace_keycodes and result or vim.fn.keytrans(result)
+      local notation = target.replace_keycodes and result or preserve_backslashes(vim.fn.keytrans(result))
       local keys = vim.api.nvim_replace_termcodes(notation, true, true, true)
       feed.target(keys, target, lhs, count, degrade)
     end
