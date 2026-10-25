@@ -18,6 +18,8 @@ imports:
 - shared/mood.md
 safe-outputs:
   create-pull-request:
+    excluded-files:
+    - CHANGELOG.md
     auto-merge: false
     draft: true
     expires: 7d

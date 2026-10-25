@@ -26,6 +26,8 @@ safe-outputs:
     max: 1
     title-prefix: "docs(contributors): "
   create-pull-request:
+    excluded-files:
+    - CHANGELOG.md
     auto-merge: false
     draft: true
     expires: 7d
