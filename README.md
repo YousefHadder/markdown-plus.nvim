@@ -181,7 +181,7 @@ For each such keypress outside markdown-plus's own context it resolves what woul
 
 Plugins that *capture* the mapping they displace (blink.cmp's `fallback`, copilot.lua's passthrough) are handled: handing our own `<Plug>` back terminates in native behavior rather than bouncing forever.
 
-Vimscript expression mappings retain their key encoding: `'<Tab>'` produces a real Tab, and a returned foreign `<Plug>` runs its mapping instead of inserting its name. Escaped literal notation (`'<lt>Tab>'`) stays literal text. Lua expression callbacks continue to honor their `replace_keycodes` setting, including already-encoded results.
+Vimscript expression mappings retain their key encoding: `'<Tab>'` produces a real Tab, and a returned foreign `<Plug>` runs its mapping instead of inserting its name. Unicode comparisons and returned text stay intact. With result keycode replacement disabled, escaped (`'<lt>Tab>'`) or computed literal notation stays literal text; an explicit `replace_keycodes = true` requests replacement just as in Neovim. Lua expression callbacks continue to honor their `replace_keycodes` setting, including already-encoded results.
 
 ### Taking over a key yourself
 

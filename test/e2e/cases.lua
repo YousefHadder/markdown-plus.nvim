@@ -52,6 +52,37 @@ return {
     keys = "A<Tab><Esc>",
     expected = { "plainexpanded" },
   },
+  {
+    name = "Vimscript expression fallback compares UTF-8 text without escaping its bytes",
+    priority = "P1",
+    lines = { vim.fn.nr2char(0x2022) .. " item" },
+    setup = function()
+      vim.keymap.set("i", "<Plug>(ForeignExprFallback)", "expanded")
+      vim.cmd(
+        string.format(
+          [[imap <expr> <Tab> getline('.') ==# '%s item' ? '<Plug>(ForeignExprFallback)' : '<Tab>']],
+          vim.fn.nr2char(0x2022)
+        )
+      )
+    end,
+    keys = "A<Tab><Esc>",
+    expected = { vim.fn.nr2char(0x2022) .. " itemexpanded" },
+  },
+  {
+    name = "Vimscript expression fallback preserves UTF-8 output and requested key replacement",
+    priority = "P1",
+    lines = { "plain" },
+    setup = function()
+      vim.bo.expandtab = false
+      vim.bo.softtabstop = 0
+      vim.keymap.set("i", "<Tab>", "'" .. vim.fn.nr2char(0x2014) .. "<lt>Tab>'", {
+        expr = true,
+        replace_keycodes = true,
+      })
+    end,
+    keys = "A<Tab><Esc>",
+    expected = { "plain" .. vim.fn.nr2char(0x2014) .. "\t" },
+  },
   -- ---------------------------------------------------------------- P0: corruption path
   {
     name = "toggle empty unchecked task (main wrote '- [ ] [ ]')",

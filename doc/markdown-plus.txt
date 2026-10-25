@@ -2592,9 +2592,11 @@ bouncing between the two.
 
 Vimscript expression mappings retain their key encoding: `'<Tab>'` produces a
 real Tab, and a returned foreign `<Plug>` runs its mapping instead of inserting
-its name. Escaped literal notation (`'<lt>Tab>'`) stays literal text. Lua
-expression callbacks continue to honor their `replace_keycodes` setting,
-including already-encoded results.
+its name. Unicode comparisons and returned text stay intact. With result
+keycode replacement disabled, escaped (`'<lt>Tab>'`) or computed literal
+notation stays literal text; an explicit `replace_keycodes = true` requests
+replacement just as in Neovim. Lua expression callbacks continue to honor
+their `replace_keycodes` setting, including already-encoded results.
 
 Known limits:
 - A pre-existing *buffer-local* mapping stops markdown-plus from installing its

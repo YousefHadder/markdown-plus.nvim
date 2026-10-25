@@ -144,6 +144,53 @@ describe("markdown-plus keymap_fallback", function()
       assert.are.equal("<Tab>", vim.api.nvim_get_current_line())
     end)
 
+    for _, replace_keycodes in ipairs({ false, true }) do
+      it("preserves UTF-8 expression comparisons with replace_keycodes=" .. tostring(replace_keycodes), function()
+        local line = vim.fn.nr2char(0x2022) .. " item"
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { line })
+        vim.keymap.set("n", "<F5>", string.format([[getline('.') ==# '%s' ? 'Ayes<Esc>' : 'Ano<Esc>']], line), {
+          expr = true,
+          replace_keycodes = replace_keycodes,
+        })
+
+        fallback.run("n", "<F5>")
+        flush()
+
+        assert.are.equal(line .. "yes", vim.api.nvim_get_current_line())
+      end)
+
+      it("preserves UTF-8 expression output with replace_keycodes=" .. tostring(replace_keycodes), function()
+        local text = vim.fn.nr2char(0x2014)
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+        vim.bo.expandtab = false
+        vim.bo.softtabstop = 0
+        vim.keymap.set("n", "<F5>", "'i" .. text .. "<lt>Tab><Esc>'", {
+          expr = true,
+          replace_keycodes = replace_keycodes,
+        })
+
+        fallback.run("n", "<F5>")
+        flush()
+
+        assert.are.equal(text .. (replace_keycodes and "\t" or "<Tab>"), vim.api.nvim_get_current_line())
+      end)
+
+      it("honors replacement of computed notation with replace_keycodes=" .. tostring(replace_keycodes), function()
+        vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+        vim.bo.expandtab = false
+        vim.bo.softtabstop = 0
+        vim.keymap.set("n", "<F5>", [['i' . nr2char(60) . 'Tab>' . "\<Esc>"]], {
+          expr = true,
+          replace_keycodes = replace_keycodes,
+        })
+
+        fallback.run("n", "<F5>")
+        flush()
+
+        assert.are.equal(replace_keycodes and "\t" or "<Tab>", vim.api.nvim_get_current_line())
+      end)
+    end
+
     it("feeds a remappable rhs so nested mappings still fire", function()
       local nested = false
       vim.keymap.set("n", "<F6>", function()
