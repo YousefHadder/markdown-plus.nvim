@@ -28,7 +28,53 @@ local function RIVAL_ALT_CR()
   vim.keymap.set("i", "<A-CR>", "RIVAL", { remap = false })
 end
 
+---Define an expression before restoring a user's cpoptions without B.
+---@param rhs string
+---@param replace_keycodes boolean
+---@return fun()
+local function expression_without_cpo_b(rhs, replace_keycodes)
+  return function()
+    vim.bo.expandtab = false
+    vim.bo.softtabstop = 0
+    vim.opt.cpoptions:append("B")
+    vim.keymap.set("i", "<Tab>", rhs, { expr = true, replace_keycodes = replace_keycodes })
+    vim.opt.cpoptions:remove("B")
+  end
+end
+
 return {
+  {
+    name = "Vimscript input backslash survives cpo-=B without result replacement",
+    priority = "P1",
+    lines = { "plain" },
+    setup = expression_without_cpo_b([["\t"]], false),
+    keys = "A<Tab><Esc>",
+    expected = { "plain\t" },
+  },
+  {
+    name = "Vimscript input backslash survives cpo-=B with result replacement",
+    priority = "P1",
+    lines = { "plain" },
+    setup = expression_without_cpo_b([["\t"]], true),
+    keys = "A<Tab><Esc>",
+    expected = { "plain\t" },
+  },
+  {
+    name = "Vimscript literal returned backslash survives cpo-=B",
+    priority = "P1",
+    lines = { "plain" },
+    setup = expression_without_cpo_b([[nr2char(92) . 'path']], false),
+    keys = "A<Tab><Esc>",
+    expected = { "plain\\path" },
+  },
+  {
+    name = "Vimscript requested result replacement keeps native cpo-=B backslash handling",
+    priority = "P1",
+    lines = { "plain" },
+    setup = expression_without_cpo_b([[nr2char(92) . 'path']], true),
+    keys = "A<Tab><Esc>",
+    expected = { "plainpath" },
+  },
   {
     name = "Vimscript expression Tab fallback executes key notation",
     priority = "P1",

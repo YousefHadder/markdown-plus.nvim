@@ -191,6 +191,65 @@ describe("markdown-plus keymap_fallback", function()
       end)
     end
 
+    describe("Vimscript expression backslashes", function()
+      local cpoptions
+
+      before_each(function()
+        cpoptions = vim.o.cpoptions
+      end)
+
+      after_each(function()
+        vim.o.cpoptions = cpoptions
+      end)
+
+      for _, cpo_b in ipairs({ false, true }) do
+        for _, replace_keycodes in ipairs({ false, true }) do
+          local options = string.format("cpo-B=%s, replace_keycodes=%s", tostring(cpo_b), tostring(replace_keycodes))
+
+          it("preserves stored expression escapes with " .. options, function()
+            vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+            vim.bo.expandtab = false
+            vim.bo.softtabstop = 0
+            vim.opt.cpoptions:append("B")
+            vim.keymap.set("n", "<F5>", [['i' . "\t" . "\<Esc>"]], {
+              expr = true,
+              replace_keycodes = replace_keycodes,
+            })
+            if not cpo_b then
+              vim.opt.cpoptions:remove("B")
+            end
+            local invocation_cpo = vim.o.cpoptions
+
+            fallback.run("n", "<F5>")
+            flush()
+
+            assert.are.equal("\t", vim.api.nvim_get_current_line())
+            assert.are.equal(invocation_cpo, vim.o.cpoptions)
+          end)
+
+          it("honors native returned backslash semantics with " .. options, function()
+            vim.api.nvim_buf_set_lines(0, 0, -1, false, { "" })
+            vim.opt.cpoptions:append("B")
+            vim.keymap.set("n", "<F5>", [['i' . nr2char(92) . 'path<Esc>']], {
+              expr = true,
+              replace_keycodes = replace_keycodes,
+            })
+            if not cpo_b then
+              vim.opt.cpoptions:remove("B")
+            end
+            local invocation_cpo = vim.o.cpoptions
+
+            fallback.run("n", "<F5>")
+            flush()
+
+            local expected = (cpo_b or not replace_keycodes) and "\\path" or "path"
+            assert.are.equal(expected, vim.api.nvim_get_current_line())
+            assert.are.equal(invocation_cpo, vim.o.cpoptions)
+          end)
+        end
+      end
+    end)
+
     it("feeds a remappable rhs so nested mappings still fire", function()
       local nested = false
       vim.keymap.set("n", "<F6>", function()

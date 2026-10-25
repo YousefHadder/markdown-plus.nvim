@@ -84,4 +84,40 @@ describe("e2e runner fixture isolation", function()
     assert.is_not_nil(output:find("passed 1   failed 1", 1, true), output)
     assert.is_nil(output:find("fixture leaked", 1, true), output)
   end)
+
+  for _, setup_fails in ipairs({ false, true }) do
+    it("restores cpoptions before mapping fixtures when setup fails=" .. tostring(setup_fails), function()
+      local fixture = string.format(
+        [=[
+        vim.opt.cpoptions:append("B")
+        local cpoptions = vim.o.cpoptions
+        vim.keymap.set("i", "<F12>", [[\ORIGINAL]])
+        local mapping = vim.fn.maparg("<F12>", "i", false, true)
+        return {
+          {
+            name = "changes cpoptions", priority = "P0", lines = { "plain" }, keys = "",
+            expected = { "plain" },
+            setup = function()
+              vim.opt.cpoptions:remove("B")
+              if %s then error("injected setup failure") end
+            end,
+          },
+          {
+            name = "restored cpoptions", priority = "P0", lines = { "plain" }, keys = "",
+            expected = { "plain" },
+            setup = function()
+              assert(vim.o.cpoptions == cpoptions, "cpoptions fixture leaked")
+              assert(vim.deep_equal(mapping, vim.fn.maparg("<F12>", "i", false, true)), "mapping fixture leaked")
+            end,
+          },
+        }
+      ]=],
+        tostring(setup_fails)
+      )
+      local status, output = run(fixture)
+      assert.are.equal(setup_fails and 1 or 0, status, output)
+      assert.is_not_nil(output:find(setup_fails and "passed 1   failed 1" or "passed 2   failed 0", 1, true), output)
+      assert.is_nil(output:find("fixture leaked", 1, true), output)
+    end)
+  end
 end)
