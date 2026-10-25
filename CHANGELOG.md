@@ -5,6 +5,27 @@ All notable changes to markdown-plus.nvim will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.2.0...v2.2.1) (2026-10-25)
+
+
+### Bug Fixes
+
+* **ci:** repair agentic workflow publishing provenance ([#443](https://github.com/YousefHadder/markdown-plus.nvim/issues/443)) ([442ea26](https://github.com/YousefHadder/markdown-plus.nvim/commit/442ea26f65644866b9a943e0956df9c08945dc99))
+* **config:** honor module-level enabled flags ([7a1fa0d](https://github.com/YousefHadder/markdown-plus.nvim/commit/7a1fa0d8ea5c62dbf528dd2df0e4f06cc3f6494b))
+* **dialogs:** keep delayed dialog edits in the source buffer ([#431](https://github.com/YousefHadder/markdown-plus.nvim/issues/431)) ([222b855](https://github.com/YousefHadder/markdown-plus.nvim/commit/222b855424b882a89beb59abc929552dbab3d6b4))
+* **headers:** preserve foreign TOC commands ([#436](https://github.com/YousefHadder/markdown-plus.nvim/issues/436)) ([7d13d8d](https://github.com/YousefHadder/markdown-plus.nvim/commit/7d13d8da9e8c59b50de84027786a66f269212c24))
+* **interop:** preserve Vimscript expression mapping key encoding ([#442](https://github.com/YousefHadder/markdown-plus.nvim/issues/442)) ([3876408](https://github.com/YousefHadder/markdown-plus.nvim/commit/38764088ba038086d6d57538bd7c1158dde0713d))
+* **interop:** preserve Vimscript fallback backslashes ([#446](https://github.com/YousefHadder/markdown-plus.nvim/issues/446)) ([7cec6f3](https://github.com/YousefHadder/markdown-plus.nvim/commit/7cec6f301e170a44416424af3e2c46c512b7a218))
+* **lifecycle:** release owned state on filetype changes ([94dff13](https://github.com/YousefHadder/markdown-plus.nvim/commit/94dff1354d9a37051e0ca7b53ee0863165b70080))
+* **links:** preserve edits during pending smart paste ([#435](https://github.com/YousefHadder/markdown-plus.nvim/issues/435)) ([bc020f6](https://github.com/YousefHadder/markdown-plus.nvim/commit/bc020f638bed5963dab1ce01fe7923f46e0835f9))
+* **list:** preserve undo ownership and list continuation ([#415](https://github.com/YousefHadder/markdown-plus.nvim/issues/415)) ([56e729a](https://github.com/YousefHadder/markdown-plus.nvim/commit/56e729a84dba041cb2c72e7fd54a8dd55def32ac))
+* **table:** preserve escaped pipes when formatting ([#427](https://github.com/YousefHadder/markdown-plus.nvim/issues/427)) ([ea8d7f9](https://github.com/YousefHadder/markdown-plus.nvim/commit/ea8d7f9b3193007200e6681cb42693ea984a86ce))
+* **table:** preserve terminal backslashes when parsing ([#429](https://github.com/YousefHadder/markdown-plus.nvim/issues/429)) ([8cf6c89](https://github.com/YousefHadder/markdown-plus.nvim/commit/8cf6c899cb1de225ba33574b9ffe2314be998670))
+* **table:** reject stale cell editor saves ([#430](https://github.com/YousefHadder/markdown-plus.nvim/issues/430)) ([1e587d8](https://github.com/YousefHadder/markdown-plus.nvim/commit/1e587d862a8a2b8ac54fa35871ccc411cfccb66d))
+* **workflows:** clarify noop must be an actual tool invocation ([#413](https://github.com/YousefHadder/markdown-plus.nvim/issues/413)) ([bec4a74](https://github.com/YousefHadder/markdown-plus.nvim/commit/bec4a74aba36b2b325fe66a4236cd5278ebf30c6))
+* **workflows:** exclude agentic-workflows failure issues from skip-if-match ([#408](https://github.com/YousefHadder/markdown-plus.nvim/issues/408)) ([03008ad](https://github.com/YousefHadder/markdown-plus.nvim/commit/03008ad1cb6f1f5a675f3822a84b54b6833d0898))
+* **workflows:** repair gh-aw agentic workflow failures ([#404](https://github.com/YousefHadder/markdown-plus.nvim/issues/404)) ([949b93c](https://github.com/YousefHadder/markdown-plus.nvim/commit/949b93ca018f01f81fdb17741c0a6d599489af71))
+
 ## [2.2.0](https://github.com/YousefHadder/markdown-plus.nvim/compare/v2.1.0...v2.2.0) (2026-08-23)
 
 
