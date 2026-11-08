@@ -170,12 +170,16 @@ Basic configuration with custom keymaps:
           features = {
             list_management = true,
             text_formatting = true,
+            thematic_break = true,
             headers_toc = true,
             links = true,
+            images = true,
             quotes = true,
+            callouts = true,
             code_block = true,
             html_block_awareness = true,
             table = true,
+            footnotes = true,
           },
         })
       end,
