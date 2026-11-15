@@ -33,6 +33,9 @@ end
 ---@field row number 1-indexed line number to rewrite
 ---@field state string New checkbox state
 
+---Default checkbox states: unchecked, then checked
+M.DEFAULT_STATES = { " ", "x" }
+
 ---Check whether a checkbox state counts as checked
 ---@param state string|nil
 ---@return boolean
@@ -40,12 +43,37 @@ function M.is_checked(state)
   return state == "x" or state == "X"
 end
 
----Check whether sync may read and rewrite a checkbox state.
----Custom states such as `[-]` or `[?]` belong to the user and are left alone.
+---Normalize a checkbox state so `X` compares equal to `x`
 ---@param state string|nil
+---@return string|nil
+local function normalize(state)
+  return M.is_checked(state) and "x" or state
+end
+
+---Check whether sync may read and rewrite a checkbox state.
+---Only configured states are managed; custom states such as `[-]` or `[?]` belong to the user.
+---@param state string|nil
+---@param states? string[] Configured checkbox states (default: `{ " ", "x" }`)
 ---@return boolean
-function M.is_managed(state)
-  return state == " " or M.is_checked(state)
+function M.is_managed(state, states)
+  state = normalize(state)
+  return state ~= nil and vim.tbl_contains(states or M.DEFAULT_STATES, state)
+end
+
+---Get the state after `state` in `states`, wrapping around to the first.
+---Unknown states start over at the first state.
+---@param state string|nil
+---@param states? string[] Configured checkbox states (default: `{ " ", "x" }`)
+---@return string
+function M.next_state(state, states)
+  states = states or M.DEFAULT_STATES
+  state = normalize(state)
+  for i, candidate in ipairs(states) do
+    if candidate == state then
+      return states[i % #states + 1]
+    end
+  end
+  return states[1]
 end
 
 ---Pop stack entries that cannot contain a line at the given indentation
@@ -137,13 +165,19 @@ local function node_at_or_above(nodes, row)
 end
 
 ---Plan the checkbox updates that keep parents and children consistent after toggles.
----Toggled items push their state down to their descendants (except descendants that were toggled
----themselves), structural changes mark their item for recomputation, then every marked item and
----every ancestor is recomputed from its children: checked when all of them are, unchecked otherwise.
+---Items toggled to the first or last state push it down to their descendants (except descendants
+---that were toggled themselves), structural changes mark their item for recomputation, then every
+---marked item and every ancestor is recomputed from its children: last state when all of them are
+---done, first state when none has started, and the first in-between state (or the first state when
+---there is none) otherwise.
 ---@param lines string[] All buffer lines, after the toggles were applied
 ---@param changes markdown-plus.list.CheckboxChange[] Toggled or moved list items
+---@param states? string[] Configured checkbox states (default: `{ " ", "x" }`)
 ---@return markdown-plus.list.CheckboxUpdate[] updates Sorted by row
-function M.plan(lines, changes)
+function M.plan(lines, changes, states)
+  states = states or M.DEFAULT_STATES
+  local first, last = states[1], states[#states]
+  local partial = #states > 2 and states[2] or first
   local nodes = M.build_tree(lines)
   local toggled = {}
   for _, change in ipairs(changes) do
@@ -158,7 +192,7 @@ function M.plan(lines, changes)
   ---@param state string
   ---@return nil
   local function set_state(node, state)
-    if M.is_checked(node.state) ~= M.is_checked(state) then
+    if normalize(node.state) ~= state then
       node.state = state
       updates[node.row] = state
     end
@@ -169,7 +203,7 @@ function M.plan(lines, changes)
   ---@return nil
   local function push_down(node, state)
     for _, child in ipairs(node.children) do
-      if not toggled[child.row] and (child.state == nil or M.is_managed(child.state)) then
+      if not toggled[child.row] and (child.state == nil or M.is_managed(child.state, states)) then
         if child.state then
           set_state(child, state)
         end
@@ -194,8 +228,10 @@ function M.plan(lines, changes)
     else
       local node = nodes[change.row]
       if node then
-        if not change.added and M.is_managed(node.state) then
-          push_down(node, node.state)
+        -- Starting a parent does not mean every child has started, so in-between states stay put
+        local state = normalize(node.state)
+        if not change.added and (state == first or state == last) then
+          push_down(node, state)
         end
         mark(node.parent)
       end
@@ -209,18 +245,21 @@ function M.plan(lines, changes)
   end)
   for _, row in ipairs(rows) do
     local node = recompute[row]
-    if M.is_managed(node.state) then
-      local total, checked = 0, 0
+    if M.is_managed(node.state, states) then
+      local total, done, open = 0, 0, 0
       for _, child in ipairs(checkbox_children(node)) do
-        if M.is_managed(child.state) then
+        if M.is_managed(child.state, states) then
           total = total + 1
-          if M.is_checked(child.state) then
-            checked = checked + 1
+          local state = normalize(child.state)
+          if state == last then
+            done = done + 1
+          elseif state == first then
+            open = open + 1
           end
         end
       end
       if total > 0 then
-        set_state(node, checked == total and "x" or " ")
+        set_state(node, done == total and last or open == total and first or partial)
       end
     end
   end

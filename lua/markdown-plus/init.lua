@@ -67,6 +67,7 @@ local DEFAULT_CONFIG = {
     whitespace = "single",
     whitespace_width = 4,
     checkbox_sync = false,
+    checkbox_states = { " ", "x" },
     checkbox_completion = {
       enabled = false,
       format = "emoji",
