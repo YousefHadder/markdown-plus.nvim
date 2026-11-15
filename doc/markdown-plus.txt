@@ -469,6 +469,61 @@ The `date_format` option accepts any valid `os.date()` format string:
     %Y-%m-%d %H:%M  2025-12-28 14:30 (with time)
     %B %d, %Y       December 28, 2025 (long format)
 
+CHECKBOX SYNC ~
+                                                  *markdown-plus-checkbox-sync*
+
+Keep nested tasks consistent when toggling a checkbox. Disabled by default:
+>lua
+    require('markdown-plus').setup({
+      list = {
+        checkbox_sync = true,
+      },
+    })
+<
+
+When enabled, every checkbox toggle (normal, visual and insert mode) also:
+- Sets all descendants of the toggled item to its new state
+- Recomputes its ancestors: checked when all their children are checked,
+  unchecked otherwise
+
+>markdown
+    - [ ] Release                         - [x] Release
+      - [ ] Tag      <localleader>mx on     - [x] Tag
+      - [x] Notes    "Release"         →    - [x] Notes
+
+    - [ ] Release                         - [x] Release
+      - [x] Tag      <localleader>mx on     - [x] Tag
+      - [ ] Notes    "Notes"           →    - [x] Notes
+<
+
+Edits keep tasks in sync too. After you indent or outdent items (`>>`, `<<`,
+visual `>`/`<`, `<Tab>`/`<S-Tab>` in insert mode), add, delete, move or paste
+items, or remove a checkbox, every item whose children changed and all their
+ancestors are recomputed:
+>markdown
+    - [ ] Release                         - [x] Release
+      - [ ] Tag      `>>` on "Notes"        - [x] Tag
+      - [x] Notes                    →        - [x] Notes
+<
+Typing a checkbox state by hand (`rx` on the `[ ]`) counts as a toggle of that
+item. Normal mode edits are synced immediately, insert mode edits once typing
+pauses. The sync joins the undo step of the edit that caused it, and text
+restored by undo or redo is never re-synced. Edits that only change an item's
+text are ignored.
+
+Details:
+- Only `[ ]`, `[x]` and `[X]` are synced. Custom states such as `[-]` are
+  never rewritten, their children are left alone, and they do not count
+  towards their parent's state.
+- List items without a checkbox are looked through, so a task nested under
+  a plain item still belongs to the task above it.
+- Adding a checkbox to a plain item does not change its children.
+- In visual mode, selected items keep the state they toggled to and
+  unselected children follow their selected parent.
+- Completion timestamps (|markdown-plus-checkbox-completion|) are added and
+  removed on synced items too.
+- Tasks inside fenced code blocks are ignored.
+
 AUTO-CONTINUATION ~
 
 Press `<CR>` in insert mode or `o`/`O` in normal mode on a list item to
@@ -1706,6 +1761,7 @@ The plugin can be configured through the setup function:
         smart_outdent = true,         -- Parent-aware outdent and parent continuation on `o`
         whitespace = 'single',        -- 'single' (one space) | 'shiftwidth' (align to block)
         whitespace_width = 4,         -- Block width used when whitespace = 'shiftwidth'
+        checkbox_sync = false,        -- Update parent and child checkboxes on toggle and edit
         checkbox_completion = {
           enabled = false,            -- Add timestamps when checking tasks
           format = 'emoji',           -- 'emoji', 'comment', 'dataview', 'parenthetical'

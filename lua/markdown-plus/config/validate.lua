@@ -194,6 +194,7 @@ local SCHEMA = {
           return true
         end,
       },
+      checkbox_sync = { type = "boolean" },
       checkbox_completion = {
         type = "table",
         fields = {

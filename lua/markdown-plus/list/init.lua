@@ -10,6 +10,7 @@ local checkbox = require("markdown-plus.list.checkbox")
 local toggle = require("markdown-plus.list.toggle")
 local keymaps = require("markdown-plus.list.keymaps")
 local autocmds = require("markdown-plus.list.autocmds")
+local checkbox_autocmds = require("markdown-plus.list.checkbox_autocmds")
 
 local M = {}
 
@@ -41,17 +42,31 @@ function M.enable()
   M.setup_keymaps()
 end
 
----Set up list keymaps and auto-renumber autocommands for the current buffer
+---Set up list keymaps, auto-renumber and checkbox sync autocommands for the current buffer
 ---@return nil
 function M.setup_keymaps()
   keymaps.setup_keymaps(M.config)
   autocmds.setup_renumber_autocmds()
+  checkbox_autocmds.setup()
+end
+
+---Stop list autocommands for one buffer
+---@param bufnr integer Buffer number (0 for current)
+---@return nil
+function M.disable(bufnr)
+  autocmds.disable(bufnr)
+  checkbox_autocmds.disable(bufnr)
+end
+
+---Tear down list autocommand runtime state for every buffer
+---@return nil
+function M.teardown()
+  autocmds.teardown()
+  checkbox_autocmds.teardown()
 end
 
 -- Re-export autocommand lifecycle for backwards compatibility
 M.setup_renumber_autocmds = autocmds.setup_renumber_autocmds
-M.disable = autocmds.disable
-M.teardown = autocmds.teardown
 
 -- Public API: composition hook for users and plugin authors (see `list/context.lua`)
 M.in_list_context = require("markdown-plus.list.context").in_list_context
@@ -78,6 +93,9 @@ M.debug_list_groups = renumber.debug_list_groups
 M.toggle_checkbox_on_line = checkbox.toggle_checkbox_on_line
 M.toggle_checkbox_in_line = checkbox.toggle_checkbox_in_line
 M.replace_checkbox_state = checkbox.replace_checkbox_state
+M.set_checkbox_state_in_line = checkbox.set_checkbox_state_in_line
+M.set_checkbox_state_on_line = checkbox.set_checkbox_state_on_line
+M.sync_checkboxes = checkbox.sync_checkboxes
 M.add_checkbox_to_line = checkbox.add_checkbox_to_line
 M.toggle_checkbox_line = checkbox.toggle_checkbox_line
 M.toggle_checkbox_range = checkbox.toggle_checkbox_range
