@@ -149,10 +149,11 @@ local function write_list_line(line_num, line, list_info, new_line)
   return true
 end
 
----Toggle the checkbox on a line without syncing parents or children
+---Rewrite the checkbox on a line without syncing parents or children
 ---@param line_num number 1-indexed line number
----@return markdown-plus.list.CheckboxChange|nil change The toggled item, or nil if nothing changed
-local function toggle_line(line_num)
+---@param transform fun(line: string, list_info: markdown-plus.ListInfo): string|nil Builds the new line
+---@return markdown-plus.list.CheckboxChange|nil change The changed item, or nil if nothing changed
+local function change_line(line_num, transform)
   local line = utils.get_line(line_num)
   if line == "" then
     return nil
@@ -164,11 +165,39 @@ local function toggle_line(line_num)
     return nil -- Not a list item, do nothing
   end
 
-  local new_line = M.toggle_checkbox_in_line(line, list_info)
+  local new_line = transform(line, list_info)
   if new_line and new_line ~= line and write_list_line(line_num, line, list_info, new_line) then
     return { row = line_num, added = list_info.checkbox == nil }
   end
   return nil
+end
+
+---Toggle the checkbox on a line without syncing parents or children
+---@param line_num number 1-indexed line number
+---@return markdown-plus.list.CheckboxChange|nil change The toggled item, or nil if nothing changed
+local function toggle_line(line_num)
+  return change_line(line_num, M.toggle_checkbox_in_line)
+end
+
+---Cycle the checkbox on a line without syncing parents or children
+---@param line_num number 1-indexed line number
+---@return markdown-plus.list.CheckboxChange|nil change The cycled item, or nil if nothing changed
+local function cycle_line(line_num)
+  return change_line(line_num, M.cycle_checkbox_in_line)
+end
+
+---Get the configured checkbox states
+---@return string[]
+function M.get_states()
+  -- Read the main plugin config first (allows runtime changes), then the module config
+  local ok, markdown_plus = pcall(require, "markdown-plus")
+  if ok and markdown_plus.config and markdown_plus.config.list and markdown_plus.config.list.checkbox_states then
+    return markdown_plus.config.list.checkbox_states
+  end
+  if M.config and M.config.checkbox_states then
+    return M.config.checkbox_states
+  end
+  return checkbox_sync.DEFAULT_STATES
 end
 
 ---Check whether toggling a checkbox also updates its parents and children
@@ -215,7 +244,7 @@ function M.sync_checkboxes(changes, opts)
   changes = vim.list_extend(vim.list_extend({}, changes), edits.take_changes(bufnr))
 
   local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
-  local updates = checkbox_sync.plan(lines, changes)
+  local updates = checkbox_sync.plan(lines, changes, M.get_states())
   if #updates > 0 and opts and opts.undojoin then
     -- Fails with E790 right after an undo; the updates then simply get their own undo step
     pcall(vim.cmd, "undojoin")
@@ -234,6 +263,28 @@ function M.toggle_checkbox_on_line(line_num)
   if change then
     M.sync_checkboxes({ change })
   end
+end
+
+---Cycle checkbox on a specific line through `list.checkbox_states`
+---@param line_num number 1-indexed line number
+---@return nil
+function M.cycle_checkbox_on_line(line_num)
+  local change = cycle_line(line_num)
+  if change then
+    M.sync_checkboxes({ change })
+  end
+end
+
+---Cycle checkbox state in a line: add a checkbox if there is none, otherwise move to the next
+---configured state (custom states start over at the first one)
+---@param line string The line content
+---@param list_info table The parsed list information
+---@return string|nil The modified line, or nil if no change
+function M.cycle_checkbox_in_line(line, list_info)
+  if not list_info.checkbox then
+    return M.add_checkbox_to_line(line, list_info)
+  end
+  return M.set_checkbox_state_in_line(line, list_info, checkbox_sync.next_state(list_info.checkbox, M.get_states()))
 end
 
 ---Toggle checkbox state in a line
@@ -341,15 +392,10 @@ function M.add_checkbox_to_line(line, list_info)
   return line
 end
 
----Toggle checkbox on current line (normal mode)
-function M.toggle_checkbox_line()
-  local cursor = utils.get_cursor()
-  local row = cursor[1]
-  M.toggle_checkbox_on_line(row)
-end
-
----Toggle checkbox in visual range
-function M.toggle_checkbox_range()
+---Apply a line change to every line in the visual range, then sync once.
+---Selected items keep the state they changed to; unselected children follow their selected parent.
+---@param change_fn fun(line_num: number): markdown-plus.list.CheckboxChange|nil
+local function change_range(change_fn)
   local start_row = vim.fn.line("v")
   local end_row = vim.fn.line(".")
 
@@ -362,10 +408,9 @@ function M.toggle_checkbox_range()
     start_row, end_row = end_row, start_row
   end
 
-  -- Toggle every line first so selected items keep the state they toggled to, then sync once
   local changes = {}
   for row = start_row, end_row do
-    local change = toggle_line(row)
+    local change = change_fn(row)
     if change then
       table.insert(changes, change)
     end
@@ -373,14 +418,15 @@ function M.toggle_checkbox_range()
   M.sync_checkboxes(changes)
 end
 
----Toggle checkbox in insert mode (maintains cursor position)
-function M.toggle_checkbox_insert()
+---Run a line action on the cursor line in insert mode, keeping the cursor on the same text
+---@param action fun(line_num: number)
+local function run_keeping_cursor(action)
   local cursor = utils.get_cursor()
   local row = cursor[1]
   local col = cursor[2]
 
   local old_line = utils.get_line(row)
-  M.toggle_checkbox_on_line(row)
+  action(row)
 
   -- Restore cursor position (adjusting for potential line length changes)
   local new_line = utils.get_line(row)
@@ -405,6 +451,36 @@ function M.toggle_checkbox_insert()
   end
 
   vim.api.nvim_win_set_cursor(0, { row, new_col })
+end
+
+---Toggle checkbox on current line (normal mode)
+function M.toggle_checkbox_line()
+  M.toggle_checkbox_on_line(utils.get_cursor()[1])
+end
+
+---Toggle checkbox in visual range
+function M.toggle_checkbox_range()
+  change_range(toggle_line)
+end
+
+---Toggle checkbox in insert mode (maintains cursor position)
+function M.toggle_checkbox_insert()
+  run_keeping_cursor(M.toggle_checkbox_on_line)
+end
+
+---Cycle checkbox on current line (normal mode)
+function M.cycle_checkbox_line()
+  M.cycle_checkbox_on_line(utils.get_cursor()[1])
+end
+
+---Cycle checkbox in visual range
+function M.cycle_checkbox_range()
+  change_range(cycle_line)
+end
+
+---Cycle checkbox in insert mode (maintains cursor position)
+function M.cycle_checkbox_insert()
+  run_keeping_cursor(M.cycle_checkbox_on_line)
 end
 
 return M

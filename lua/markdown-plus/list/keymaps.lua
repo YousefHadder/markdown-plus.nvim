@@ -89,6 +89,17 @@ function M.setup_keymaps(config)
       desc = "Toggle checkbox",
     },
     {
+      plug = keymap_helper.plug_name("CycleCheckbox"),
+      fn = {
+        checkbox.cycle_checkbox_line,
+        checkbox.cycle_checkbox_range,
+        checkbox.cycle_checkbox_insert,
+      },
+      modes = { "n", "x", "i" },
+      default_key = { "<localleader>mX", "<localleader>mX" },
+      desc = "Cycle checkbox state",
+    },
+    {
       plug = keymap_helper.plug_name("ToggleListUnordered"),
       fn = {
         function()
