@@ -70,6 +70,7 @@
 ---List configuration
 ---@class markdown-plus.ListConfig
 ---@field checkbox_completion? markdown-plus.CheckboxCompletionConfig Checkbox completion timestamp configuration
+---@field checkbox_sync? boolean Update parent and child checkboxes on toggles and list edits (default: false)
 ---@field smart_outdent? boolean Enable parent-aware smart outdent/continuation (default: true)
 ---@field whitespace? "single"|"shiftwidth" Spacing between a list marker and its content (default: "single")
 ---@field whitespace_width? number Alignment block width used when whitespace = "shiftwidth" (default: 4)
@@ -196,6 +197,7 @@
 ---Internal list configuration
 ---@class markdown-plus.InternalListConfig
 ---@field checkbox_completion markdown-plus.InternalCheckboxCompletionConfig
+---@field checkbox_sync boolean
 ---@field smart_outdent boolean
 ---@field whitespace string
 ---@field whitespace_width number

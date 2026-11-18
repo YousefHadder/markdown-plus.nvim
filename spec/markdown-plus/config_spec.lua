@@ -230,6 +230,24 @@ describe("markdown-plus configuration", function()
     end)
   end)
 
+  describe("list checkbox_sync config", function()
+    it("defaults checkbox_sync to false", function()
+      markdown_plus.setup({})
+      assert.is_false(markdown_plus.config.list.checkbox_sync)
+    end)
+
+    it("accepts checkbox_sync = true", function()
+      markdown_plus.setup({ list = { checkbox_sync = true } })
+      assert.is_true(markdown_plus.config.list.checkbox_sync)
+    end)
+
+    it("rejects a non-boolean checkbox_sync", function()
+      local before = vim.deepcopy(markdown_plus.config.list)
+      markdown_plus.setup({ list = { checkbox_sync = "yes" } })
+      assert.equals(before.checkbox_sync, markdown_plus.config.list.checkbox_sync)
+    end)
+  end)
+
   describe("feature toggles", function()
     it("can disable all features", function()
       markdown_plus.setup({

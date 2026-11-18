@@ -2,6 +2,7 @@
 local utils = require("markdown-plus.utils")
 local parser = require("markdown-plus.list.parser")
 local shared = require("markdown-plus.list.shared")
+local checkbox_sync = require("markdown-plus.list.checkbox_sync")
 local M = {}
 
 ---@type markdown-plus.InternalListConfig|nil
@@ -113,48 +114,125 @@ local function has_timestamp(content)
   return false, nil
 end
 
----Toggle checkbox on a specific line
+---Write a rewritten list line back to the buffer.
+---The checkbox prefix is edited separately from optional timestamps around unchanged content.
 ---@param line_num number 1-indexed line number
----@return nil
-function M.toggle_checkbox_on_line(line_num)
+---@param line string The current line content
+---@param list_info markdown-plus.ListInfo The parsed list information for `line`
+---@param new_line string The rewritten line
+---@return boolean written Whether the line was written
+local function write_list_line(line_num, line, list_info, new_line)
+  local prefix = line:match("^" .. utils.escape_pattern(list_info.indent .. list_info.marker) .. "%s*")
+  if not prefix then
+    vim.notify("markdown-plus: Could not locate the checkbox prefix", vim.log.levels.ERROR)
+    return false
+  end
+
+  local row = line_num - 1
+  if list_info.checkbox then
+    local state_col = #prefix + 1
+    vim.api.nvim_buf_set_text(0, row, state_col, row, state_col + #list_info.checkbox, {
+      new_line:sub(state_col + 1, state_col + 1),
+    })
+    local spacing_col = #prefix + 3
+    local old_spacing_col = #prefix + #list_info.checkbox + 2
+    local old_spacing = line:sub(old_spacing_col + 1):match("^%s*") or ""
+    local new_spacing = new_line:sub(spacing_col + 1):match("^%s*") or ""
+    if old_spacing ~= new_spacing then
+      vim.api.nvim_buf_set_text(0, row, spacing_col, row, spacing_col + #old_spacing, { new_spacing })
+    end
+  else
+    local added = #new_line - #line
+    vim.api.nvim_buf_set_text(0, row, #prefix, row, #prefix, { new_line:sub(#prefix + 1, #prefix + added) })
+  end
+  utils.set_line(line_num, new_line)
+  return true
+end
+
+---Toggle the checkbox on a line without syncing parents or children
+---@param line_num number 1-indexed line number
+---@return markdown-plus.list.CheckboxChange|nil change The toggled item, or nil if nothing changed
+local function toggle_line(line_num)
   local line = utils.get_line(line_num)
   if line == "" then
-    return
+    return nil
   end
 
   local list_info = parser.parse_list_line(line, line_num)
 
   if not list_info then
-    return -- Not a list item, do nothing
+    return nil -- Not a list item, do nothing
   end
 
   local new_line = M.toggle_checkbox_in_line(line, list_info)
-  if new_line and new_line ~= line then
-    local prefix = line:match("^" .. utils.escape_pattern(list_info.indent .. list_info.marker) .. "%s*")
-    if not prefix then
-      vim.notify("markdown-plus: Could not locate the checkbox prefix", vim.log.levels.ERROR)
-      return
-    end
+  if new_line and new_line ~= line and write_list_line(line_num, line, list_info, new_line) then
+    return { row = line_num, added = list_info.checkbox == nil }
+  end
+  return nil
+end
 
-    local row = line_num - 1
-    -- Keep prefix changes separate from optional timestamps around unchanged content.
-    if list_info.checkbox then
-      local state_col = #prefix + 1
-      vim.api.nvim_buf_set_text(0, row, state_col, row, state_col + #list_info.checkbox, {
-        new_line:sub(state_col + 1, state_col + 1),
-      })
-      local spacing_col = #prefix + 3
-      local old_spacing_col = #prefix + #list_info.checkbox + 2
-      local old_spacing = line:sub(old_spacing_col + 1):match("^%s*") or ""
-      local new_spacing = new_line:sub(spacing_col + 1):match("^%s*") or ""
-      if old_spacing ~= new_spacing then
-        vim.api.nvim_buf_set_text(0, row, spacing_col, row, spacing_col + #old_spacing, { new_spacing })
-      end
-    else
-      local added = #new_line - #line
-      vim.api.nvim_buf_set_text(0, row, #prefix, row, #prefix, { new_line:sub(#prefix + 1, #prefix + added) })
-    end
-    utils.set_line(line_num, new_line)
+---Check whether toggling a checkbox also updates its parents and children
+---@return boolean
+function M.is_sync_enabled()
+  -- Read the main plugin config first (allows runtime changes), then the module config
+  local ok, markdown_plus = pcall(require, "markdown-plus")
+  if ok and markdown_plus.config and markdown_plus.config.list and markdown_plus.config.list.checkbox_sync ~= nil then
+    return markdown_plus.config.list.checkbox_sync
+  end
+  return M.config ~= nil and M.config.checkbox_sync == true
+end
+
+---Set the checkbox state of the list item on a specific line
+---@param line_num number 1-indexed line number
+---@param state string New checkbox state
+---@return boolean changed Whether the line changed
+function M.set_checkbox_state_on_line(line_num, state)
+  local line = utils.get_line(line_num)
+  local list_info = parser.parse_list_line(line, line_num)
+  if not list_info or not list_info.checkbox then
+    return false
+  end
+
+  local new_line = M.set_checkbox_state_in_line(line, list_info, state)
+  return new_line ~= line and write_list_line(line_num, line, list_info, new_line)
+end
+
+---Update parents and children of toggled items when `list.checkbox_sync` is enabled
+---
+---With `opts.undojoin`, the updates join the undo block of the edit that caused them, so one
+---`u` reverts both.
+---@param changes markdown-plus.list.CheckboxChange[] Toggled or moved list items
+---@param opts? { undojoin?: boolean }
+---@return nil
+function M.sync_checkboxes(changes, opts)
+  if #changes == 0 or not M.is_sync_enabled() then
+    return
+  end
+
+  -- Edits not synced yet (e.g. an indent typed just before toggling) are synced along
+  local edits = require("markdown-plus.list.checkbox_autocmds")
+  local bufnr = vim.api.nvim_get_current_buf()
+  changes = vim.list_extend(vim.list_extend({}, changes), edits.take_changes(bufnr))
+
+  local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+  local updates = checkbox_sync.plan(lines, changes)
+  if #updates > 0 and opts and opts.undojoin then
+    -- Fails with E790 right after an undo; the updates then simply get their own undo step
+    pcall(vim.cmd, "undojoin")
+  end
+  for _, update in ipairs(updates) do
+    M.set_checkbox_state_on_line(update.row, update.state)
+  end
+  edits.refresh(bufnr)
+end
+
+---Toggle checkbox on a specific line
+---@param line_num number 1-indexed line number
+---@return nil
+function M.toggle_checkbox_on_line(line_num)
+  local change = toggle_line(line_num)
+  if change then
+    M.sync_checkboxes({ change })
   end
 end
 
@@ -177,6 +255,16 @@ end
 ---@param list_info table The parsed list information
 ---@return string The modified line
 function M.replace_checkbox_state(line, list_info)
+  local new_state = checkbox_sync.is_checked(list_info.checkbox) and " " or "x"
+  return M.set_checkbox_state_in_line(line, list_info, new_state)
+end
+
+---Set the checkbox state in a line, adding or removing completion timestamps as configured
+---@param line string The line content
+---@param list_info table The parsed list information
+---@param new_state string The checkbox state to write
+---@return string The modified line
+function M.set_checkbox_state_in_line(line, list_info, new_state)
   local indent = list_info.indent
   local marker = list_info.marker
   local config = M.get_completion_config()
@@ -187,9 +275,7 @@ function M.replace_checkbox_state(line, list_info)
   local prefix, content = line:match(checkbox_pattern)
 
   if prefix and content ~= nil then
-    local current_state = list_info.checkbox
-    local is_checking = not (current_state == "x" or current_state == "X")
-    local new_state = is_checking and "x" or " "
+    local is_checking = checkbox_sync.is_checked(new_state)
 
     -- Handle completion timestamps
     if config.enabled then
@@ -276,9 +362,15 @@ function M.toggle_checkbox_range()
     start_row, end_row = end_row, start_row
   end
 
+  -- Toggle every line first so selected items keep the state they toggled to, then sync once
+  local changes = {}
   for row = start_row, end_row do
-    M.toggle_checkbox_on_line(row)
+    local change = toggle_line(row)
+    if change then
+      table.insert(changes, change)
+    end
   end
+  M.sync_checkboxes(changes)
 end
 
 ---Toggle checkbox in insert mode (maintains cursor position)
