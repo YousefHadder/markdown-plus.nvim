@@ -51,6 +51,7 @@ end
 ---Pop stack entries that cannot contain a line at the given indentation
 ---@param stack markdown-plus.list.CheckboxNode[]
 ---@param width number
+---@return nil
 local function close_items(stack, width)
   while #stack > 0 and stack[#stack].indent >= width do
     table.remove(stack)
@@ -155,6 +156,7 @@ function M.plan(lines, changes)
 
   ---@param node markdown-plus.list.CheckboxNode
   ---@param state string
+  ---@return nil
   local function set_state(node, state)
     if M.is_checked(node.state) ~= M.is_checked(state) then
       node.state = state
@@ -164,6 +166,7 @@ function M.plan(lines, changes)
 
   ---@param node markdown-plus.list.CheckboxNode
   ---@param state string
+  ---@return nil
   local function push_down(node, state)
     for _, child in ipairs(node.children) do
       if not toggled[child.row] and (child.state == nil or M.is_managed(child.state)) then
@@ -177,6 +180,7 @@ function M.plan(lines, changes)
 
   local recompute = {}
   ---@param node markdown-plus.list.CheckboxNode|nil
+  ---@return nil
   local function mark(node)
     while node and not recompute[node.row] do
       recompute[node.row] = node
