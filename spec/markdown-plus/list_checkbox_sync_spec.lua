@@ -7,6 +7,7 @@ describe("markdown-plus checkbox sync", function()
   local buf
   local markdown_plus
   local original_list_config
+  local original_features
 
   ---@param lines string[]
   local function set_lines(lines)
@@ -24,14 +25,19 @@ describe("markdown-plus checkbox sync", function()
     vim.api.nvim_set_current_buf(buf)
     markdown_plus = require("markdown-plus")
     original_list_config = markdown_plus.config.list
+    original_features = markdown_plus.config.features
+    markdown_plus.config.features = vim.tbl_extend("force", original_features or {}, { html_block_awareness = true })
     markdown_plus.config.list = vim.tbl_deep_extend("force", vim.deepcopy(original_list_config or {}), {
       checkbox_sync = true,
       checkbox_completion = { enabled = false },
     })
+    list.setup(markdown_plus.config)
   end)
 
   after_each(function()
     markdown_plus.config.list = original_list_config
+    markdown_plus.config.features = original_features
+    list.setup(markdown_plus.config)
     vim.cmd("stopinsert")
     if vim.api.nvim_buf_is_valid(buf) then
       vim.api.nvim_buf_delete(buf, { force = true })
@@ -39,6 +45,22 @@ describe("markdown-plus checkbox sync", function()
   end)
 
   describe("build_tree", function()
+    for _, delimiters in ipairs({ { "<div>", "</div>" }, { "<!--", "-->" }, { "<script>", "</script>" } }) do
+      it("excludes " .. delimiters[1] .. " HTML blocks without disturbing surrounding list ancestry", function()
+        local nodes = checkbox_sync.build_tree({
+          "- [ ] parent",
+          "  " .. delimiters[1],
+          "  - [ ] HTML example",
+          "  ```",
+          "  " .. delimiters[2],
+          "",
+          "  - [ ] real child",
+        })
+        assert.is_nil(nodes[3])
+        assert.are.equal(nodes[1], nodes[7].parent)
+      end)
+    end
+
     it("nests list items by indentation", function()
       local nodes = checkbox_sync.build_tree({
         "- [ ] parent",
@@ -86,6 +108,37 @@ describe("markdown-plus checkbox sync", function()
   end)
 
   describe("downward", function()
+    it("updates real children but leaves HTML-block tasks unchanged", function()
+      set_lines({
+        "- [ ] parent",
+        "  <div>",
+        "  - [ ] HTML example",
+        "  </div>",
+        "",
+        "  - [ ] real child",
+      })
+      list.toggle_checkbox_on_line(1)
+      assert.are.same({
+        "- [x] parent",
+        "  <div>",
+        "  - [ ] HTML example",
+        "  </div>",
+        "",
+        "  - [x] real child",
+      }, get_lines())
+    end)
+
+    it("includes HTML-block tasks when HTML awareness is disabled", function()
+      markdown_plus.config.features.html_block_awareness = false
+      list.setup(markdown_plus.config)
+      set_lines({ "- [ ] parent", "  <div>", "  - [ ] HTML example", "  </div>", "", "  - [ ] real child" })
+      list.toggle_checkbox_on_line(1)
+      assert.are.same(
+        { "- [x] parent", "  <div>", "  - [x] HTML example", "  </div>", "", "  - [x] real child" },
+        get_lines()
+      )
+    end)
+
     it("checks every descendant when checking a parent", function()
       set_lines({
         "- [ ] parent",
@@ -142,6 +195,15 @@ describe("markdown-plus checkbox sync", function()
   end)
 
   describe("upward", function()
+    it("does not count HTML-block tasks towards parent completion", function()
+      set_lines({ "- [ ] parent", "  <div>", "  - [ ] HTML example", "  </div>", "", "  - [ ] real child" })
+      list.toggle_checkbox_on_line(6)
+      assert.are.same(
+        { "- [x] parent", "  <div>", "  - [ ] HTML example", "  </div>", "", "  - [x] real child" },
+        get_lines()
+      )
+    end)
+
     it("checks the parent chain when the last open child is checked", function()
       set_lines({
         "- [ ] grandparent",

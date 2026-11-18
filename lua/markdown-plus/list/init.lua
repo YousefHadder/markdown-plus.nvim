@@ -7,6 +7,7 @@ local shared = require("markdown-plus.list.shared")
 local handlers = require("markdown-plus.list.handlers")
 local renumber = require("markdown-plus.list.renumber")
 local checkbox = require("markdown-plus.list.checkbox")
+local checkbox_sync = require("markdown-plus.list.checkbox_sync")
 local toggle = require("markdown-plus.list.toggle")
 local keymaps = require("markdown-plus.list.keymaps")
 local autocmds = require("markdown-plus.list.autocmds")
@@ -30,6 +31,7 @@ function M.setup(config)
   shared.set_whitespace_config(M.config.list)
   handlers.set_config(M.config)
   renumber.set_html_awareness(utils.is_html_awareness_enabled(M.config))
+  checkbox_sync.set_html_awareness(utils.is_html_awareness_enabled(M.config))
 end
 
 ---Enable list features for current buffer

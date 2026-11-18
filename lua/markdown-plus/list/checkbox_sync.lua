@@ -2,7 +2,17 @@
 -- Pure planning: reads buffer lines, returns the checkbox states to write. Never edits the buffer.
 local parser = require("markdown-plus.list.parser")
 local code_block_parser = require("markdown-plus.code_block.parser")
+local utils = require("markdown-plus.utils")
 local M = {}
+
+local html_awareness = true
+
+---Set HTML block awareness state, as for list group scanning.
+---@param enabled boolean
+---@return nil
+function M.set_html_awareness(enabled)
+  html_awareness = enabled ~= false
+end
 
 ---@class markdown-plus.list.CheckboxNode
 ---@field row number 1-indexed line number
@@ -48,15 +58,21 @@ local function close_items(stack, width)
 end
 
 ---Build the list item tree for a buffer.
----Fenced code blocks are skipped, and any non-list line closes the items it is not indented under.
+---Fenced code blocks and HTML blocks (when awareness is enabled) are skipped.
+---Any other non-list line closes the items it is not indented under.
 ---@param lines string[] All buffer lines
 ---@return table<number, markdown-plus.list.CheckboxNode> nodes List items keyed by row
 function M.build_tree(lines)
   local nodes = {}
   local stack = {}
   local fence = nil
+  local html_block_lines = html_awareness and utils.get_html_block_lines(lines) or {}
 
   for row, line in ipairs(lines) do
+    if html_block_lines[row] then
+      -- Like group_scanner, ignore the whole HTML block without changing list ancestry.
+      goto continue
+    end
     if fence then
       if code_block_parser.parse_closing_fence(line, fence) then
         fence = nil
@@ -84,6 +100,7 @@ function M.build_tree(lines)
         fence = opening
       end
     end
+    ::continue::
   end
 
   return nodes
