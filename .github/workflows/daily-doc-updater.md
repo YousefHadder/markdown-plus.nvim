@@ -13,8 +13,10 @@ network:
   - github
 imports:
 - shared/mood.md
+- shared/safe-output-app.md
 safe-outputs:
   create-pull-request:
+    github-token-for-extra-empty-commit: app
     excluded-files:
     - CHANGELOG.md
     auto-merge: false
@@ -26,7 +28,7 @@ safe-outputs:
     protected-files: fallback-to-issue
     reviewers:
     - copilot
-    title-prefix: "[docs] "
+    title-prefix: "docs(doc-updater): "
   noop: null
 description: Automatically reviews and updates documentation to ensure accuracy and completeness
 engine: copilot
@@ -125,7 +127,7 @@ repo:${{ github.repository }} is:issue is:closed label:documentation closed:>=YY
 ```
 
 For each closed issue:
-- **closed as completed**: Check whether a `[docs]` PR references it. If no such PR exists, also search for any merged PR that closes or fixes the issue by number (e.g. `closes #NNN`, `fixes #NNN`, `resolves #NNN` in the PR body). If such a PR is found and its documentation change is complete, skip the issue.
+- **closed as completed**: Check whether a `docs(doc-updater):` PR references it. If no such PR exists, also search for any merged PR that closes or fixes the issue by number (e.g. `closes #NNN`, `fixes #NNN`, `resolves #NNN` in the PR body). If such a PR is found and its documentation change is complete, skip the issue.
   - If no explicit issue-reference PR is found, run a fallback heuristic for likely spec-librarian/copilot fix PRs that omit issue numbers:
     1. Infer the module from the issue title/body (for example `lua/markdown-plus/list`).
     2. Search for merged PRs in a tight window around issue closure (prefer ±60 minutes) that modify `doc/markdown-plus.txt` or `README.md`.
@@ -249,7 +251,7 @@ If you made any documentation changes:
    - Links to relevant merged PRs that triggered the updates
    - Any notes about features that need further review
 
-**PR Title Format**: `[docs] Update documentation for features from [date]`
+**PR Title Format**: `docs(doc-updater): update documentation for features from [date]` (keep the text after the prefix lowercase-first so it passes PR title validation)
 
 **PR Description Template**:
 ```markdown

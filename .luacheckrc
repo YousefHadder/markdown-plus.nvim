@@ -7,10 +7,6 @@ globals = {
   "vim",
 }
 
-read_globals = {
-  "vim",
-}
-
 -- Ignore warnings about line length
 max_line_length = false
 

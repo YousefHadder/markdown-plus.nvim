@@ -1,7 +1,7 @@
 ---
 on:
   schedule: weekly
-  skip-if-match: is:pr is:open in:title "[code-simplifier]" -label:agentic-workflows
+  skip-if-match: is:pr is:open in:title "refactor(code-simplifier):" -label:agentic-workflows
 permissions:
   contents: read
   issues: read
@@ -14,8 +14,10 @@ network:
 imports:
 - shared/mood.md
 - shared/reporting.md
+- shared/safe-output-app.md
 safe-outputs:
   create-pull-request:
+    github-token-for-extra-empty-commit: app
     excluded-files:
     - CHANGELOG.md
     expires: 1d
@@ -26,7 +28,7 @@ safe-outputs:
     reviewers:
     - copilot
     - YousefHadder
-    title-prefix: "[code-simplifier] "
+    title-prefix: "refactor(code-simplifier): "
   noop: null
 description: Analyzes recently modified code for simplification opportunities and performs semantic function analysis to detect duplicates, outliers, and misplaced functions — creates pull requests with improvements
 engine: copilot
@@ -537,7 +539,7 @@ Please verify:
 
 Create the pull request using the safe-outputs configuration:
 
-- Title will be prefixed with `[code-simplifier]`
+- Title will be prefixed with `refactor(code-simplifier): `; start the rest of the title with a lowercase letter (for example, `refactor(code-simplifier): simplify list renumbering`) so it passes PR title validation
 - Labeled with `refactoring`, `code-quality`, `automation`
 - Assigned to `copilot` for review
 - Set as ready for review (not draft)
