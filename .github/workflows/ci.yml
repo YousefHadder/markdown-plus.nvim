@@ -5,8 +5,25 @@ on:
     branches: [main, v2.0]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   ci:
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/v2.0'
+    permissions:
+      contents: read
+    uses: folke/github/.github/workflows/ci.yml@main
+    secrets: inherit
+    with:
+      plugin: markdown-plus
+      repo: YousefHadder/markdown-plus.nvim
+      docs: false
+  ci-main:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+      pull-requests: write
     uses: folke/github/.github/workflows/ci.yml@main
     secrets: inherit
     with:
