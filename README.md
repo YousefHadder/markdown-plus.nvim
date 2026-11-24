@@ -23,7 +23,7 @@
 A comprehensive Neovim plugin that provides modern markdown editing capabilities, implementing features found in popular editors like Typora, Mark Text, and Obsidian.
 
 > [!NOTE]
-> **v2.0 includes breaking changes.** Please read the migration guide before upgrading: [v2.0 Migration Guide (Wiki)](https://github.com/YousefHadder/markdown-plus.nvim/wiki/9.v2.0-Migration-Guide).
+> **v2.0 includes breaking changes.** Please read the migration guide before upgrading: [v2.0 Migration Guide (Wiki)](https://github.com/YousefHadder/markdown-plus.nvim/wiki/09.v2.0-Migration-Guide).
 
 **Key Features:** Zero dependencies • Works with any filetype • Full test coverage (85%+) • Extensively documented
 
@@ -60,14 +60,14 @@ https://github.com/user-attachments/assets/5ddbc02c-68ba-44f0-8cc0-41807a23e788
 
 ## Table of Contents
 
-- [Installation](https://github.com/yousefhadder/markdown-plus.nvim/wiki/1.Installation)
-- [Features](https://github.com/yousefhadder/markdown-plus.nvim/wiki/2.Features)
-- [Configuration](https://github.com/yousefhadder/markdown-plus.nvim/wiki/3.Configuration)
-- [Usage](https://github.com/yousefhadder/markdown-plus.nvim/wiki/4.Usage)
-- [Keymaps Reference](https://github.com/yousefhadder/markdown-plus.nvim/wiki/5.Keymaps)
-- [Customizing Keymaps](https://github.com/yousefhadder/markdown-plus.nvim/wiki/6.Customizing-Keymaps)
-- [Contributing](https://github.com/yousefhadder/markdown-plus.nvim/wiki/7.Contributing)
-- [Troubleshooting](https://github.com/yousefhadder/markdown-plus.nvim/wiki/8.Troubleshooting)
+- [Installation](https://github.com/yousefhadder/markdown-plus.nvim/wiki/01.Installation)
+- [Features](https://github.com/yousefhadder/markdown-plus.nvim/wiki/02.Features)
+- [Configuration](https://github.com/yousefhadder/markdown-plus.nvim/wiki/03.Configuration)
+- [Usage](https://github.com/yousefhadder/markdown-plus.nvim/wiki/04.Usage)
+- [Keymaps Reference](https://github.com/yousefhadder/markdown-plus.nvim/wiki/05.Keymaps)
+- [Customizing Keymaps](https://github.com/yousefhadder/markdown-plus.nvim/wiki/06.Customizing-Keymaps)
+- [Contributing](https://github.com/yousefhadder/markdown-plus.nvim/wiki/07.Contributing)
+- [Troubleshooting](https://github.com/yousefhadder/markdown-plus.nvim/wiki/08.Troubleshooting)
 
 ## Quick Start
 
@@ -120,7 +120,7 @@ it registered and that have not since been replaced; pre-existing and replacemen
 }
 ```
 
-See [Configuration](https://github.com/YousefHadder/markdown-plus.nvim/wiki/3.Configuration) for all available options.
+See [Configuration](https://github.com/YousefHadder/markdown-plus.nvim/wiki/03.Configuration) for all available options.
 
 For keymaps, the supported config shape is:
 
