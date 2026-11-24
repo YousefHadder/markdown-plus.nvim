@@ -523,6 +523,38 @@ Details:
 - Completion timestamps (|markdown-plus-checkbox-completion|) are added and
   removed on synced items too.
 - Tasks inside fenced code blocks are ignored.
+- With in-between states (|markdown-plus-checkbox-states|), a parent whose
+  children are partly done gets the first in-between state, and only the
+  first and last states are pushed down to children.
+
+CHECKBOX STATES ~
+                                                *markdown-plus-checkbox-states*
+
+`<localleader>mX` in normal and visual mode
+(`<Plug>(MarkdownPlusCycleCheckbox)`) steps a checkbox through
+`list.checkbox_states`, adding a checkbox to plain list items:
+>lua
+    require('markdown-plus').setup({
+      list = {
+        checkbox_states = { ' ', '/', 'x' },  -- unchecked, in progress, done
+      },
+    })
+<
+
+>markdown
+    - [ ] Task  <localleader>mX  →  - [/] Task  <localleader>mX  →  - [x] Task
+<
+
+The cycle has no insert mode default; map one yourself if you want it:
+>lua
+    vim.keymap.set('i', '<A-x>', '<Plug>(MarkdownPlusCycleCheckbox)')
+<
+
+The list must start with `' '` and end with `'x'`; anything in between is an
+in-between state. Each state is a single character. States that are not in
+the list (for example `[-]`) start over at the first state. The default
+`{ ' ', 'x' }` makes cycling the same as toggling. The toggle action
+(`<localleader>mx`) is unchanged: it still switches between `[ ]` and `[x]`.
 
 AUTO-CONTINUATION ~
 
@@ -1762,6 +1794,7 @@ The plugin can be configured through the setup function:
         whitespace = 'single',        -- 'single' (one space) | 'shiftwidth' (align to block)
         whitespace_width = 4,         -- Block width used when whitespace = 'shiftwidth'
         checkbox_sync = false,        -- Update parent and child checkboxes on toggle and edit
+        checkbox_states = { ' ', 'x' }, -- States the cycle action steps through
         checkbox_completion = {
           enabled = false,            -- Add timestamps when checking tasks
           format = 'emoji',           -- 'emoji', 'comment', 'dataview', 'parenthetical'
@@ -1986,6 +2019,7 @@ LIST MANAGEMENT ~
     <Plug>(MarkdownPlusNewListItemBelow)   - New item below (n)
     <Plug>(MarkdownPlusNewListItemAbove)   - New item above (n)
     <Plug>(MarkdownPlusToggleCheckbox)     - Toggle checkbox (n, x, i)
+    <Plug>(MarkdownPlusCycleCheckbox)      - Cycle checkbox state (n, x, i)
     <Plug>(MarkdownPlusToggleListPick)     - Toggle list, pick type with next key (n, x)
     <Plug>(MarkdownPlusToggleListUnordered) - Toggle unordered list (n, x) [<localleader>ltu]
     <Plug>(MarkdownPlusToggleListOrdered)  - Toggle ordered list (n, x) [<localleader>ltn]

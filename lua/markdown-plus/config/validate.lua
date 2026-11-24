@@ -195,6 +195,29 @@ local SCHEMA = {
         end,
       },
       checkbox_sync = { type = "boolean" },
+      checkbox_states = {
+        type = "array",
+        array_type = "string",
+        array_validator = function(item, _)
+          if #item ~= 1 or item == "[" or item == "]" or item == "X" then
+            return false, string.format("must be a single character other than '[', ']' or 'X' (got '%s')", item)
+          end
+          return true
+        end,
+        validator = function(value, path, _)
+          if #value < 2 or value[1] ~= " " or value[#value] ~= "x" then
+            return false, path .. ': must start with " " and end with "x"'
+          end
+          local seen = {}
+          for _, state in ipairs(value) do
+            if seen[state] then
+              return false, string.format("%s: duplicate state '%s'", path, state)
+            end
+            seen[state] = true
+          end
+          return true
+        end,
+      },
       checkbox_completion = {
         type = "table",
         fields = {

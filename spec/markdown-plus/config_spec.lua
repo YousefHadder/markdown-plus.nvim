@@ -248,6 +248,34 @@ describe("markdown-plus configuration", function()
     end)
   end)
 
+  describe("list checkbox_states config", function()
+    it("defaults checkbox_states to unchecked and checked", function()
+      markdown_plus.setup({})
+      assert.are.same({ " ", "x" }, markdown_plus.config.list.checkbox_states)
+    end)
+
+    it("accepts in-between states", function()
+      markdown_plus.setup({ list = { checkbox_states = { " ", "/", "-", "x" } } })
+      assert.are.same({ " ", "/", "-", "x" }, markdown_plus.config.list.checkbox_states)
+    end)
+
+    for name, states in pairs({
+      ["not starting with ' '"] = { "/", "x" },
+      ["not ending with 'x'"] = { " ", "/" },
+      ["a single state"] = { "x" },
+      ["multi-character states"] = { " ", "->", "x" },
+      ["duplicate states"] = { " ", "/", "/", "x" },
+      ["an uppercase X"] = { " ", "X", "x" },
+      ["a bracket"] = { " ", "]", "x" },
+    }) do
+      it("rejects " .. name, function()
+        markdown_plus.setup({ list = { checkbox_states = { " ", "x" } } })
+        markdown_plus.setup({ list = { checkbox_states = states } })
+        assert.are.same({ " ", "x" }, markdown_plus.config.list.checkbox_states)
+      end)
+    end
+  end)
+
   describe("feature toggles", function()
     it("can disable all features", function()
       markdown_plus.setup({
