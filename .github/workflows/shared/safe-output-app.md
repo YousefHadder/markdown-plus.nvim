@@ -1,8 +1,8 @@
 ---
-#safe-outputs:
-#  app:
-#    app-id: ${{ vars.APP_ID }}
-#    private-key: ${{ secrets.APP_PRIVATE_KEY }}
+safe-outputs:
+  github-app:
+    client-id: ${{ vars.APP_ID }}
+    private-key: ${{ secrets.APP_PRIVATE_KEY }}
 ---
 
 <!--
@@ -18,7 +18,7 @@ This shared workflow expects:
 
 ## Usage
 
-Import this configuration in your workflows to enable GitHub App authentication for safe outputs.
+Import this configuration in workflows that need GitHub App authentication for safe outputs.
 
 The configuration will be automatically merged into your workflow's safe-outputs section.
 

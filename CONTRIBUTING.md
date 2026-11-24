@@ -2,6 +2,10 @@
 
 Thank you for your interest in contributing! 🎉
 
+## Security Issues
+
+Please report suspected vulnerabilities privately through [GitHub's vulnerability reporting](https://github.com/YousefHadder/markdown-plus.nvim/security/advisories/new), as described in [SECURITY.md](SECURITY.md), rather than using the public issue templates.
+
 ## How to Contribute
 
 ### Reporting Bugs

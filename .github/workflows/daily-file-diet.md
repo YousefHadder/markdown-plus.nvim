@@ -12,7 +12,6 @@ permissions:
 imports:
 - shared/mood.md
 - shared/reporting.md
-- shared/safe-output-app.md
 safe-outputs:
   create-issue:
     expires: 2d

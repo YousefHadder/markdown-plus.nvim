@@ -14,8 +14,10 @@ network:
 imports:
 - shared/mood.md
 - shared/reporting.md
+- shared/safe-output-app.md
 safe-outputs:
   create-pull-request:
+    github-token-for-extra-empty-commit: app
     excluded-files:
     - CHANGELOG.md
     expires: 1d

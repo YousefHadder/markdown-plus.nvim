@@ -13,8 +13,10 @@ network:
   - github
 imports:
 - shared/mood.md
+- shared/safe-output-app.md
 safe-outputs:
   create-pull-request:
+    github-token-for-extra-empty-commit: app
     excluded-files:
     - CHANGELOG.md
     auto-merge: false

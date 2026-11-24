@@ -9,13 +9,19 @@ on:
     # Run weekly on Sundays at 3:00 AM UTC
     - cron: '0 3 * * 0'
 
+permissions: {}
+
 jobs:
   luacheck:
     name: Luacheck Security Analysis
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Lua
         uses: leafo/gh-actions-lua@v13
@@ -30,7 +36,7 @@ jobs:
 
       - name: Run Luacheck with security focus
         run: |
-          luacheck lua/ --formatter plain --codes || true
+          luacheck lua/ --formatter plain --codes
           echo "Security patterns to review manually:"
           echo "- Command execution: os.execute, io.popen"
           echo "- File operations: io.open, io.write"
@@ -39,43 +45,43 @@ jobs:
 
   dependency-check:
     name: Dependency Security Check
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v7.0.1
-
-      - name: Check for known vulnerabilities
-        run: |
-          echo "Checking for common security issues in dependencies..."
-          # Check if any external dependencies are used
-          if [ -f "*.rockspec" ]; then
-            echo "Rockspec found - review dependencies manually"
-            cat *.rockspec
-          else
-            echo "No rockspec file found - minimal dependencies"
-          fi
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
 
   secret-scanning:
     name: Secret Scanning
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
-
+          persist-credentials: false
       - name: Scan for secrets using gitleaks
         uses: gitleaks/gitleaks-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
 
   permissions-check:
     name: File Permissions Check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Check for executable files
         run: |

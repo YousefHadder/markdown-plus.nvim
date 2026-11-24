@@ -28,6 +28,7 @@ safe-outputs:
   create-pull-request:
     excluded-files:
     - CHANGELOG.md
+    github-token-for-extra-empty-commit: app
     auto-merge: false
     draft: true
     expires: 7d
