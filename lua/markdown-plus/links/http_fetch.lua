@@ -23,6 +23,7 @@ local function build_curl_base_cmd(timeout)
   return {
     "curl",
     "-fsS",
+    "--globoff",
     "--compressed",
     "-m",
     tostring(timeout),
@@ -210,6 +211,66 @@ local function format_curl_error(out)
   return string.format("curl failed (%d): %s", out.code, stderr)
 end
 
+---@param cmd string[]
+---@param callback fun(html: string|nil, err: string|nil)
+local function fetch_response_async(cmd, callback)
+  local chunks = {}
+  local total_bytes = 0
+  local response_too_large = false
+  local stream_error
+  local process
+  local kill_pending = false
+
+  local function stop_process()
+    if process then
+      process:kill(15)
+    else
+      kill_pending = true
+    end
+  end
+
+  process = vim.system(cmd, {
+    stdout = function(err, data)
+      if response_too_large or stream_error then
+        return
+      end
+
+      if err then
+        stream_error = err
+        stop_process()
+        return
+      end
+
+      if not data then
+        return
+      end
+
+      if #data > CURL_MAX_FILESIZE_BYTES - total_bytes then
+        response_too_large = true
+        stop_process()
+        return
+      end
+
+      total_bytes = total_bytes + #data
+      chunks[#chunks + 1] = data
+    end,
+  }, function(out)
+    if response_too_large then
+      callback(nil, string.format("response exceeds maximum size (%d bytes)", CURL_MAX_FILESIZE_BYTES))
+    elseif stream_error then
+      callback(nil, "unable to read response (" .. tostring(stream_error) .. ")")
+    elseif out.code ~= 0 then
+      callback(nil, format_curl_error(out))
+    else
+      callback(table.concat(chunks), nil)
+    end
+  end)
+
+  if kill_pending then
+    process:kill(15)
+  end
+end
+
 ---@param stdout string|nil
 ---@return number|nil status_code
 ---@return string|nil redirect_url
@@ -350,13 +411,7 @@ function M.fetch_html_async(url, timeout, callback)
       append_destination_options(cmd, final_destination)
       table.insert(cmd, final_destination.url)
 
-      vim.system(cmd, { text = true }, function(out)
-        if out.code ~= 0 then
-          callback(nil, format_curl_error(out))
-        else
-          callback(out.stdout, nil)
-        end
-      end)
+      fetch_response_async(cmd, callback)
     end)
   end)
 end
