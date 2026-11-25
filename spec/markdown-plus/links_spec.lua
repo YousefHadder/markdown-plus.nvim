@@ -21,6 +21,22 @@ describe("markdown-plus links", function()
     end
   end
 
+  ---@param options table
+  ---@param callback fun(result: table)
+  ---@param result table
+  ---@return table
+  local function complete_system(options, callback, result)
+    if type(options.stdout) == "function" then
+      if result.stdout then
+        options.stdout(nil, result.stdout)
+      end
+      options.stdout(nil, nil)
+      result.stdout = nil
+    end
+    callback(result)
+    return { kill = function() end }
+  end
+
   before_each(function()
     -- Create a test buffer
     vim.cmd("enew")
@@ -442,7 +458,7 @@ describe("markdown-plus links", function()
             { family = "inet", addr = dns_calls == 1 and "93.184.216.34" or "1.1.1.1" },
           })
         end
-        vim.system = function(cmd, _, callback)
+        vim.system = function(cmd, options, callback)
           for index, argument in ipairs(cmd) do
             if argument == "--resolve" then
               pinned_destinations[#pinned_destinations + 1] = cmd[index + 1]
@@ -452,25 +468,23 @@ describe("markdown-plus links", function()
           local url = cmd[#cmd]
 
           if is_probe and url == "https://example.com/start" then
-            callback({
+            return complete_system(options, callback, {
               code = 0,
               stdout = "301\nhttps://example.com/final",
               stderr = "",
             })
-            return
           end
 
           if is_probe and url == "https://example.com/final" then
-            callback({
+            return complete_system(options, callback, {
               code = 0,
               stdout = "200\n",
               stderr = "",
             })
-            return
           end
 
           fetch_url = url
-          callback({
+          return complete_system(options, callback, {
             code = 0,
             stdout = "<html><title>final</title></html>",
             stderr = "",
@@ -650,9 +664,9 @@ describe("markdown-plus links", function()
             assert.equals(lookups[#lookups].request, request)
             return cancel_result, cancel_result == nil and "EBUSY" or nil
           end
-          vim.system = function(command, _, callback)
+          vim.system = function(command, options, callback)
             commands[#commands + 1] = command
-            callback({
+            return complete_system(options, callback, {
               code = 0,
               stdout = vim.tbl_contains(command, "--head") and "200\n" or "<title>resolved</title>",
               stderr = "",
@@ -847,9 +861,9 @@ describe("markdown-plus links", function()
           dns_calls = dns_calls + 1
           callback(nil, results)
         end
-        vim.system = function(command, _, callback)
+        vim.system = function(command, options, callback)
           commands[#commands + 1] = command
-          callback({
+          return complete_system(options, callback, {
             code = 0,
             stdout = vim.tbl_contains(command, "--head") and "200\n" or "<title>native DNS</title>",
             stderr = "",
@@ -890,9 +904,9 @@ describe("markdown-plus links", function()
             { family = "inet6", addr = "2606:4700:4700::1111" },
           })
         end
-        vim.system = function(command, _, callback)
+        vim.system = function(command, options, callback)
           commands[#commands + 1] = command
-          callback({
+          return complete_system(options, callback, {
             code = 0,
             stdout = vim.tbl_contains(command, "--head") and "200\n" or "<title>dual stack</title>",
             stderr = "",
@@ -1072,9 +1086,9 @@ describe("markdown-plus links", function()
         local callback_html
         local callback_err
 
-        vim.system = function(command, _, callback)
+        vim.system = function(command, options, callback)
           commands[#commands + 1] = command
-          callback({
+          return complete_system(options, callback, {
             code = 0,
             stdout = vim.tbl_contains(command, "-w") and "200\n" or "<title>public</title>",
             stderr = "",
@@ -1092,6 +1106,97 @@ describe("markdown-plus links", function()
         assert.equals("<title>public</title>", callback_html)
         assert.equals("http://8.8.8.8:8080/page", commands[1][#commands[1]])
         assert.equals("http://8.8.8.8:8080/page", commands[2][#commands[2]])
+      end)
+
+      it("rejects oversized response output and terminates curl", function()
+        local original_system = vim.system
+        local original_getaddrinfo = vim.uv.getaddrinfo
+        local stdout_callback
+        local exit_callback
+        local kill_signal
+        local callback_html
+        local callback_err
+
+        vim.uv.getaddrinfo = function(_, _, _, callback)
+          callback(nil, { { family = "inet", addr = "93.184.216.34" } })
+        end
+        vim.system = function(command, options, callback)
+          if vim.tbl_contains(command, "-w") then
+            callback({ code = 0, stdout = "200\n", stderr = "" })
+            return { kill = function() end }
+          end
+
+          stdout_callback = options.stdout
+          exit_callback = callback
+          return {
+            kill = function(_, signal)
+              kill_signal = signal
+            end,
+          }
+        end
+
+        http_fetch.fetch_html_async("https://public.example.test/", 2, function(html, err)
+          callback_html = html
+          callback_err = err
+        end)
+
+        stdout_callback(nil, string.rep("x", 1024 * 1024))
+        stdout_callback(nil, "x")
+        exit_callback({ code = 143, stderr = "" })
+
+        vim.uv.getaddrinfo = original_getaddrinfo
+        vim.system = original_system
+
+        assert.is_nil(callback_html)
+        assert.matches("response exceeds maximum size", callback_err)
+        assert.equals(15, kill_signal)
+      end)
+
+      it("returns an exact-limit response in chunk order without terminating curl", function()
+        local original_system = vim.system
+        local restore_dns = mock_public_dns()
+        local stdout_callback
+        local exit_callback
+        local kill_count = 0
+        local callback_count = 0
+        local callback_html
+        local callback_err
+        local chunks = { string.rep("a", 512 * 1024), string.rep("b", 256 * 1024), string.rep("c", 256 * 1024) }
+
+        vim.system = function(command, options, callback)
+          if vim.tbl_contains(command, "-w") then
+            callback({ code = 0, stdout = "200\n", stderr = "" })
+            return { kill = function() end }
+          end
+
+          stdout_callback = options.stdout
+          exit_callback = callback
+          return {
+            kill = function()
+              kill_count = kill_count + 1
+            end,
+          }
+        end
+
+        http_fetch.fetch_html_async("https://public.example.test/", 2, function(html, err)
+          callback_count = callback_count + 1
+          callback_html = html
+          callback_err = err
+        end)
+
+        for _, chunk in ipairs(chunks) do
+          stdout_callback(nil, chunk)
+        end
+        stdout_callback(nil, nil)
+        exit_callback({ code = 0, stderr = "" })
+
+        restore_dns()
+        vim.system = original_system
+
+        assert.is_nil(callback_err)
+        assert.equals(table.concat(chunks), callback_html)
+        assert.equals(1, callback_count)
+        assert.equals(0, kill_count)
       end)
 
       it("reports curl probe failures", function()
@@ -1758,6 +1863,7 @@ describe("markdown-plus links", function()
       assert.is_table(cmd)
       assert.are.equal("curl", cmd[1])
       assert.is_true(vim.tbl_contains(cmd, "--noproxy"))
+      assert.is_true(vim.tbl_contains(cmd, "--globoff"))
       -- Verify timeout is included
       local found_timeout = false
       for i, v in ipairs(cmd) do
