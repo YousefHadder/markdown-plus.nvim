@@ -1152,6 +1152,53 @@ describe("markdown-plus links", function()
         assert.equals(15, kill_signal)
       end)
 
+      it("returns an exact-limit response in chunk order without terminating curl", function()
+        local original_system = vim.system
+        local restore_dns = mock_public_dns()
+        local stdout_callback
+        local exit_callback
+        local kill_count = 0
+        local callback_count = 0
+        local callback_html
+        local callback_err
+        local chunks = { string.rep("a", 512 * 1024), string.rep("b", 256 * 1024), string.rep("c", 256 * 1024) }
+
+        vim.system = function(command, options, callback)
+          if vim.tbl_contains(command, "-w") then
+            callback({ code = 0, stdout = "200\n", stderr = "" })
+            return { kill = function() end }
+          end
+
+          stdout_callback = options.stdout
+          exit_callback = callback
+          return {
+            kill = function()
+              kill_count = kill_count + 1
+            end,
+          }
+        end
+
+        http_fetch.fetch_html_async("https://public.example.test/", 2, function(html, err)
+          callback_count = callback_count + 1
+          callback_html = html
+          callback_err = err
+        end)
+
+        for _, chunk in ipairs(chunks) do
+          stdout_callback(nil, chunk)
+        end
+        stdout_callback(nil, nil)
+        exit_callback({ code = 0, stderr = "" })
+
+        restore_dns()
+        vim.system = original_system
+
+        assert.is_nil(callback_err)
+        assert.equals(table.concat(chunks), callback_html)
+        assert.equals(1, callback_count)
+        assert.equals(0, kill_count)
+      end)
+
       it("reports curl probe failures", function()
         local original_system = vim.system
         local restore_dns = mock_public_dns()
