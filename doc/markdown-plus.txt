@@ -1099,6 +1099,10 @@ Security:
 - Each DNS lookup, including redirect lookups, has its own configured
   `links.smart_paste.timeout` limit, as does each curl operation. This is not
   a single timeout budget for the entire fetch.
+- Fetched response bodies are streamed and capped at 1 MiB; curl is
+  terminated and the fetch fails once the limit is exceeded.
+- Curl URL glob expansion is disabled (`--globoff`) for every probe and
+  fetch request.
 
 ==============================================================================
 IMAGES                                              *markdown-plus-usage-images*
